@@ -1,0 +1,88 @@
+"""FastAPI application entry point.
+
+Configures logging, lifespan, and registers the routes.
+Reads SIGNALS_ENV to configure JSON logging for Cloud Run.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import sys
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from signals_app.api.routes import router
+from signals_app.config import LOG_LEVEL, SIGNALS_ENV
+
+
+def _configure_logging() -> None:
+    """Configure logging based on deployment environment.
+
+    Cloud mode: JSON format for Cloud Run log ingestion.
+    Local mode: Human-readable format with timestamps.
+    """
+    level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+
+    if SIGNALS_ENV == "cloud":
+        fmt = '{"time": "%(asctime)s", "level": "%(levelname)s", "name": "%(name)s", "msg": "%(message)s"}'
+    else:
+        fmt = "%(asctime)s %(levelname)-8s %(name)s — %(message)s"
+
+    logging.basicConfig(
+        level=level,
+        format=fmt,
+        stream=sys.stdout,
+        force=True,
+    )
+
+
+_configure_logging()
+logger = logging.getLogger(__name__)
+
+
+app = FastAPI(
+    title="Signals App",
+    description="Financial signal detection + LLM synthesis",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(router)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    """Log startup and validate settings."""
+    from signals_app.config import get_settings
+    settings = get_settings()
+    errors = settings.validate()
+
+    logger.info(
+        "signals-app starting env=%s llm_enabled=%s",
+        settings.env,
+        settings.llm_enabled,
+    )
+    if errors:
+        for err in errors:
+            logger.warning("Config warning: %s", err)
+
+
+def cli_entry() -> None:
+    """Entry point for uvicorn via pyproject.toml scripts."""
+    import uvicorn
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("signals_app.api.main:app", host="0.0.0.0", port=port, reload=False)
+
+
+if __name__ == "__main__":
+    cli_entry()

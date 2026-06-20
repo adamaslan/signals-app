@@ -1,0 +1,21 @@
+name: signals-app
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - fastapi
+  - uvicorn
+  - pandas
+  - numpy
+  - yfinance
+  - pydantic
+  - httpx
+  - pytest
+  - pytest-asyncio
+  - python-dotenv
+  - pip
+  - pip:
+    - google-generativeai
+    - asyncpg
+    - sqlalchemy

@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0d0d1a;
+  --card: #1a1a2e;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: #ffffff;
+  font-family: Inter, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Smooth scrollbar on webkit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0d1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
