@@ -202,7 +202,7 @@ async def get_signals(
             ticker=symbol,
             period=period,
             resolved_period=period,
-            direction=primary_signal.direction.value,
+            direction=primary_signal.direction.value if primary_signal.direction is not None else None,
             confidence=primary_signal.confidence,
             ai_degraded=primary_signal.ai_degraded,
             no_llm=no_llm,

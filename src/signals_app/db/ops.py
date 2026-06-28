@@ -86,10 +86,11 @@ async def record_run(
             ts=int(time.time() * 1000),
         )
         session.add(run)
+        await session.flush()   # assigns the auto-increment id without a round-trip refresh
+        run_id = run.id
         await session.commit()
-        await session.refresh(run)
-        logger.info("db: recorded run id=%s ticker=%s direction=%s", run.id, ticker, direction)
-        return run.id  # type: ignore[return-value]
+        logger.info("db: recorded run id=%s ticker=%s direction=%s", run_id, ticker, direction)
+        return run_id  # type: ignore[return-value]
 
 
 async def get_ticker_history(

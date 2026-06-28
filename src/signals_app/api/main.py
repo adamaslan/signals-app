@@ -60,6 +60,15 @@ app.add_middleware(
 app.include_router(router)
 
 
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    """Dispose the database engine on shutdown to release connection pool resources."""
+    from signals_app.db import session as db_session
+    if db_session._engine is not None:
+        await db_session._engine.dispose()
+        logger.info("db: engine disposed")
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     """Log startup, validate settings, and initialise the database."""
