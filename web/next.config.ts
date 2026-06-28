@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
 
   // Repo name = subpath on GitHub Pages: https://adamaslan.github.io/signals-app/
   basePath: "/signals-app",
-  assetPrefix: "/signals-app",
 
   // GitHub Pages doesn't support Next.js image optimisation (server-side).
   images: { unoptimized: true },

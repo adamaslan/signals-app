@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { fetchSignal, ApiError } from "@/lib/api";
 import { SignalCard } from "@/components/SignalCard";
 import { SignalMatrixRow } from "@/components/SignalMatrixRow";
@@ -38,18 +39,22 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setErrorMsg(null);
     setData(null);
 
     fetchSignal(symbol, backendPeriod, noLlm)
-      .then(setData)
+      .then((result) => { if (active) setData(result); })
       .catch((err) => {
+        if (!active) return;
         if (err instanceof ApiError) setErrorMsg(err.message);
         else if (err instanceof Error) setErrorMsg(err.message);
         else setErrorMsg("An unexpected error occurred.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (active) setLoading(false); });
+
+    return () => { active = false; };
   }, [symbol, backendPeriod, noLlm]);
 
   if (loading) return <LoadingSkeleton />;
@@ -62,12 +67,12 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
       >
         <p className="text-red-400 font-semibold text-lg">Failed to load signal</p>
         <p className="text-red-300/80 text-sm">{errorMsg}</p>
-        <a
-          href={`/signals-app/signals/${symbol}/?period=${period}&no_llm=${noLlm}`}
+        <Link
+          href={`/signals/${symbol}/?period=${period}&no_llm=${noLlm}`}
           className="inline-block mt-2 rounded-lg bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 transition-colors"
         >
           Retry
-        </a>
+        </Link>
       </div>
     );
   }
@@ -198,9 +203,9 @@ export function SignalPageClient({ symbol, period, noLlm }: SignalPageClientProp
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <a href="/signals-app/" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
+            <Link href="/" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
               ← Home
-            </a>
+            </Link>
           </div>
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-3xl font-extrabold tracking-tight text-white">{symbol}</h1>
