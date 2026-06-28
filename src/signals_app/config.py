@@ -153,7 +153,7 @@ CONFLUENCE_BUY_MIN_SIGNALS: Final[int] = 3
 CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = 3
 
 # ---------------------------------------------------------------------------
-# LLM config
+# LLM config — Gemini
 # ---------------------------------------------------------------------------
 
 GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
@@ -162,6 +162,15 @@ GEMINI_TIMEOUT_SECONDS: Final[float] = 10.0
 GEMINI_BREAKER_FAILURE_THRESHOLD: Final[int] = 5
 GEMINI_BREAKER_WINDOW_SECONDS: Final[float] = 60.0
 GEMINI_BREAKER_OPEN_SECONDS: Final[float] = 300.0
+
+# ---------------------------------------------------------------------------
+# LLM config — OpenRouter (takes priority over Gemini when key is set)
+# ---------------------------------------------------------------------------
+
+OPENROUTER_API_KEY: str | None = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL: Final[str] = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL: Final[str] = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+OPENROUTER_TIMEOUT_SECONDS: Final[float] = 15.0
 
 LLM_PROMPT_VERSION: Final[str] = "signals_v1"
 
@@ -231,15 +240,20 @@ class Settings:
     Attributes:
         env: Deployment mode — "local" or "cloud".
         gemini_api_key: API key for Gemini LLM. Optional in local mode.
+        openrouter_api_key: API key for OpenRouter. Takes priority over Gemini when set.
+        openrouter_model: OpenRouter model identifier.
         database_url: Postgres connection string. Required in cloud mode.
         output_dir: Directory for local JSON output files.
         log_level: Logging level string.
         gemini_model: Gemini model identifier.
-        llm_enabled: True when Gemini API key is available.
+        llm_enabled: True when any LLM key is available.
+        llm_provider: Which LLM provider is active — "openrouter", "gemini", or "none".
     """
 
     env: str = field(default_factory=lambda: os.getenv("SIGNALS_ENV", "local"))
     gemini_api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
+    openrouter_api_key: str | None = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY"))
+    openrouter_model: str = field(default_factory=lambda: os.getenv("OPENROUTER_MODEL", OPENROUTER_MODEL))
     database_url: str | None = field(default_factory=lambda: os.getenv("DATABASE_URL"))
     output_dir: str = field(default_factory=lambda: os.getenv("OUTPUT_DIR", "./output"))
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
@@ -251,9 +265,31 @@ class Settings:
         return self.env == "cloud"
 
     @property
-    def llm_enabled(self) -> bool:
+    def openrouter_enabled(self) -> bool:
+        """Return True when an OpenRouter API key is available."""
+        return bool(self.openrouter_api_key)
+
+    @property
+    def gemini_enabled(self) -> bool:
         """Return True when a Gemini API key is available."""
-        return self.gemini_api_key is not None and len(self.gemini_api_key) > 0
+        return bool(self.gemini_api_key)
+
+    @property
+    def llm_enabled(self) -> bool:
+        """Return True when any LLM provider key is available."""
+        return self.openrouter_enabled or self.gemini_enabled
+
+    @property
+    def llm_provider(self) -> str:
+        """Return the active LLM provider: 'openrouter', 'gemini', or 'none'.
+
+        OpenRouter takes priority when its key is set.
+        """
+        if self.openrouter_enabled:
+            return "openrouter"
+        if self.gemini_enabled:
+            return "gemini"
+        return "none"
 
     def validate(self) -> list[str]:
         """Validate settings and return list of error strings.
@@ -265,7 +301,7 @@ class Settings:
         if self.is_cloud and not self.database_url:
             errors.append("DATABASE_URL is required in cloud mode")
         if self.is_cloud and not self.llm_enabled:
-            errors.append("GEMINI_API_KEY is required in cloud mode")
+            errors.append("GEMINI_API_KEY or OPENROUTER_API_KEY is required in cloud mode")
         return errors
 
 

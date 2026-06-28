@@ -22,6 +22,8 @@ from signals_app.config import (
     GEMINI_MODEL,
     GEMINI_TIMEOUT_SECONDS,
     LLM_PROMPT_VERSION,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_TIMEOUT_SECONDS,
     TIMEFRAME_CACHE_TTL_SECONDS,
     Settings,
     get_settings,
@@ -168,6 +170,92 @@ def _set_cached(cache_key: str, signal: Signal, ttl_seconds: int) -> None:
     _LOCAL_CACHE[cache_key] = (signal, time.time() + ttl_seconds)
 
 
+async def _call_openrouter(
+    prompt: str,
+    settings: Settings,
+) -> dict[str, Any] | None:
+    """Make an OpenRouter API call (OpenAI-compatible) and return parsed JSON.
+
+    OpenRouter is tried first when OPENROUTER_API_KEY is set. Falls back
+    gracefully to None on any error so the caller can try Gemini or rule-based.
+
+    Args:
+        prompt: Prompt string.
+        settings: Application settings with OpenRouter key and model.
+
+    Returns:
+        Parsed JSON dict or None on failure.
+    """
+    if not settings.openrouter_enabled:
+        return None
+
+    try:
+        import httpx
+
+        headers = {
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://signals-app.local",
+            "X-Title": "Signals App",
+        }
+        payload = {
+            "model": settings.openrouter_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+        }
+
+        async with httpx.AsyncClient(timeout=OPENROUTER_TIMEOUT_SECONDS) as client:
+            resp = await client.post(OPENROUTER_BASE_URL, headers=headers, json=payload)
+            resp.raise_for_status()
+
+        data = resp.json()
+        text = data["choices"][0]["message"]["content"].strip()
+        if text.startswith("```"):
+            lines = text.split("\n")
+            text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+
+        return json.loads(text)
+
+    except asyncio.TimeoutError:
+        logger.warning("_call_openrouter: timeout after %.1fs", OPENROUTER_TIMEOUT_SECONDS)
+        return None
+    except json.JSONDecodeError as exc:
+        logger.warning("_call_openrouter: JSON parse error: %s", exc)
+        return None
+    except Exception as exc:
+        logger.warning("_call_openrouter: error: %s", exc)
+        return None
+
+
+async def _call_llm(
+    prompt: str,
+    settings: Settings,
+) -> dict[str, Any] | None:
+    """Unified LLM call: tries OpenRouter first, falls back to Gemini.
+
+    Args:
+        prompt: Prompt string.
+        settings: Application settings.
+
+    Returns:
+        Parsed JSON dict or None when all providers fail.
+    """
+    provider = settings.llm_provider
+
+    if provider == "openrouter":
+        result = await _call_openrouter(prompt, settings)
+        if result is not None:
+            return result
+        # OpenRouter failed — fall through to Gemini if key is also set
+        logger.warning("_call_llm: openrouter failed, trying gemini fallback")
+        return await _call_gemini(prompt, settings)
+
+    if provider == "gemini":
+        return await _call_gemini(prompt, settings)
+
+    return None
+
+
 async def _call_gemini(
     prompt: str,
     settings: Settings,
@@ -253,11 +341,12 @@ async def _compute_single_timeframe(
         prompt_version=prompt_version,
     )
 
-    result_dict = await _call_gemini(prompt, settings)
+    result_dict = await _call_llm(prompt, settings)
 
     if result_dict is None:
         logger.warning(
-            "mtf_llm_failed ticker=%s tf=%s — using rule-based fallback", ticker, timeframe
+            "mtf_llm_failed ticker=%s tf=%s provider=%s — using rule-based fallback",
+            ticker, timeframe, settings.llm_provider,
         )
         result_dict = _fallback_signal(timeframe, features)
 
