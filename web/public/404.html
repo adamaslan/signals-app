@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signals App</title>
+  <!--
+    GitHub Pages SPA redirect.
+    When GitHub Pages 404s on a deep link (e.g. /signals-app/signals/AAPL/),
+    this page encodes the path as a query param and redirects to the root,
+    where layout.tsx picks it up and restores it via history.replaceState.
+    Adapted from https://github.com/rafgraph/spa-github-pages
+  -->
+  <script>
+    var seg = 1; // path segments in the basePath: /signals-app = 1 segment
+    var l = window.location;
+    l.replace(
+      l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
+      l.pathname.split("/").slice(0, 1 + seg).join("/") + "/?p=/" +
+      l.pathname.slice(1).split("/").slice(seg).join("/").replace(/&/g, "~and~") +
+      (l.search ? "&q=" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+      l.hash
+    );
+  </script>
+</head>
+<body>Redirecting…</body>
+</html>
