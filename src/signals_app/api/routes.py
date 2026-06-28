@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from signals_app.config import DEFAULT_PERIOD, VALID_PERIODS, get_settings
 from signals_app.data.fetcher import DataFetcher
+from signals_app.db.ops import get_ticker_history, record_run
 from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
 from signals_app.schemas.signal_output import SignalOutput
@@ -195,6 +196,21 @@ async def get_signals(
         primary_signal = Signal.model_validate(fallback_dict)
         unavailable.append("synthesis_error")
 
+    # Persist the run to the SQL DB (fire-and-forget; errors are logged, not raised)
+    try:
+        await record_run(
+            ticker=symbol,
+            period=period,
+            resolved_period=period,
+            direction=primary_signal.direction.value,
+            confidence=primary_signal.confidence,
+            ai_degraded=primary_signal.ai_degraded,
+            no_llm=no_llm,
+            prompt_version=primary_signal.prompt_version,
+        )
+    except Exception as exc:
+        logger.warning("db: failed to record run ticker=%s: %s", symbol, exc)
+
     return SignalOutput(
         ticker=symbol,
         signal=primary_signal,
@@ -202,3 +218,32 @@ async def get_signals(
         feature_unavailable=unavailable,
         schema_version="1.0",
     )
+
+
+@router.get(
+    "/history/{symbol}",
+    summary="Signal run history for a ticker",
+    description="Returns recent analysis runs for a ticker from the SQL DB, newest first.",
+)
+async def get_history(
+    symbol: str,
+    limit: int = Query(default=50, ge=1, le=200, description="Max rows to return"),
+    offset: int = Query(default=0, ge=0, description="Pagination offset"),
+) -> list[dict]:
+    """Return persisted signal runs for a symbol.
+
+    Args:
+        symbol: Stock ticker symbol.
+        limit: Maximum rows (1–200, default 50).
+        offset: Pagination offset.
+
+    Returns:
+        List of run dicts, newest first. Each matches the frontend HistoryEntry shape.
+    """
+    symbol = symbol.upper().strip()
+    try:
+        rows = await get_ticker_history(symbol, limit=limit, offset=offset)
+    except Exception as exc:
+        logger.error("db: get_ticker_history failed ticker=%s: %s", symbol, exc)
+        raise HTTPException(status_code=500, detail="History query failed")
+    return [r.to_dict() for r in rows]

@@ -62,19 +62,23 @@ app.include_router(router)
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """Log startup and validate settings."""
+    """Log startup, validate settings, and initialise the database."""
     from signals_app.config import get_settings
+    from signals_app.db.session import init_db
     settings = get_settings()
     errors = settings.validate()
 
     logger.info(
-        "signals-app starting env=%s llm_enabled=%s",
+        "signals-app starting env=%s llm_enabled=%s llm_provider=%s",
         settings.env,
         settings.llm_enabled,
+        settings.llm_provider,
     )
     if errors:
         for err in errors:
             logger.warning("Config warning: %s", err)
+
+    await init_db()
 
 
 def cli_entry() -> None:
