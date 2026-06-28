@@ -9,11 +9,12 @@ import type { SignalOutput } from "./types";
  */
 function getBaseUrl(): string {
   if (typeof window === "undefined") {
-    // Server-side: call the backend directly
+    // Server-side (next dev / next start): call backend directly via BACKEND_URL.
     return process.env.BACKEND_URL ?? "http://localhost:8000";
   }
-  // Client-side: use the Next.js rewrite proxy
-  return "/api";
+  // Client-side: NEXT_PUBLIC_API_URL is baked in at build time.
+  // Falls back to the /api rewrite proxy which works in `next dev`.
+  return process.env.NEXT_PUBLIC_API_URL ?? "/api";
 }
 
 export class ApiError extends Error {

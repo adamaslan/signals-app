@@ -56,7 +56,7 @@ function buildLineage(runs: HistoryEntry[]): LineageNode[] {
       const parentIndex: number = currentNode ? nodes.length - 1 : -1;
       // Use first run's stable DB id (or ts as fallback) so React keys don't
       // shift when earlier streaks grow or the list re-renders.
-      const stableId = `streak-${run.id ?? run.ts}-${dir ?? "none"}`;
+      const stableId: string = `streak-${run.id ?? run.ts}-${dir ?? "none"}`;
       currentNode = {
         id: stableId,
         direction: dir,
