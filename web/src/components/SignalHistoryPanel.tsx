@@ -26,7 +26,7 @@ function formatTs(ts: number): string {
 }
 
 function timeAgo(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000);
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
@@ -47,7 +47,7 @@ interface SignalHistoryPanelProps {
 export function SignalHistoryPanel({ ticker, limit = 50 }: SignalHistoryPanelProps) {
   const runs = useLiveQuery(
     async () => {
-      if (!db) return [];
+      if (!db) return [] as HistoryEntry[];
       return db.history
         .where("ticker")
         .equals(ticker)
@@ -56,10 +56,14 @@ export function SignalHistoryPanel({ ticker, limit = 50 }: SignalHistoryPanelPro
         .then((rows) => rows.slice(0, limit));
     },
     [ticker, limit],
-    [] as HistoryEntry[],
   );
 
-  if (!runs || runs.length === 0) {
+  // undefined = still loading from IndexedDB; don't flash empty state
+  if (runs === undefined) {
+    return <p className="text-gray-600 text-sm animate-pulse">Loading history…</p>;
+  }
+
+  if (runs.length === 0) {
     return (
       <p className="text-gray-600 text-sm">
         No history for {ticker} yet — run an analysis to start tracking.

@@ -54,8 +54,11 @@ function buildLineage(runs: HistoryEntry[]): LineageNode[] {
     if (!currentNode || currentNode.direction !== dir) {
       const depth: number = currentNode ? currentNode.depth + 1 : 0;
       const parentIndex: number = currentNode ? nodes.length - 1 : -1;
+      // Use first run's stable DB id (or ts as fallback) so React keys don't
+      // shift when earlier streaks grow or the list re-renders.
+      const stableId = `streak-${run.id ?? run.ts}-${dir ?? "none"}`;
       currentNode = {
-        id: `node-${nodes.length}`,
+        id: stableId,
         direction: dir,
         runs: [run],
         depth,
@@ -151,7 +154,7 @@ interface SignalLineageTreeProps {
 export function SignalLineageTree({ ticker, limit = 50 }: SignalLineageTreeProps) {
   const runs = useLiveQuery(
     async () => {
-      if (!db) return [];
+      if (!db) return [] as HistoryEntry[];
       return db.history
         .where("ticker")
         .equals(ticker)
@@ -160,10 +163,14 @@ export function SignalLineageTree({ ticker, limit = 50 }: SignalLineageTreeProps
         .then((rows) => rows.slice(0, limit));
     },
     [ticker, limit],
-    [] as HistoryEntry[],
   );
 
-  if (!runs || runs.length === 0) {
+  // undefined = IndexedDB still hydrating; don't flash empty state
+  if (runs === undefined) {
+    return <p className="text-gray-600 text-sm animate-pulse">Building lineage…</p>;
+  }
+
+  if (runs.length === 0) {
     return (
       <p className="text-gray-600 text-sm">
         No lineage yet — run an analysis to build the signal tree.
