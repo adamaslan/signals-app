@@ -18,6 +18,7 @@ dependencies = [
     "python-dotenv",
     "google-generativeai",
     "asyncpg",
+    "aiosqlite",
     "sqlalchemy",
 ]
 

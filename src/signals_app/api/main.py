@@ -60,21 +60,34 @@ app.add_middleware(
 app.include_router(router)
 
 
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    """Dispose the database engine on shutdown to release connection pool resources."""
+    from signals_app.db import session as db_session
+    if db_session._engine is not None:
+        await db_session._engine.dispose()
+        logger.info("db: engine disposed")
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
-    """Log startup and validate settings."""
+    """Log startup, validate settings, and initialise the database."""
     from signals_app.config import get_settings
+    from signals_app.db.session import init_db
     settings = get_settings()
     errors = settings.validate()
 
     logger.info(
-        "signals-app starting env=%s llm_enabled=%s",
+        "signals-app starting env=%s llm_enabled=%s llm_provider=%s",
         settings.env,
         settings.llm_enabled,
+        settings.llm_provider,
     )
     if errors:
         for err in errors:
             logger.warning("Config warning: %s", err)
+
+    await init_db()
 
 
 def cli_entry() -> None:
