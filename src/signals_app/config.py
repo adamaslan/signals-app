@@ -17,6 +17,11 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Bumped whenever detection/scoring logic changes — provenance stamp on every
+# SignalOutput so two runs on identical data are distinguishable if the logic
+# that produced them differs. Independent of schema_version (wire format).
+SIGNALS_APP_CODE_VERSION: Final[str] = "signals-app@1.1.0"
+
 # ---------------------------------------------------------------------------
 # Environment / deployment mode
 # ---------------------------------------------------------------------------
@@ -136,6 +141,24 @@ MAX_DETECTOR_FAILURES: Final[int] = 4
 MIN_HISTORICAL_LOOKBACK: Final[int] = 200
 # Forward-return horizon (trading days) used to score a signal as a hit/miss.
 BACKTEST_FORWARD_HORIZON_DAYS: Final[int] = 5
+# Where scripts/calibrate.py writes, and the live scoring path reads, the
+# strength -> hit-rate calibration table.
+CALIBRATION_FILE: Final[str] = os.getenv(
+    "CALIBRATION_FILE", "./calibration/strength_hit_rates.json"
+)
+# Minimum sample size a strength bucket needs before its measured hit-rate is
+# trusted enough to influence a live confidence_label — small-n buckets are noise.
+CALIBRATION_MIN_BUCKET_SIZE: Final[int] = 30
+
+# ---------------------------------------------------------------------------
+# Data-quality scoring
+# ---------------------------------------------------------------------------
+
+# A fresh daily bar older than this looks stale — same margin rationale as
+# the portal/mobile STALE_THRESHOLD_MS (26h: daily refresh + weekend slack).
+DATA_QUALITY_STALE_HOURS: Final[float] = 26.0
+# NaN ratio in the raw OHLCV window above this drags the quality score down hard.
+DATA_QUALITY_MAX_NAN_RATIO: Final[float] = 0.02
 
 # ---------------------------------------------------------------------------
 # Cache / TTL config

@@ -15,6 +15,7 @@ from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
     MIN_HISTORICAL_LOOKBACK,
+    SIGNALS_APP_CODE_VERSION,
     VALID_PERIODS,
     get_settings,
 )
@@ -23,7 +24,9 @@ from signals_app.db.ops import get_ticker_history, record_run
 from signals_app.detection.historical import scan_historical
 from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
+from signals_app.indicators.data_quality import score_data_quality
 from signals_app.schemas.signal_output import SignalOutput
+from signals_app.scoring.calibration import load_strength_hit_rates
 from signals_app.scoring.confluence import ConfluenceRanker
 from signals_app.scoring.mtf import compute_multi_timeframe
 from signals_app.synthesis.mtf_llm import build_timeframe_matrix, synthesize_single
@@ -141,6 +144,8 @@ async def get_signals(
             detail=f"Insufficient data for {symbol} period={period}: only {len(df_raw)} bars",
         )
 
+    data_quality = score_data_quality(df_raw, period)
+
     # L2: Compute indicators
     try:
         df = compute_indicators(df_raw)
@@ -155,10 +160,12 @@ async def get_signals(
         logger.error("Signal detection failed for %s: %s", symbol, exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Signal detection error: {exc}")
 
-    # L4: Confluence scoring
+    # L4: Confluence scoring — calibrated against measured backtest hit-rates
+    # when scripts/calibrate.py has produced a table; None otherwise (safe default).
     try:
+        strength_hit_rates = load_strength_hit_rates()
         ranker = ConfluenceRanker()
-        confluence_result = ranker.rank_signals(list(signal_list))
+        confluence_result = ranker.rank_signals(list(signal_list), strength_hit_rates=strength_hit_rates)
     except Exception as exc:
         logger.error("Confluence scoring failed for %s: %s", symbol, exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Confluence error: {exc}")
@@ -225,6 +232,9 @@ async def get_signals(
         matrix=None,
         feature_unavailable=unavailable,
         schema_version="1.0",
+        code_version=SIGNALS_APP_CODE_VERSION,
+        data_quality_score=data_quality.score,
+        data_quality_reasons=data_quality.reasons,
     )
 
 

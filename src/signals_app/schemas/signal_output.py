@@ -186,7 +186,11 @@ class SignalOutput(BaseModel):
         signal: Primary synthesized signal.
         matrix: Optional multi-timeframe matrix.
         feature_unavailable: List of pipeline features that were unavailable.
-        schema_version: Schema version for forward compatibility.
+        schema_version: Schema version for forward compatibility (wire format).
+        code_version: Which detection/scoring code version produced this
+            signal (provenance) — independent of schema_version.
+        data_quality_score: 0.0-1.0 guard on the input OHLCV, None if not computed.
+        data_quality_reasons: Which checks lowered data_quality_score, if any.
     """
 
     ticker: str
@@ -194,6 +198,9 @@ class SignalOutput(BaseModel):
     matrix: TimeframeMatrix | None = None
     feature_unavailable: list[str] = Field(default_factory=list)
     schema_version: str = "1.0"
+    code_version: str | None = None
+    data_quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    data_quality_reasons: list[str] = Field(default_factory=list)
 
 
 def alignment_score(signals: list[Signal]) -> float:
