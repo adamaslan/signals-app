@@ -10,9 +10,17 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from signals_app.config import DEFAULT_PERIOD, VALID_PERIODS, get_settings
+from backtests.engine import score_historical_signals
+from signals_app.config import (
+    BACKTEST_FORWARD_HORIZON_DAYS,
+    DEFAULT_PERIOD,
+    MIN_HISTORICAL_LOOKBACK,
+    VALID_PERIODS,
+    get_settings,
+)
 from signals_app.data.fetcher import DataFetcher
 from signals_app.db.ops import get_ticker_history, record_run
+from signals_app.detection.historical import scan_historical
 from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
 from signals_app.schemas.signal_output import SignalOutput
@@ -247,3 +255,88 @@ async def get_history(
         logger.error("db: get_ticker_history failed ticker=%s: %s", symbol, exc)
         raise HTTPException(status_code=500, detail="History query failed")
     return [r.to_dict() for r in rows]
+
+
+@router.get(
+    "/backtest/{symbol}",
+    summary="Historical hit-rate backtest",
+    description=(
+        "Runs every detector against every historical bar (not just the latest) "
+        "and scores each directional signal against its realized forward return. "
+        "Answers: does a HIGH confidence label actually mean a higher hit-rate?"
+    ),
+)
+async def get_backtest(
+    symbol: str,
+    period: str = Query(default="2y", description=f"Analysis period. One of: {', '.join(VALID_PERIODS)}"),
+    horizon_days: int = Query(
+        default=BACKTEST_FORWARD_HORIZON_DAYS, ge=1, le=60, description="Forward-return horizon in trading days"
+    ),
+) -> dict[str, Any]:
+    """Backtest a symbol's historical signals against realized forward returns.
+
+    Args:
+        symbol: Stock ticker symbol.
+        period: yfinance period string — should be long enough to clear
+            MIN_HISTORICAL_LOOKBACK plus a meaningful scan window (default: 2y).
+        horizon_days: Bars ahead used to measure the realized return.
+
+    Returns:
+        Dict with bars_scanned and hit-rate buckets by category and strength.
+
+    Raises:
+        HTTPException 400: If symbol/period is invalid or there isn't enough
+            history to clear the indicator warmup period.
+    """
+    symbol = symbol.upper().strip()
+    period = period.lower().strip()
+
+    if period not in VALID_PERIODS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid period '{period}'. Valid periods: {list(VALID_PERIODS)}",
+        )
+
+    settings = get_settings()
+    logger.info("GET /backtest/%s period=%s horizon_days=%d", symbol, period, horizon_days)
+
+    try:
+        fetcher = DataFetcher(settings=settings)
+        df_raw = fetcher.fetch(symbol, period).df
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("Data fetch failed for %s: %s", symbol, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Data fetch error: {exc}")
+
+    if len(df_raw) <= MIN_HISTORICAL_LOOKBACK + horizon_days:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Insufficient data for {symbol} period={period}: {len(df_raw)} bars, "
+                f"need > {MIN_HISTORICAL_LOOKBACK + horizon_days} (warmup + horizon)"
+            ),
+        )
+
+    try:
+        df = compute_indicators(df_raw)
+        bars = scan_historical(df)
+        result = score_historical_signals(df, bars, horizon_days=horizon_days)
+    except Exception as exc:
+        logger.error("Backtest failed for %s: %s", symbol, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Backtest error: {exc}")
+
+    return {
+        "symbol": symbol,
+        "period": period,
+        "horizon_days": horizon_days,
+        "bars_scanned": len(bars),
+        "by_category": [
+            {"key": b.key, "hits": b.hits, "total": b.total, "hit_rate": round(b.hit_rate, 4)}
+            for b in result["by_category"]
+        ],
+        "by_strength": [
+            {"key": b.key, "hits": b.hits, "total": b.total, "hit_rate": round(b.hit_rate, 4)}
+            for b in result["by_strength"]
+        ],
+    }
