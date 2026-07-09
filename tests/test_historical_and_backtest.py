@@ -10,9 +10,11 @@ import numpy as np
 import pandas as pd
 
 from backtests.engine import HitRateBucket, score_historical_signals
-from signals_app.config import MIN_HISTORICAL_LOOKBACK
+from signals_app.config import MIN_HISTORICAL_LOOKBACK, SignalCategory, SignalStrength
+from signals_app.detection.base import MutableSignal
 from signals_app.detection.historical import BarSignals, scan_historical
 from signals_app.indicators.compute import compute_indicators
+from signals_app.scoring.confluence import ConfluenceRanker
 
 
 def _make_ohlcv(n: int = 260, trend: str = "up") -> pd.DataFrame:
@@ -73,3 +75,59 @@ def test_score_historical_signals_skips_unresolved_tail():
 
     assert result["by_category"] == []
     assert result["by_strength"] == []
+
+
+# ---------------------------------------------------------------------------
+# Confidence calibration — ConfluenceRanker.rank_signals(strength_hit_rates=...)
+# ---------------------------------------------------------------------------
+
+
+def _bullish_signals(n: int = 5) -> list[MutableSignal]:
+    return [
+        MutableSignal(
+            signal=f"TEST_BULL_{i}",
+            description="test",
+            strength=SignalStrength.STRONG_BULLISH.value,
+            category=SignalCategory.RSI.value,
+        )
+        for i in range(n)
+    ]
+
+
+def test_rank_signals_without_hit_rates_is_unchanged():
+    """Default None hit-rates must reproduce the plain score-threshold label."""
+    ranker = ConfluenceRanker()
+    signals = _bullish_signals()
+
+    baseline = ranker.rank_signals(signals)
+    explicit_none = ranker.rank_signals(signals, strength_hit_rates=None)
+
+    assert explicit_none.confidence_label == baseline.confidence_label
+    assert explicit_none.score == baseline.score
+    assert explicit_none.action == baseline.action
+
+
+def test_rank_signals_high_hit_rate_pushes_confidence_to_high():
+    ranker = ConfluenceRanker()
+    signals = _bullish_signals()
+
+    result = ranker.rank_signals(
+        signals,
+        strength_hit_rates={SignalStrength.STRONG_BULLISH.value: 0.75},
+    )
+
+    assert result.bias == "bullish"
+    assert result.confidence_label == "HIGH"
+
+
+def test_rank_signals_low_hit_rate_pushes_confidence_to_low():
+    ranker = ConfluenceRanker()
+    signals = _bullish_signals()
+
+    result = ranker.rank_signals(
+        signals,
+        strength_hit_rates={SignalStrength.STRONG_BULLISH.value: 0.40},
+    )
+
+    assert result.bias == "bullish"
+    assert result.confidence_label == "LOW"

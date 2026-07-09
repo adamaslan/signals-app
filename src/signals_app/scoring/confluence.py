@@ -52,6 +52,11 @@ _CATEGORY_BONUS: Final[dict[str, float]] = {
     SignalCategory.ICHIMOKU.value: 0.3,
 }
 
+# Hit-rate thresholds used to nudge the score-threshold confidence_label
+# toward the measured backtest hit-rate when strength_hit_rates is supplied.
+_HIT_RATE_HIGH_THRESHOLD: Final[float] = 0.60
+_HIT_RATE_LOW_THRESHOLD: Final[float] = 0.50
+
 
 @dataclass
 class ConfluenceResult:
@@ -121,11 +126,24 @@ class ConfluenceRanker:
         print(result.action, result.score)
     """
 
-    def rank_signals(self, signals: list[MutableSignal]) -> ConfluenceResult:
+    def rank_signals(
+        self,
+        signals: list[MutableSignal],
+        strength_hit_rates: dict[str, float] | None = None,
+    ) -> ConfluenceResult:
         """Compute weighted confluence score from raw detection signals.
 
         Args:
             signals: List of MutableSignal objects from detect_all_signals().
+            strength_hit_rates: Optional map of SignalStrength value -> measured
+                historical hit-rate (0.0-1.0), e.g. from
+                backtests.engine.score_historical_signals()'s "by_strength"
+                buckets. When provided, the confidence_label is calibrated
+                against the average hit-rate of the strengths that contributed
+                to the winning side (bull or bear) of this signal set: average
+                hit-rate >= 0.60 pushes toward HIGH, < 0.50 pushes toward LOW,
+                otherwise the existing score-threshold logic is unchanged.
+                Defaults to None, which preserves prior behavior exactly.
 
         Returns:
             ConfluenceResult with score, bias, action, and signal counts.
@@ -151,6 +169,8 @@ class ConfluenceRanker:
         bull_count = 0
         bear_count = 0
         neutral_count = 0
+        bull_strengths: list[str] = []
+        bear_strengths: list[str] = []
 
         for signal in signals:
             base_vote = _STRENGTH_BULL_WEIGHT.get(signal.strength, 0.0)
@@ -161,11 +181,13 @@ class ConfluenceRanker:
                 weighted_bull += vote
                 max_weight += vote
                 bull_count += 1
+                bull_strengths.append(signal.strength)
             elif base_vote < 0:
                 vote = abs(base_vote) + category_bonus
                 weighted_bear += vote
                 max_weight += vote
                 bear_count += 1
+                bear_strengths.append(signal.strength)
             else:
                 neutral_count += 1
                 max_weight += 0.1  # neutral signals have minimal weight
@@ -185,7 +207,8 @@ class ConfluenceRanker:
         else:
             bias = "neutral"
 
-        # Confidence label
+        # Confidence label — raw-score-threshold guess by default, optionally
+        # calibrated against measured backtest hit-rates (see docstring).
         abs_score = abs(score)
         if abs_score >= 0.55:
             confidence_label = "HIGH"
@@ -193,6 +216,18 @@ class ConfluenceRanker:
             confidence_label = "MEDIUM"
         else:
             confidence_label = "LOW"
+
+        if strength_hit_rates:
+            winning_strengths = bull_strengths if bias == "bullish" else bear_strengths
+            known_rates = [
+                strength_hit_rates[s] for s in winning_strengths if s in strength_hit_rates
+            ]
+            if known_rates:
+                avg_hit_rate = sum(known_rates) / len(known_rates)
+                if avg_hit_rate >= _HIT_RATE_HIGH_THRESHOLD:
+                    confidence_label = "HIGH"
+                elif avg_hit_rate < _HIT_RATE_LOW_THRESHOLD:
+                    confidence_label = "LOW"
 
         # Action recommendation
         if score >= CONFLUENCE_BUY_THRESHOLD and bull_count >= CONFLUENCE_BUY_MIN_SIGNALS:
