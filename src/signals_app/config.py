@@ -128,6 +128,16 @@ DETECTOR_TIMEOUT_MS: Final[int] = 500
 MAX_DETECTOR_FAILURES: Final[int] = 4
 
 # ---------------------------------------------------------------------------
+# Historical scanning / backtesting
+# ---------------------------------------------------------------------------
+
+# Longest indicator warmup period (SMA-200) — bars before this index would
+# otherwise produce NaN-driven false signals.
+MIN_HISTORICAL_LOOKBACK: Final[int] = 200
+# Forward-return horizon (trading days) used to score a signal as a hit/miss.
+BACKTEST_FORWARD_HORIZON_DAYS: Final[int] = 5
+
+# ---------------------------------------------------------------------------
 # Cache / TTL config
 # ---------------------------------------------------------------------------
 
