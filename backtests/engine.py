@@ -104,3 +104,24 @@ def score_historical_signals(
             HitRateBucket(key=k, hits=sum(v), total=len(v)) for k, v in sorted(by_strength.items())
         ],
     }
+
+
+def merge_hit_rate_buckets(bucket_lists: list[list[HitRateBucket]]) -> list[HitRateBucket]:
+    """Merge same-key HitRateBuckets from multiple backtest runs (e.g. per symbol).
+
+    Sums hits/total per key rather than averaging hit_rate directly, so a
+    100-signal symbol doesn't get the same weight as a 5-signal one.
+
+    Args:
+        bucket_lists: Multiple "by_strength" or "by_category" lists to combine.
+
+    Returns:
+        One merged HitRateBucket per key, sorted by key.
+    """
+    hits: dict[str, int] = {}
+    totals: dict[str, int] = {}
+    for buckets in bucket_lists:
+        for b in buckets:
+            hits[b.key] = hits.get(b.key, 0) + b.hits
+            totals[b.key] = totals.get(b.key, 0) + b.total
+    return [HitRateBucket(key=k, hits=hits[k], total=totals[k]) for k in sorted(totals)]

@@ -88,16 +88,21 @@ class SignalList(list):
     Attributes:
         degraded: True when >= MAX_DETECTOR_FAILURES detectors failed.
         warnings: List of per-detector failure messages.
+        timings_ms: Per-detector wall-clock time in milliseconds — observability
+            hook for spotting a slow/regressing detector before it eats the
+            per-request timeout budget.
     """
 
     degraded: bool
     warnings: list[str]
+    timings_ms: dict[str, float]
 
     def __init__(
         self,
         signals: list[MutableSignal],
         degraded: bool,
         warnings: list[str],
+        timings_ms: dict[str, float] | None = None,
     ) -> None:
         """Initialize SignalList.
 
@@ -105,10 +110,14 @@ class SignalList(list):
             signals: Detected signals from all detectors.
             degraded: Whether too many detectors failed.
             warnings: Per-failure warning messages.
+            timings_ms: Per-detector elapsed time in milliseconds, keyed by
+                detector class name. Defaults to empty for backwards compat
+                with callers constructing SignalList directly.
         """
         super().__init__(signals)
         self.degraded = degraded
         self.warnings = warnings
+        self.timings_ms = timings_ms if timings_ms is not None else {}
 
 
 def _run_detector_with_timeout(

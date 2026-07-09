@@ -8,6 +8,7 @@ Ported from gcp-app-w-mcp1/mcp-finance1/src/technical_analysis_mcp/signals.py.
 from __future__ import annotations
 
 import logging
+import time
 
 import pandas as pd
 
@@ -101,9 +102,11 @@ def detect_all_signals(
     signals: list[MutableSignal] = []
     failure_count = 0
     warnings: list[str] = []
+    timings_ms: dict[str, float] = {}
 
     for detector in detectors:
         name = detector.__class__.__name__
+        started = time.perf_counter()
         try:
             detected = _run_detector_with_timeout(detector, df, timeout_ms)
             signals.extend(detected)
@@ -116,6 +119,8 @@ def detect_all_signals(
             failure_count += 1
             warnings.append(f"detector_error:{name}:{type(exc).__name__}")
             logger.warning("Detector %s failed: %s", name, exc)
+        finally:
+            timings_ms[name] = round((time.perf_counter() - started) * 1000, 2)
 
     degraded = failure_count >= max_failures
 
@@ -133,4 +138,12 @@ def detect_all_signals(
         degraded,
     )
 
-    return SignalList(signals, degraded, warnings)
+    slow_threshold_ms = timeout_ms * 0.8
+    slow_detectors = {n: t for n, t in timings_ms.items() if t >= slow_threshold_ms}
+    if slow_detectors:
+        logger.warning(
+            "%d detector(s) used >=80%% of the %dms timeout budget: %s",
+            len(slow_detectors), timeout_ms, slow_detectors,
+        )
+
+    return SignalList(signals, degraded, warnings, timings_ms)
