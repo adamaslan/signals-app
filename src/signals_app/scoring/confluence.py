@@ -143,7 +143,9 @@ class ConfluenceRanker:
                 to the winning side (bull or bear) of this signal set: average
                 hit-rate >= 0.60 pushes toward HIGH, < 0.50 pushes toward LOW,
                 otherwise the existing score-threshold logic is unchanged.
-                Defaults to None, which preserves prior behavior exactly.
+                Skipped entirely when bias is "neutral" — there is no winning
+                side to calibrate against. Defaults to None, which preserves
+                prior behavior exactly.
 
         Returns:
             ConfluenceResult with score, bias, action, and signal counts.
@@ -217,7 +219,7 @@ class ConfluenceRanker:
         else:
             confidence_label = "LOW"
 
-        if strength_hit_rates:
+        if strength_hit_rates and bias != "neutral":
             winning_strengths = bull_strengths if bias == "bullish" else bear_strengths
             known_rates = [
                 strength_hit_rates[s] for s in winning_strengths if s in strength_hit_rates

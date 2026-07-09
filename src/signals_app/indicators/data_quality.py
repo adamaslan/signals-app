@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
 
 from signals_app.config import (
+    DATA_QUALITY_FUTURE_TOLERANCE_HOURS,
     DATA_QUALITY_MAX_NAN_RATIO,
     DATA_QUALITY_STALE_HOURS,
     MIN_BARS_BY_PERIOD,
@@ -59,6 +60,11 @@ def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
         score -= 0.4
         reasons.append(f"insufficient_bars:{len(df)}<{min_bars}")
 
+    missing_cols = [c for c in _OHLCV_COLUMNS if c not in df.columns]
+    if missing_cols:
+        score -= 0.5
+        reasons.append(f"missing_columns:{','.join(missing_cols)}")
+
     present_cols = [c for c in _OHLCV_COLUMNS if c in df.columns]
     if present_cols:
         nan_ratio = df[present_cols].isna().mean().mean()
@@ -69,12 +75,23 @@ def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
     last_ts = df.index[-1]
     try:
         last_dt = last_ts.to_pydatetime() if hasattr(last_ts, "to_pydatetime") else last_ts
-        if last_dt.tzinfo is None:
-            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        if isinstance(last_dt, datetime):
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+        elif isinstance(last_dt, date):
+            # Pure date (no time-of-day) — common for daily bars. Anchor to
+            # midnight UTC rather than raising on the missing .tzinfo attr.
+            last_dt = datetime(last_dt.year, last_dt.month, last_dt.day, tzinfo=timezone.utc)
+        else:
+            raise TypeError(f"unsupported index value type: {type(last_dt)}")
+
         age_hours = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600.0
         if age_hours > DATA_QUALITY_STALE_HOURS:
             score -= 0.3
             reasons.append(f"stale_last_bar:{age_hours:.1f}h>{DATA_QUALITY_STALE_HOURS}h")
+        elif age_hours < -DATA_QUALITY_FUTURE_TOLERANCE_HOURS:
+            score -= 0.3
+            reasons.append(f"future_last_bar:{age_hours:.1f}h")
     except (TypeError, ValueError, AttributeError) as exc:
         score -= 0.3
         reasons.append(f"unparsable_last_bar_timestamp:{exc}")

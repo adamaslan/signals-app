@@ -75,6 +75,12 @@ def run_calibration(
         except Exception as exc:
             logger.warning("calibrate: %s failed, skipping: %s", symbol, exc)
 
+    if not by_strength_lists:
+        raise RuntimeError(
+            "No symbols were successfully backtested — aborting without writing "
+            f"{output_path} to avoid overwriting existing calibration data with an empty table."
+        )
+
     merged = merge_hit_rate_buckets(by_strength_lists)
     rates = derive_strength_hit_rates(merged)
     save_strength_hit_rates(rates, path=output_path)

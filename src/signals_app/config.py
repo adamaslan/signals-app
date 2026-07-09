@@ -159,6 +159,9 @@ CALIBRATION_MIN_BUCKET_SIZE: Final[int] = 30
 DATA_QUALITY_STALE_HOURS: Final[float] = 26.0
 # NaN ratio in the raw OHLCV window above this drags the quality score down hard.
 DATA_QUALITY_MAX_NAN_RATIO: Final[float] = 0.02
+# A last bar timestamped further in the future than this signals clock skew
+# or a timezone parsing bug, not real data.
+DATA_QUALITY_FUTURE_TOLERANCE_HOURS: Final[float] = 1.0
 
 # ---------------------------------------------------------------------------
 # Cache / TTL config

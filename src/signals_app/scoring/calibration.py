@@ -48,8 +48,20 @@ def save_strength_hit_rates(rates: dict[str, float], path: str = CALIBRATION_FIL
     logger.info("calibration: wrote %d strength buckets to %s", len(rates), dest)
 
 
+# In-process cache keyed on (path, mtime) — load_strength_hit_rates() is called
+# on every GET /signals/{symbol}, so a synchronous read + json.loads() per
+# request would add avoidable I/O latency to the live path. The file only
+# changes when scripts/calibrate.py reruns (weekly/monthly), so an mtime check
+# is enough to pick up updates without re-reading on every call.
+_cache_path: Path | None = None
+_cache_mtime: float | None = None
+_cache_rates: dict[str, float] | None = None
+
+
 def load_strength_hit_rates(path: str = CALIBRATION_FILE) -> dict[str, float] | None:
     """Load a previously-saved strength hit-rate table, if one exists.
+
+    Cached in-process by (path, mtime) — cheap to call on every request.
 
     Args:
         path: Source file path.
@@ -59,14 +71,29 @@ def load_strength_hit_rates(path: str = CALIBRATION_FILE) -> dict[str, float] | 
         should treat None exactly like "no calibration data yet" (ConfluenceRanker's
         default, uncalibrated behavior).
     """
+    global _cache_path, _cache_mtime, _cache_rates
+
     src = Path(path)
     if not src.exists():
         return None
+
+    try:
+        mtime = src.stat().st_mtime
+    except OSError as exc:
+        logger.warning("calibration: failed to stat %s: %s — ignoring", src, exc)
+        return None
+
+    if _cache_path == src and _cache_mtime == mtime:
+        return _cache_rates
+
     try:
         data = json.loads(src.read_text())
         if not isinstance(data, dict):
             raise ValueError("calibration file must contain a JSON object")
-        return {str(k): float(v) for k, v in data.items()}
+        rates = {str(k): float(v) for k, v in data.items()}
     except (json.JSONDecodeError, ValueError, OSError) as exc:
         logger.warning("calibration: failed to load %s: %s — ignoring", src, exc)
         return None
+
+    _cache_path, _cache_mtime, _cache_rates = src, mtime, rates
+    return rates

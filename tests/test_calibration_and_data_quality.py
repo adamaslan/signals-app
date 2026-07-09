@@ -82,6 +82,25 @@ def test_save_then_load_round_trips(tmp_path):
     assert loaded == rates
 
 
+def test_load_picks_up_changes_after_mtime_bump(tmp_path):
+    """Cache is keyed on mtime — a rewritten file must not serve stale cached rates."""
+    path = str(tmp_path / "rates.json")
+
+    save_strength_hit_rates({"BULLISH": 0.5}, path=path)
+    first = load_strength_hit_rates(path=path)
+
+    import os
+    import time
+
+    time.sleep(0.01)
+    save_strength_hit_rates({"BULLISH": 0.9}, path=path)
+    os.utime(path, None)  # ensure mtime actually advances on fast filesystems
+    second = load_strength_hit_rates(path=path)
+
+    assert first == {"BULLISH": 0.5}
+    assert second == {"BULLISH": 0.9}
+
+
 def test_load_missing_file_returns_none(tmp_path):
     assert load_strength_hit_rates(path=str(tmp_path / "does_not_exist.json")) is None
 
@@ -138,3 +157,31 @@ def test_score_data_quality_empty_dataframe_scores_zero():
 
     assert result.score == 0.0
     assert result.reasons == ["empty_dataframe"]
+
+
+def test_score_data_quality_flags_missing_columns():
+    df = _make_ohlcv(n=60, last_date=date.today()).drop(columns=["Volume"])
+    result = score_data_quality(df, period="3mo")
+
+    assert result.score < 1.0
+    assert any("missing_columns:Volume" in r for r in result.reasons)
+
+
+def test_score_data_quality_flags_future_timestamp():
+    df = _make_ohlcv(n=60, last_date=date.today() + timedelta(days=5))
+    result = score_data_quality(df, period="3mo")
+
+    assert result.score < 1.0
+    assert any("future_last_bar" in r for r in result.reasons)
+
+
+def test_score_data_quality_handles_pure_date_index_without_crashing():
+    # Pure datetime.date index (no time-of-day) — common for daily bars from
+    # some data sources. Must not raise AttributeError on missing .tzinfo.
+    df = _make_ohlcv(n=60, last_date=date.today())
+    df.index = pd.Index([d.date() for d in df.index])
+
+    result = score_data_quality(df, period="3mo")
+
+    assert result.score == 1.0
+    assert "unparsable_last_bar_timestamp" not in " ".join(result.reasons)

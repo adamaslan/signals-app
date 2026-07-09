@@ -131,3 +131,29 @@ def test_rank_signals_low_hit_rate_pushes_confidence_to_low():
 
     assert result.bias == "bullish"
     assert result.confidence_label == "LOW"
+
+
+def test_rank_signals_neutral_bias_skips_calibration():
+    """A neutral (tied) signal set has no winning side — must not calibrate
+    off bear_strengths by accident when bias falls through to non-bullish."""
+    ranker = ConfluenceRanker()
+    signals = [
+        MutableSignal(
+            signal="BULL", description="test",
+            strength=SignalStrength.BULLISH.value, category=SignalCategory.RSI.value,
+        ),
+        MutableSignal(
+            signal="BEAR", description="test",
+            strength=SignalStrength.BEARISH.value, category=SignalCategory.RSI.value,
+        ),
+    ]
+
+    baseline = ranker.rank_signals(signals)
+    calibrated = ranker.rank_signals(
+        signals,
+        strength_hit_rates={SignalStrength.BEARISH.value: 0.99},
+    )
+
+    assert baseline.bias == "neutral"
+    assert calibrated.bias == "neutral"
+    assert calibrated.confidence_label == baseline.confidence_label
