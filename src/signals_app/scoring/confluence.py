@@ -217,7 +217,7 @@ class ConfluenceRanker:
         else:
             confidence_label = "LOW"
 
-        if strength_hit_rates:
+        if strength_hit_rates and bias != "neutral":
             winning_strengths = bull_strengths if bias == "bullish" else bear_strengths
             known_rates = [
                 strength_hit_rates[s] for s in winning_strengths if s in strength_hit_rates
