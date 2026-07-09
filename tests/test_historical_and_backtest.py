@@ -66,7 +66,10 @@ def test_score_historical_signals_skips_unresolved_tail():
     bars = scan_historical(df, min_lookback=MIN_HISTORICAL_LOOKBACK)
     horizon = 5
 
-    # Bars within `horizon` of the end of df can't be scored — verify none of
-    # the last `horizon` dates contribute (indirectly, via total count bound).
-    scored_dates = {b.date for b in bars if list(df.index).index(b.date) + horizon < len(df)}
-    assert len(scored_dates) == len(bars) - horizon
+    # Only the unresolved tail bars (within `horizon` of the end of df) —
+    # none of these have a known forward return, so nothing should be scored.
+    tail_bars = bars[-horizon:]
+    result = score_historical_signals(df, tail_bars, horizon_days=horizon)
+
+    assert result["by_category"] == []
+    assert result["by_strength"] == []

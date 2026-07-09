@@ -8,6 +8,7 @@ output of detection.historical.scan_historical().
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 
 import pandas as pd
@@ -71,7 +72,12 @@ def score_historical_signals(
             skipped_unresolved += 1
             continue
         forward_close = float(df.iloc[pos + horizon_days]["Close"])
-        forward_return = (forward_close - bar.close) / bar.close if bar.close else 0.0
+        # bool(nan) is True in Python, so an `if bar.close` guard would let NaN
+        # closes through and silently score every signal there as a miss.
+        if math.isnan(forward_close) or math.isnan(bar.close) or bar.close == 0.0:
+            skipped_unresolved += 1
+            continue
+        forward_return = (forward_close - bar.close) / bar.close
 
         for sig in bar.signals:
             if _is_bullish(sig.strength):
