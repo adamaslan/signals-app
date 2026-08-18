@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "web/**"
+      - "docs/**"
+      - "wiki/**"
+  pull_request:
+    paths-ignore:
+      - "web/**"
+      - "docs/**"
+      - "wiki/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Install lint/type deps
+        shell: bash -l {0}
+        run: pip install ruff mypy
+
+      - name: Ruff check
+        shell: bash -l {0}
+        run: ruff check .
+
+      - name: Mypy
+        shell: bash -l {0}
+        run: mypy src/signals_app
+
+      - name: Pytest
+        shell: bash -l {0}
+        run: pytest -q
