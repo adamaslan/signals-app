@@ -151,6 +151,14 @@ CALIBRATION_FILE: Final[str] = os.getenv(
 CALIBRATION_MIN_BUCKET_SIZE: Final[int] = 30
 
 # ---------------------------------------------------------------------------
+# Supabase (writer / scan_universe.py)
+# ---------------------------------------------------------------------------
+
+SUPABASE_URL: str | None = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY: str | None = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_REQUEST_TIMEOUT_SECONDS: Final[float] = 15.0
+
+# ---------------------------------------------------------------------------
 # Data-quality scoring
 # ---------------------------------------------------------------------------
 
@@ -187,6 +195,20 @@ CONFLUENCE_BUY_THRESHOLD: Final[float] = 0.35
 CONFLUENCE_SELL_THRESHOLD: Final[float] = -0.35
 CONFLUENCE_BUY_MIN_SIGNALS: Final[int] = 3
 CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = 3
+
+# ---------------------------------------------------------------------------
+# Publication gate — scripts/scan_universe.py (see docs/backend-state-and-
+# supabase-plan.md Part 3 §3). Most ticker-days should NOT be published;
+# the gate is what makes the engine selective instead of always emitting a
+# direction. Run before LLM synthesis, not after — an unpublishable signal
+# should never pay for a synthesis call.
+# ---------------------------------------------------------------------------
+
+PUBLISH_MIN_DATA_QUALITY: Final[float] = 0.7
+PUBLISH_MIN_SIGNALS: Final[int] = 3
+# Reuses the existing BUY/SELL confluence bands — a signal weak enough to be
+# HOLD-territory carries no information worth persisting.
+PUBLISH_MIN_CONFLUENCE_SCORE: Final[float] = CONFLUENCE_BUY_THRESHOLD
 
 # ---------------------------------------------------------------------------
 # LLM config — Gemini
