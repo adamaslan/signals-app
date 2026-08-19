@@ -1,0 +1,64 @@
+name: Backfill Historical Signals
+
+# Phase 6 of docs/backend-state-and-supabase-plan.md. One-time bootstrap —
+# gives scripts/calibrate.py (Phase 7) a real corpus on day one instead of
+# waiting months for the live scanner to accumulate
+# CALIBRATION_MIN_BUCKET_SIZE (30) samples per strength bucket.
+#
+# workflow_dispatch only — never scheduled. Re-running is safe (the
+# detector_hits unique constraint makes it idempotent) but there's no
+# reason to run this on a cadence; signals-scan.yml keeps the corpus
+# growing going forward.
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Space-separated tickers (blank = current 5-ticker pilot list)"
+        required: false
+        default: ""
+      period:
+        description: "yfinance period string"
+        required: false
+        default: "5y"
+
+concurrency:
+  # Overlapping backfill runs would double-write and race each other's
+  # rate-limited yfinance calls for no benefit.
+  group: backfill
+  cancel-in-progress: false
+
+env:
+  DEFAULT_SYMBOLS: "AAPL MSFT GOOGL SPY QQQ"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    # Historical bar-by-bar scanning across years of data per symbol is
+    # much slower than a live scan — budget generously.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Run backfill
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          SYMBOLS="${{ github.event.inputs.symbols }}"
+          SYMBOLS="${SYMBOLS:-$DEFAULT_SYMBOLS}"
+          PERIOD="${{ github.event.inputs.period }}"
+          PERIOD="${PERIOD:-5y}"
+          python scripts/backfill_history.py $SYMBOLS --period "$PERIOD"
