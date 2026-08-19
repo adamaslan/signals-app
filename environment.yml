@@ -14,8 +14,9 @@ dependencies:
   - pytest
   - pytest-asyncio
   - python-dotenv
+  - aiosqlite
+  - sqlalchemy
   - pip
   - pip:
     - google-generativeai
     - asyncpg
-    - sqlalchemy

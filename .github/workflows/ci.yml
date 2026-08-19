@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "web/**"
+      - "docs/**"
+      - "wiki/**"
+  pull_request:
+    paths-ignore:
+      - "web/**"
+      - "docs/**"
+      - "wiki/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Install lint/type deps
+        shell: bash -l {0}
+        run: pip install ruff mypy
+
+      # Advisory, not blocking: 121 ruff findings and 38 mypy findings predate
+      # this workflow (see docs/backend-state-and-supabase-plan.md, defects
+      # section) and are pre-existing debt, not regressions from this PR.
+      # Flip these to hard failures once that cleanup pass lands.
+      - name: Ruff check
+        shell: bash -l {0}
+        run: ruff check . || echo "::warning::ruff found pre-existing issues (non-blocking)"
+
+      - name: Mypy
+        shell: bash -l {0}
+        run: mypy src/signals_app || echo "::warning::mypy found pre-existing issues (non-blocking)"
+
+      - name: Pytest
+        shell: bash -l {0}
+        run: pytest -q

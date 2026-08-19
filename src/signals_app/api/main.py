@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,37 +43,9 @@ _configure_logging()
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(
-    title="Signals App",
-    description="Financial signal detection + LLM synthesis",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(router)
-
-
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    """Dispose the database engine on shutdown to release connection pool resources."""
-    from signals_app.db import session as db_session
-    if db_session._engine is not None:
-        await db_session._engine.dispose()
-        logger.info("db: engine disposed")
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    """Log startup, validate settings, and initialise the database."""
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Log startup, validate settings, initialise the database; dispose on shutdown."""
     from signals_app.config import get_settings
     from signals_app.db.session import init_db
     settings = get_settings()
@@ -88,6 +62,33 @@ async def on_startup() -> None:
             logger.warning("Config warning: %s", err)
 
     await init_db()
+
+    yield
+
+    from signals_app.db import session as db_session
+    if db_session._engine is not None:
+        await db_session._engine.dispose()
+        logger.info("db: engine disposed")
+
+
+app = FastAPI(
+    title="Signals App",
+    description="Financial signal detection + LLM synthesis",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=_lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(router)
 
 
 def cli_entry() -> None:
