@@ -1,0 +1,50 @@
+name: Calibrate
+
+# Phase 7 of docs/backend-state-and-supabase-plan.md. Closes the
+# calibration loop: ConfluenceRanker.rank_signals() already accepts
+# strength_hit_rates, and scripts/scan_universe.py already reads it from
+# Supabase (load_strength_hit_rates_from_supabase()) — this workflow is
+# what keeps that table current.
+
+on:
+  schedule:
+    - cron: "0 6 * * 6" # Saturday 06:00 UTC — markets closed
+  workflow_dispatch:
+    inputs:
+      horizon_days:
+        description: "Forward-return horizon in trading days"
+        required: false
+        default: "5"
+
+concurrency:
+  group: calibrate
+  cancel-in-progress: false
+
+jobs:
+  calibrate:
+    if: github.event_name != 'schedule' || github.repository == 'adamaslan/signals-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Run calibration
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          HORIZON="${{ github.event.inputs.horizon_days }}"
+          HORIZON="${HORIZON:-5}"
+          python scripts/calibrate_supabase.py --horizon-days "$HORIZON"

@@ -56,6 +56,7 @@ from signals_app.db.supabase import (  # noqa: E402
 from signals_app.detection.orchestrator import detect_all_signals  # noqa: E402
 from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.indicators.data_quality import score_data_quality  # noqa: E402
+from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase  # noqa: E402
 from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,7 @@ def scan_one_symbol(
     run: EngineRun | None,
     settings: Any,
     dry_run: bool,
+    strength_hit_rates: dict[str, float] | None = None,
 ) -> SymbolResult:
     """Run L1-L4 for one ticker, gate, optionally synthesize + persist.
 
@@ -136,7 +138,7 @@ def scan_one_symbol(
         signal_list = detect_all_signals(df)
 
         ranker = ConfluenceRanker()
-        confluence = ranker.rank_signals(list(signal_list))
+        confluence = ranker.rank_signals(list(signal_list), strength_hit_rates=strength_hit_rates)
 
         bar_ts = df.index[-1].isoformat()
 
@@ -249,12 +251,20 @@ def scan_universe(
     if writer is not None and not dry_run:
         run = writer.start_run(trigger=trigger, git_sha=_git_sha())
 
+    # Fetched once per scan run, not once per symbol — same table read
+    # regardless of which ticker is being scored. None (no active
+    # generation yet, or Supabase unreachable) falls through to
+    # ConfluenceRanker's existing uncalibrated default.
+    strength_hit_rates = load_strength_hit_rates_from_supabase()
+
     results: list[SymbolResult] = []
     started = time.perf_counter()
 
     with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
         futures = {
-            pool.submit(scan_one_symbol, t, period, writer, run, settings, dry_run): t
+            pool.submit(
+                scan_one_symbol, t, period, writer, run, settings, dry_run, strength_hit_rates
+            ): t
             for t in symbols
         }
         for future in as_completed(futures):

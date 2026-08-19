@@ -5,6 +5,14 @@ map and nudges confidence_label toward measured backtest hit-rates when one is
 supplied (see scoring/confluence.py). This module is the missing other half:
 computing that table from backtests.engine.score_historical_signals() output
 and persisting/loading it so the live API path can pass it in.
+
+load_strength_hit_rates() (local JSON file) is the original, still-used-by-
+scripts/calibrate.py path for offline/local-dev calibration.
+load_strength_hit_rates_from_supabase() (Phase 7) is what
+scripts/scan_universe.py calls in production — it reads the `calibration`
+table's active generation, which scripts/calibrate_supabase.py maintains.
+The JSON-file path doesn't survive a container restart in CI; the Supabase
+path does.
 """
 from __future__ import annotations
 
@@ -12,7 +20,15 @@ import json
 import logging
 from pathlib import Path
 
-from signals_app.config import CALIBRATION_FILE, CALIBRATION_MIN_BUCKET_SIZE
+import httpx
+
+from signals_app.config import (
+    CALIBRATION_FILE,
+    CALIBRATION_MIN_BUCKET_SIZE,
+    SUPABASE_REQUEST_TIMEOUT_SECONDS,
+    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_URL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,3 +113,55 @@ def load_strength_hit_rates(path: str = CALIBRATION_FILE) -> dict[str, float] | 
 
     _cache_path, _cache_mtime, _cache_rates = src, mtime, rates
     return rates
+
+
+def load_strength_hit_rates_from_supabase(
+    horizon_days: int | None = None,
+) -> dict[str, float] | None:
+    """Load the active strength-bucket calibration generation from Supabase.
+
+    This is what scripts/scan_universe.py calls in production — see the
+    module docstring for why this differs from load_strength_hit_rates().
+
+    Args:
+        horizon_days: Filter to one horizon. None returns the active
+            generation regardless of horizon (there is normally only one
+            active horizon at a time, since scripts/calibrate_supabase.py
+            is invoked with a single --horizon-days per run).
+
+    Returns:
+        The rate map, or None if Supabase isn't configured, the request
+        fails, or no active generation exists yet — callers should treat
+        None exactly like "no calibration data yet" (ConfluenceRanker's
+        default, uncalibrated behavior). Never raises.
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+
+    params: dict[str, str] = {
+        "select": "bucket_key,hit_rate",
+        "bucket_kind": "eq.strength",
+        "is_active": "eq.true",
+    }
+    if horizon_days is not None:
+        params["horizon_days"] = f"eq.{horizon_days}"
+
+    try:
+        resp = httpx.get(
+            f"{SUPABASE_URL.rstrip('/')}/rest/v1/calibration",
+            params=params,
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            },
+            timeout=SUPABASE_REQUEST_TIMEOUT_SECONDS,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("calibration: failed to load from Supabase: %s — ignoring", exc)
+        return None
+
+    if not rows:
+        return None
+    return {r["bucket_key"]: float(r["hit_rate"]) for r in rows}
