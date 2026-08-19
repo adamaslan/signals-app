@@ -59,7 +59,7 @@ export function RecentRunsTable({ limit = 15 }: { limit?: number }) {
             const dir = r.signal as SignalDirection | null;
             const color = dir ? SIGNAL_COLORS[dir] : "#666";
             const opt = getPeriodOption(r.period);
-            const href = `/signals/${r.ticker}?period=${r.period}&no_llm=${r.noLlm}`;
+            const href = `/signal/?symbol=${r.ticker}&period=${r.period}&no_llm=${r.noLlm}`;
             return (
               <tr key={r.id} className="border-t border-white/5">
                 <td className="py-2 pr-4 font-semibold text-white">{r.ticker}</td>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchSignal, ApiError } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import { fetchSignal, ApiError, SignalNotFoundError } from "@/lib/api";
 import { SignalCard } from "@/components/SignalCard";
 import { SignalMatrixRow } from "@/components/SignalMatrixRow";
 import { EvidenceList } from "@/components/EvidenceList";
@@ -36,19 +37,22 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
   const backendPeriod = resolveBackendPeriod(period);
   const [data, setData] = useState<SignalOutput | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setErrorMsg(null);
+    setNotFound(false);
     setData(null);
 
     fetchSignal(symbol, backendPeriod, noLlm)
       .then((result) => { if (active) setData(result); })
       .catch((err) => {
         if (!active) return;
-        if (err instanceof ApiError) setErrorMsg(err.message);
+        if (err instanceof SignalNotFoundError) setNotFound(true);
+        else if (err instanceof ApiError) setErrorMsg(err.message);
         else if (err instanceof Error) setErrorMsg(err.message);
         else setErrorMsg("An unexpected error occurred.");
       })
@@ -59,6 +63,22 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
 
   if (loading) return <LoadingSkeleton />;
 
+  if (notFound) {
+    return (
+      <div
+        className="rounded-xl border border-white/10 bg-[#1a1a2e] p-6 text-center space-y-3"
+        role="status"
+      >
+        <p className="text-gray-300 font-semibold text-lg">Not scanned yet</p>
+        <p className="text-gray-500 text-sm">
+          {symbol} ({backendPeriod}) isn&apos;t in the current scan universe, or
+          the last scan for it didn&apos;t clear the publication gate. Signals
+          run on a schedule — check back after the next scan.
+        </p>
+      </div>
+    );
+  }
+
   if (errorMsg || !data) {
     return (
       <div
@@ -68,7 +88,7 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
         <p className="text-red-400 font-semibold text-lg">Failed to load signal</p>
         <p className="text-red-300/80 text-sm">{errorMsg}</p>
         <Link
-          href={`/signals/${symbol}/?period=${period}&no_llm=${noLlm}`}
+          href={`/signal/?symbol=${symbol}&period=${period}&no_llm=${noLlm}`}
           className="inline-block mt-2 rounded-lg bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 transition-colors"
         >
           Retry
@@ -191,13 +211,31 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
   );
 }
 
-interface SignalPageClientProps {
-  symbol: string;
-  period: string;
-  noLlm: boolean;
+function MissingSymbol() {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#1a1a2e] p-6 text-center space-y-3">
+      <p className="text-gray-300 font-semibold text-lg">No ticker specified</p>
+      <p className="text-gray-500 text-sm">
+        This page needs a <code className="text-gray-400">?symbol=</code> query param.
+      </p>
+      <Link
+        href="/"
+        className="inline-block mt-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2 transition-colors"
+      >
+        ← Back to search
+      </Link>
+    </div>
+  );
 }
 
-export function SignalPageClient({ symbol, period, noLlm }: SignalPageClientProps) {
+export function SignalPageClient() {
+  const searchParams = useSearchParams();
+  const symbol = searchParams.get("symbol")?.toUpperCase() ?? null;
+  const period = searchParams.get("period") ?? "3mo";
+  const noLlm = searchParams.get("no_llm") === "true";
+
+  if (!symbol) return <MissingSymbol />;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -22,7 +22,7 @@ export function PeriodSelector({
   const router = useRouter();
 
   function handleChange(id: string) {
-    router.push(`/signals/${symbol}?period=${id}&no_llm=${noLlm}`);
+    router.push(`/signal/?symbol=${symbol}&period=${id}&no_llm=${noLlm}`);
   }
 
   return (

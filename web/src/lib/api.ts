@@ -1,21 +1,5 @@
-import type { SignalOutput } from "./types";
-
-/**
- * Fetch a signal from the FastAPI backend via the Next.js /api/* proxy.
- *
- * On the server (Server Components), we hit the backend directly using
- * BACKEND_URL so we aren't routing through the dev server's rewrite layer.
- * On the client, we use the /api/* proxy path.
- */
-function getBaseUrl(): string {
-  if (typeof window === "undefined") {
-    // Server-side (next dev / next start): call backend directly via BACKEND_URL.
-    return process.env.BACKEND_URL ?? "http://localhost:8000";
-  }
-  // Client-side: NEXT_PUBLIC_API_URL is baked in at build time.
-  // Falls back to the /api rewrite proxy which works in `next dev`.
-  return process.env.NEXT_PUBLIC_API_URL ?? "/api";
-}
+import { supabase, supabaseConfigured } from "./supabase";
+import type { EvidenceItem, Signal, SignalDirection, SignalOutput, Timeframe } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -27,58 +11,138 @@ export class ApiError extends Error {
   }
 }
 
+/** Thrown when Supabase has no signal row for this ticker/period yet — the
+ * scanner hasn't covered it, distinct from a real fetch failure so the UI
+ * can render "not scanned yet" instead of an error state. */
+export class SignalNotFoundError extends Error {
+  constructor(symbol: string, period: string) {
+    super(
+      `No signal for ${symbol} (${period}) yet. It may be outside the current ` +
+        `scan universe, or the last scan didn't clear the publication gate.`
+    );
+    this.name = "SignalNotFoundError";
+  }
+}
+
+const PERIOD_TO_TIMEFRAME: Record<string, Timeframe> = {
+  "1d": "1D",
+  "5d": "5D",
+  "1mo": "1M",
+  "3mo": "3M",
+  "6mo": "6M",
+  "1y": "1Y",
+};
+
+interface SignalRow {
+  ticker: string;
+  period: string;
+  direction: string | null;
+  confidence: number | null;
+  bias: string;
+  bull_count: number;
+  bear_count: number;
+  total_signals: number;
+  data_quality_score: number | null;
+  data_quality_reasons: string[];
+  evidence: EvidenceItem[];
+  counter_evidence: EvidenceItem[];
+  matrix: unknown | null;
+  ai_degraded: boolean;
+  no_llm: boolean;
+  prompt_version: string | null;
+  code_version: string;
+  created_at: string;
+}
+
+const SIGNAL_ROW_COLUMNS =
+  "ticker,period,direction,confidence,bias,bull_count,bear_count,total_signals," +
+  "data_quality_score,data_quality_reasons,evidence,counter_evidence,matrix," +
+  "ai_degraded,no_llm,prompt_version,code_version,created_at";
+
+function rowToSignalOutput(row: SignalRow, period: string): SignalOutput {
+  const timeframe = PERIOD_TO_TIMEFRAME[period] ?? "3M" as Timeframe;
+  const direction = (row.direction ?? "hold") as SignalDirection;
+
+  const signal: Signal = {
+    direction,
+    // Supabase confidence can be null (an unsynthesized/gated-but-stored
+    // row); the Signal schema requires (0,1) exclusive, so fall back to a
+    // neutral midpoint rather than crash the UI on a null.
+    confidence: row.confidence ?? 0.5,
+    timeframe,
+    evidence: { items: [...row.evidence, ...row.counter_evidence] },
+    ai_degraded: row.ai_degraded,
+    prompt_version: row.prompt_version ?? "unknown",
+  };
+
+  return {
+    ticker: row.ticker,
+    signal,
+    matrix: null, // wired in Phase 10
+    feature_unavailable: row.no_llm ? ["llm_synthesis"] : [],
+    schema_version: "1.0",
+    code_version: row.code_version,
+    data_quality_score: row.data_quality_score,
+    data_quality_reasons: row.data_quality_reasons ?? [],
+  };
+}
+
 /**
- * Fetch a signal for a given ticker symbol.
+ * Fetch the latest published signal for a ticker/period from Supabase.
+ *
+ * Reads go straight to Supabase from the browser — see
+ * docs/backend-state-and-supabase-plan.md Part 2. There is no live
+ * per-request computation anymore: signals are only as fresh as the last
+ * scheduled scan, and only exist for tickers/periods the scanner has
+ * actually covered.
  *
  * @param symbol - Ticker symbol (e.g. "AAPL"), will be uppercased.
  * @param period - Analysis period string (e.g. "3mo").
- * @param noLlm - If true, skip LLM synthesis and return rule-based signal.
- * @returns Typed SignalOutput response from the backend.
- * @throws ApiError if the backend returns a non-2xx status.
+ * @param _noLlm - Unused: LLM synthesis is decided by the scanner, not the
+ *   reader. Kept for call-site compatibility during the FastAPI->Supabase
+ *   transition.
+ * @throws SignalNotFoundError if no row exists for this ticker/period yet.
+ * @throws ApiError if Supabase isn't configured or the query fails.
  */
 export async function fetchSignal(
   symbol: string,
   period: string,
-  noLlm: boolean
+  _noLlm: boolean
 ): Promise<SignalOutput> {
-  const base = getBaseUrl();
-  const params = new URLSearchParams({
-    period,
-    no_llm: String(noLlm),
-  });
-  const url = `${base}/signals/${encodeURIComponent(symbol.toUpperCase())}?${params}`;
-
-  const res = await fetch(url, {
-    // Disable Next.js fetch cache so every request is fresh
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore JSON parse errors
-    }
-    throw new ApiError(res.status, detail);
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL/ANON_KEY)");
   }
 
-  return res.json() as Promise<SignalOutput>;
+  const ticker = symbol.toUpperCase();
+  const { data, error } = await supabase
+    .from("signals")
+    .select(SIGNAL_ROW_COLUMNS)
+    .eq("ticker", ticker)
+    .eq("period", period)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+  if (!data) {
+    throw new SignalNotFoundError(ticker, period);
+  }
+
+  return rowToSignalOutput(data as unknown as SignalRow, period);
 }
 
 /**
- * Check backend health.
+ * Check whether Supabase is reachable and configured.
  *
- * @returns true if the backend reports status "ok".
+ * @returns true if a lightweight query against `symbols` succeeds.
  */
 export async function checkHealth(): Promise<boolean> {
+  if (!supabaseConfigured || !supabase) return false;
   try {
-    const base = getBaseUrl();
-    const res = await fetch(`${base}/health`, { cache: "no-store" });
-    if (!res.ok) return false;
-    const body = (await res.json()) as { status?: string };
-    return body.status === "ok";
+    const { error } = await supabase.from("symbols").select("ticker").limit(1);
+    return !error;
   } catch {
     return false;
   }

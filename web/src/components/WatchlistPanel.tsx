@@ -36,7 +36,7 @@ export function WatchlistPanel() {
             className="flex items-center justify-between rounded-lg bg-[#12121f] border border-white/5 px-3 py-2"
           >
             <Link
-              href={`/signals/${w.ticker}`}
+              href={`/signal/?symbol=${w.ticker}`}
               className="font-semibold text-white hover:text-green-400"
             >
               {w.ticker}
