@@ -33,7 +33,7 @@ export function TickerSearch() {
   function go(ticker: string) {
     const t = ticker.trim().toUpperCase();
     if (!t) return;
-    router.push(`/signals/${t}?period=${period}&no_llm=${noLlm}`);
+    router.push(`/signal/?symbol=${t}&period=${period}&no_llm=${noLlm}`);
   }
 
   function handleSubmit(e: FormEvent) {

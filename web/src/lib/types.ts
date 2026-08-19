@@ -67,6 +67,9 @@ export interface SignalOutput {
   matrix: TimeframeMatrix | null;
   feature_unavailable: string[];
   schema_version: string;
+  code_version: string | null;
+  data_quality_score: number | null;
+  data_quality_reasons: string[];
 }
 
 /** Periods the backend currently accepts end-to-end. */

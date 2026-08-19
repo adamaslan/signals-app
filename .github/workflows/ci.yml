@@ -3,22 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "web/**"
-      - "docs/**"
-      - "wiki/**"
   pull_request:
-    paths-ignore:
-      - "web/**"
-      - "docs/**"
-      - "wiki/**"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,3 +45,30 @@ jobs:
       - name: Pytest
         shell: bash -l {0}
         run: pytest -q
+
+  frontend:
+    # A prior version of this workflow excluded web/** from CI entirely.
+    # deploy-pages.yml then failed silently on every push for ~7 weeks
+    # (2026-06-28 to 2026-08-19) before this build check existed — see PR #10.
+    # Building here is what would have caught it.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build (static export)
+        run: npm run build

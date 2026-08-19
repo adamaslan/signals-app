@@ -30,7 +30,7 @@ export function Greeting() {
           <>
             {" · "}
             <Link
-              href={`/signals/${profile.lastTicker}?period=${profile.defaultPeriod}&no_llm=${profile.defaultNoLlm}`}
+              href={`/signal/?symbol=${profile.lastTicker}&period=${profile.defaultPeriod}&no_llm=${profile.defaultNoLlm}`}
               className="text-green-500 hover:text-green-400"
             >
               re-run {profile.lastTicker} →
