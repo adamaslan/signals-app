@@ -1,0 +1,587 @@
+<!doctype html>
+<title>Universe Seed</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --border: #dde1e8;
+    --text: #1c2029;
+    --text-dim: #5b6272;
+    --text-faint: #8a90a0;
+    --accent: #0d9488;
+    --accent-bg: #0d948818;
+    --equity: #3b82f6;
+    --etf: #a855f7;
+    --crypto: #f59e0b;
+    --fund: #64748b;
+    --font-display: "Inter", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f14;
+      --surface: #151822;
+      --surface-2: #1b1f2b;
+      --border: #262b3a;
+      --text: #e6e8ef;
+      --text-dim: #9aa1b5;
+      --text-faint: #6b7185;
+      --accent: #5eead4;
+      --accent-bg: #5eead41a;
+      --equity: #60a5fa;
+      --etf: #c084fc;
+      --crypto: #fbbf24;
+      --fund: #94a3b8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0f14;
+    --surface: #151822;
+    --surface-2: #1b1f2b;
+    --border: #262b3a;
+    --text: #e6e8ef;
+    --text-dim: #9aa1b5;
+    --text-faint: #6b7185;
+    --accent: #5eead4;
+    --accent-bg: #5eead41a;
+    --equity: #60a5fa;
+    --etf: #c084fc;
+    --crypto: #fbbf24;
+    --fund: #94a3b8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header.page-head {
+    margin-bottom: 32px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .subhead {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 62ch;
+    margin: 0;
+  }
+  .subhead code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--text);
+  }
+
+  /* Stat bar */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 28px 0;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    border: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .stat:hover { background: var(--surface-2); }
+  .stat.is-active { background: var(--accent-bg); }
+  .stat-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  /* Sector chart */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-faint);
+    margin: 0 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-title .hint {
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: var(--font-body);
+  }
+  .sector-rows { display: flex; flex-direction: column; gap: 7px; }
+  .sector-row {
+    display: grid;
+    grid-template-columns: 168px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 3px 4px;
+    border-radius: 6px;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+  }
+  .sector-row:hover { background: var(--surface-2); }
+  .sector-row.is-active { background: var(--accent-bg); }
+  .sector-row.is-active .sector-name { color: var(--accent); }
+  .sector-name {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sector-bar-track {
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .sector-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    opacity: 0.75;
+  }
+  .sector-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-faint);
+    text-align: right;
+  }
+
+  /* Table controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .search {
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+  }
+  .search input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 10px 12px 10px 34px;
+  }
+  .search input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  .search svg {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.5;
+  }
+  .filter-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .filter-pill:hover { border-color: var(--accent); color: var(--text); }
+  .filter-pill button {
+    background: none; border: none; color: inherit; font: inherit;
+    cursor: pointer; padding: 0; line-height: 1; opacity: 0.6;
+  }
+  .filter-pill button:hover { opacity: 1; }
+  .result-count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 640px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .arrow { opacity: 0; margin-left: 3px; font-size: 10px; }
+  thead th.sorted .arrow { opacity: 1; color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody td { padding: 8px 14px; vertical-align: middle; }
+  .cell-ticker {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.01em;
+  }
+  .cell-name { color: var(--text-dim); }
+  .cell-type {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .cell-sector { color: var(--text-faint); font-size: 12.5px; }
+  .cell-industry { color: var(--text-faint); font-size: 12px; }
+
+  .empty-state {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+
+  footer.page-foot {
+    margin-top: 28px;
+    color: var(--text-faint);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  footer.page-foot code {
+    font-family: var(--font-mono);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+
+  @media (max-width: 640px) {
+    .sector-row { grid-template-columns: 110px 1fr 32px; }
+    .cell-industry, .cell-sector { display: none; }
+  }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<div class="wrap">
+  <header class="page-head">
+    <p class="eyebrow">signals-app · phase 4/9 seed data</p>
+    <h1>Universe Seed</h1>
+    <p class="subhead">
+      954 active tickers extracted from <code>seed/universe_symbols.csv</code> —
+      the source for the <code>symbols</code> table once the scan universe
+      scales past its 5-ticker pilot. Click a stat or sector to filter; click
+      a column header to sort.
+    </p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="panel">
+    <p class="panel-title">
+      <span>Sectors</span>
+      <span class="hint" id="sector-hint">by ticker count</span>
+    </p>
+    <div class="sector-rows" id="sectors"></div>
+  </div>
+
+  <div class="controls">
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="search" placeholder="Search ticker, name, or industry…" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="active-filters"></div>
+    <span class="result-count" id="result-count"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="t">Ticker <span class="arrow">▾</span></th>
+          <th data-key="n">Name <span class="arrow">▾</span></th>
+          <th data-key="a">Type <span class="arrow">▾</span></th>
+          <th data-key="s">Sector <span class="arrow">▾</span></th>
+          <th data-key="i">Industry <span class="arrow">▾</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <footer class="page-foot">
+    <span>Source: <code>nuwrrrld-portal/docs/universe-by-industry.md</code> Appendix A.4, extracted 2026-08-19</span>
+    <span id="footer-count"></span>
+  </footer>
+</div>
+
+<script>
+const DATA = [{"t":"A","n":"Agilent Technologies","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"AA","n":"Alcoa","a":"Equity","s":"Basic Materials","i":"Aluminum"},{"t":"AAPL","n":"Apple","a":"Equity","s":"Technology","i":"Consumer Electronics"},{"t":"AAPU","n":"Direxion Daily AAPL Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"ABBV","n":"AbbVie","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"ABNB","n":"Airbnb","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"ABSI","n":"Absci","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"ABT","n":"Abbott Laboratories","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"ACA","n":"Arcosa","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"ACGL","n":"Arch Capital Group","a":"Equity","s":"Financial Services","i":"Insurance - Diversified"},{"t":"ACN","n":"Accenture","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"ADBE","n":"Adobe","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"ADI","n":"Analog Devices","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"ADM","n":"Archer-Daniels-Midland","a":"Equity","s":"Consumer Defensive","i":"Farm Products"},{"t":"ADP","n":"Automatic Data Processing","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"ADSK","n":"Autodesk","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"AEE","n":"Ameren","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"AEM","n":"Agnico Eagle Mines Limited","a":"Equity","s":"Basic Materials","i":"Gold"},{"t":"AEP","n":"American Electric Power Company","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"AES","n":"The AES","a":"Equity","s":"Utilities","i":"Utilities - Diversified"},{"t":"AFL","n":"Aflac Incorporated","a":"Equity","s":"Financial Services","i":"Insurance - Life"},{"t":"AFRM","n":"Affirm Holdings","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"AG","n":"First Majestic Silver","a":"Equity","s":"Basic Materials","i":"Silver"},{"t":"AGG","n":"iShares Core U.S. Aggregate Bond ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"AGQ","n":"ProShares Ultra Silver","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"AI","n":"C3.ai","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"AIG","n":"American International Group","a":"Equity","s":"Financial Services","i":"Insurance - Diversified"},{"t":"AIZ","n":"Assurant","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"AJG","n":"Arthur J. Gallagher &","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"AKAM","n":"Akamai Technologies","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"ALAB","n":"Astera Labs","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"ALB","n":"Albemarle","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"ALGN","n":"Align Technology","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"ALGT","n":"Allegiant Travel","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"ALK","n":"Alaska Air Group","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"ALL","n":"The Allstate","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"ALLE","n":"Allegion","a":"Equity","s":"Industrials","i":"Security & Protection Services"},{"t":"ALLY","n":"Ally Financial","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"ALNY","n":"Alnylam Pharmaceuticals","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"ALV","n":"Autoliv","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"AMAT","n":"Applied Materials","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"AMBA","n":"Ambarella","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"AMCR","n":"Amcor","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"AMD","n":"Advanced Micro Devices","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"AME","n":"AMETEK","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"AMGN","n":"Amgen","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"AMKBY","n":"A.P. M\u00f8ller - M\u00e6rsk A/S","a":"Equity","s":"Industrials","i":"Marine Shipping"},{"t":"AMKR","n":"Amkor Technology","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"AMP","n":"Ameriprise Financial","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"AMPG","n":"AmpliTech Group","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"AMT","n":"American Tower","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"AMZN","n":"Amazon.com","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"AMZU","n":"Direxion Daily AMZN Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"ANDE","n":"The Andersons","a":"Equity","s":"Consumer Defensive","i":"Food Distribution"},{"t":"ANET","n":"Arista Networks","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"ANFGF","n":"Antofagasta","a":"Equity","s":"Basic Materials","i":"Copper"},{"t":"ANGPY","n":"Valterra Platinum Limited","a":"Equity","s":"Basic Materials","i":"Other Precious Metals & Mining"},{"t":"AON","n":"Aon","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"AOS","n":"A. O. Smith","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"APA","n":"APA","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"APD","n":"Air Products and Chemicals","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"APH","n":"Amphenol","a":"Equity","s":"Technology","i":"Electronic Components"},{"t":"APLD","n":"Applied Digital","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"APO","n":"Apollo Global Management","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"APP","n":"AppLovin","a":"Equity","s":"Communication Services","i":"Advertising Agencies"},{"t":"APTV","n":"Aptiv","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"ARE","n":"Alexandria Real Estate Equities","a":"Equity","s":"Real Estate","i":"REIT - Office"},{"t":"ARES","n":"Ares Management","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"ARKG","n":"ARK Genomic Revolution ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ARKK","n":"ARK Innovation ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ARM","n":"Arm Holdings","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"ARQQ","n":"Arqit Quantum","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"AS","n":"Amer Sports","a":"Equity","s":"Consumer Cyclical","i":"Leisure"},{"t":"ASML","n":"ASML Holding","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"ASX","n":"ASE Technology Holding Co.","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"ATO","n":"Atmos Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Gas"},{"t":"ATOM","n":"Atomera Incorporated","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"ATRO","n":"Astronics","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"AU","n":"AngloGold Ashanti","a":"Equity","s":"Basic Materials","i":"Gold"},{"t":"AUR","n":"Aurora Innovation","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"AVGO","n":"Broadcom","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"AVPT","n":"AvePoint","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"AVY","n":"Avery Dennison","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"AWK","n":"American Water Works Company","a":"Equity","s":"Utilities","i":"Utilities - Regulated Water"},{"t":"AXON","n":"Axon Enterprise","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"AXP","n":"American Express","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"AZO","n":"AutoZone","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"B","n":"Barrick Mining","a":"Equity","s":"Basic Materials","i":"Gold"},{"t":"BA","n":"The Boeing","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"BABA","n":"Alibaba Group Holding Limited","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"BAC","n":"Bank of America","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"BALL","n":"Ball","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"BAX","n":"Baxter International","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"BBAI","n":"BigBear.ai Holdings","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"BBBY","n":"Bed Bath & Beyond","a":"Equity","s":"Unclassified","i":""},{"t":"BBGI","n":"Beasley Broadcast Group","a":"Equity","s":"Communication Services","i":"Broadcasting"},{"t":"BBVA","n":"Banco Bilbao Vizcaya Argentaria","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"BBY","n":"Best Buy Co.","a":"Equity","s":"Consumer Cyclical","i":"Specialty Retail"},{"t":"BCHG","n":"Grayscale Bitcoin Cash Trust","a":"Equity","s":"Unclassified","i":""},{"t":"BDX","n":"Becton, Dickinson and","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"BEN","n":"Franklin Templeton","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"BF-B","n":"Brown-Forman","a":"Equity","s":"Consumer Defensive","i":"Beverages - Wineries & Distilleries"},{"t":"BG","n":"Bunge Global SA","a":"Equity","s":"Consumer Defensive","i":"Farm Products"},{"t":"BHP","n":"BHP Group Limited","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"BIDU","n":"Baidu","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"BIIB","n":"Biogen","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"BILI","n":"Bilibili","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"BITB","n":"Bitwise Bitcoin ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BITC","n":"Bitwise Trendwise Bitcoin and Treasuries Rotation Strategy ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BITO","n":"ProShares Bitcoin ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BITQ","n":"Bitwise Crypto Industry Innovators ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BITU","n":"Proshares Ultra Bitcoin ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"BITX","n":"2x Bitcoin Strategy ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"BKNG","n":"Booking Holdings","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"BKR","n":"Baker Hughes","a":"Equity","s":"Energy","i":"Oil & Gas Equipment & Services"},{"t":"BLDP","n":"Ballard Power Systems","a":"Equity","s":"Industrials","i":"Electrical Equipment & Parts"},{"t":"BLDR","n":"Builders FirstSource","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"BLK","n":"BlackRock","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"BMY","n":"Bristol-Myers Squibb","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"BNY","n":"The Bank of New York Mellon Cor","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"BOIL","n":"ProShares Ultra Bloomberg Natural Gas","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"BOTZ","n":"Global X Robotics & Artificial Intelligence ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"BR","n":"Broadridge Financial Solutions","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"BRK-B","n":"Berkshire Hathaway","a":"Equity","s":"Financial Services","i":"Insurance - Diversified"},{"t":"BRO","n":"Brown & Brown","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"BSOL","n":"Bitwise Solana Staking ETF","a":"Equity","s":"Unclassified","i":""},{"t":"BSX","n":"Boston Scientific","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"BSY","n":"Bentley Systems, Incorporated","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"BTC","n":"Grayscale Bitcoin Mini Trust ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BTC-USD","n":"Bitcoin USD","a":"Crypto","s":"Cryptocurrency","i":""},{"t":"BTCT","n":"BTC Digital","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"BTF","n":"CoinShares Bitcoin and Ether ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"BTU","n":"Peabody Energy","a":"Equity","s":"Energy","i":"Thermal Coal"},{"t":"BUD","n":"Anheuser-Busch InBev SA/NV","a":"Equity","s":"Consumer Defensive","i":"Beverages - Brewers"},{"t":"BURL","n":"Burlington Stores","a":"Equity","s":"Consumer Cyclical","i":"Apparel Retail"},{"t":"BX","n":"Blackstone","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"BXP","n":"BXP","a":"Equity","s":"Real Estate","i":"REIT - Office"},{"t":"BYDDF","n":"BYD Company Limited","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"BYND","n":"Beyond Meat","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"BZFD","n":"BuzzFeed","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"C","n":"Citigroup","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"CAG","n":"Conagra Brands","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"CAH","n":"Cardinal Health","a":"Equity","s":"Healthcare","i":"Medical Distribution"},{"t":"CAKE","n":"The Cheesecake Factory Incorporated","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"CARR","n":"Carrier Global","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"CART","n":"Maplebear","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"CASY","n":"Casey's General Stores","a":"Equity","s":"Consumer Cyclical","i":"Specialty Retail"},{"t":"CAT","n":"Caterpillar","a":"Equity","s":"Industrials","i":"Farm & Heavy Construction Machinery"},{"t":"CAVA","n":"CAVA Group","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"CB","n":"Chubb Limited","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"CBOE","n":"Cboe Global Markets","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"CBRE","n":"CBRE Group","a":"Equity","s":"Real Estate","i":"Real Estate Services"},{"t":"CCEP","n":"Coca-Cola Europacific Partners","a":"Equity","s":"Consumer Defensive","i":"Beverages - Non-Alcoholic"},{"t":"CCI","n":"Crown Castle","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"CCJ","n":"Cameco","a":"Equity","s":"Energy","i":"Uranium"},{"t":"CCL","n":"Carnival Corporation","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"CDNL","n":"Cardinal Infrastructure Group","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"CDNS","n":"Cadence Design Systems","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"CDW","n":"CDW","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"CEG","n":"Constellation Energy","a":"Equity","s":"Utilities","i":"Utilities - Independent Power Producers"},{"t":"CF","n":"CF Industries Holdings","a":"Equity","s":"Basic Materials","i":"Agricultural Inputs"},{"t":"CFG","n":"Citizens Financial Group","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"CG","n":"The Carlyle Group","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"CHD","n":"Church & Dwight Co.","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"CHKP","n":"Check Point Software Technologies","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"CHRW","n":"C.H. Robinson Worldwide","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"CHTR","n":"Charter Communications","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"CI","n":"The Cigna Group","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"CIEN","n":"Ciena","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"CIFR","n":"Cipher Digital","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"CINF","n":"Cincinnati Financial","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"CL","n":"Colgate-Palmolive","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"CLBT","n":"Cellebrite DI","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"CLF","n":"Cleveland-Cliffs","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"CLNE","n":"Clean Energy Fuels","a":"Equity","s":"Energy","i":"Oil & Gas Refining & Marketing"},{"t":"CLSK","n":"CleanSpark","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"CLX","n":"The Clorox","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"CMCSA","n":"Comcast","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"CME","n":"CME Group","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"CMG","n":"Chipotle Mexican Grill","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"CMI","n":"Cummins","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"CMS","n":"CMS Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"CNC","n":"Centene","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"CNP","n":"CenterPoint Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"COF","n":"Capital One Financial","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"COHR","n":"Coherent","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"COIN","n":"Coinbase Global","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"COLB","n":"Columbia Banking System","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"CONL","n":"GraniteShares 2x Long COIN Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"CONY","n":"YieldMax COIN Option Income Strategy ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"COO","n":"The Cooper Companies","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"COP","n":"ConocoPhillips","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"COPX","n":"Global X Copper Miners ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"COR","n":"Cencora","a":"Equity","s":"Healthcare","i":"Medical Distribution"},{"t":"CORZ","n":"Core Scientific","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"COST","n":"Costco Wholesale","a":"Equity","s":"Consumer Defensive","i":"Discount Stores"},{"t":"CPA","n":"Copa Holdings","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"CPAY","n":"Corpay","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"CPNG","n":"Coupang","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"CPRT","n":"Copart","a":"Equity","s":"Industrials","i":"Specialty Business Services"},{"t":"CPT","n":"Camden Property Trust","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"CRCL","n":"Circle Internet Group","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"CRDO","n":"Credo Technology Group Holding","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"CRESY","n":"Cresud Sociedad An\u00f3nima, Comercial, Inmobiliaria, Financiera y Agropecuaria","a":"Equity","s":"Industrials","i":"Conglomerates"},{"t":"CRH","n":"CRH","a":"Equity","s":"Basic Materials","i":"Building Materials"},{"t":"CRL","n":"Charles River Laboratories International","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"CRM","n":"Salesforce","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"CRML","n":"Critical Metals","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"CRWD","n":"CrowdStrike Holdings","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"CRWV","n":"CoreWeave","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"CSCO","n":"Cisco Systems","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"CSGP","n":"CoStar Group","a":"Equity","s":"Real Estate","i":"Real Estate Services"},{"t":"CSX","n":"CSX","a":"Equity","s":"Industrials","i":"Railroads"},{"t":"CTAS","n":"Cintas","a":"Equity","s":"Industrials","i":"Specialty Business Services"},{"t":"CTSH","n":"Cognizant Technology Solutions","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"CTVA","n":"Corteva","a":"Equity","s":"Basic Materials","i":"Agricultural Inputs"},{"t":"CVNA","n":"Carvana","a":"Equity","s":"Consumer Cyclical","i":"Auto & Truck Dealerships"},{"t":"CVS","n":"CVS Health","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"CVX","n":"Chevron","a":"Equity","s":"Energy","i":"Oil & Gas Integrated"},{"t":"CXAI","n":"CXApp","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"D","n":"Dominion Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"DAL","n":"Delta Air Lines","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"DAR","n":"Darling Ingredients","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"DASH","n":"DoorDash","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"DAX","n":"Global X DAX Germany ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"DD","n":"DuPont de Nemours","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"DDM","n":"ProShares Ultra Dow30","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DDOG","n":"Datadog","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"DE","n":"Deere &","a":"Equity","s":"Industrials","i":"Farm & Heavy Construction Machinery"},{"t":"DECK","n":"Deckers Outdoor","a":"Equity","s":"Consumer Cyclical","i":"Footwear & Accessories"},{"t":"DELL","n":"Dell Technologies","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"DG","n":"Dollar General","a":"Equity","s":"Consumer Defensive","i":"Discount Stores"},{"t":"DGX","n":"Quest Diagnostics Incorporated","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"DHI","n":"D.R. Horton","a":"Equity","s":"Consumer Cyclical","i":"Residential Construction"},{"t":"DHR","n":"Danaher","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"DIA","n":"State Street SPDR Dow Jones Industrial Average ETF Trust","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"DIS","n":"The Walt Disney","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"DLR","n":"Digital Realty Trust","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"DLTR","n":"Dollar Tree","a":"Equity","s":"Consumer Defensive","i":"Discount Stores"},{"t":"DOC","n":"Healthpeak Properties","a":"Equity","s":"Real Estate","i":"REIT - Healthcare Facilities"},{"t":"DOCN","n":"DigitalOcean Holdings","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"DOG","n":"ProShares Short Dow30","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DOGE-USD","n":"Dogecoin USD","a":"Crypto","s":"Cryptocurrency","i":""},{"t":"DOV","n":"Dover","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"DOW","n":"Dow","a":"Equity","s":"Basic Materials","i":"Chemicals"},{"t":"DPST","n":"Direxion Daily Regional Banks Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DPZ","n":"Domino's Pizza","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"DRI","n":"Darden Restaurants","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"DRIP","n":"Direxion Daily S&P Oil & Gas Exp. & Prod. Bear 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DRV","n":"Direxion Daily Real Estate Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DTE","n":"DTE Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"DUK","n":"Duke Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"DUST","n":"Direxion Daily Gold Miners Index Bear 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"DVA","n":"DaVita","a":"Equity","s":"Healthcare","i":"Medical Care Facilities"},{"t":"DVN","n":"Devon Energy","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"DXCM","n":"DexCom","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"DXD","n":"ProShares UltraShort Dow30","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"EADSY","n":"Airbus SE","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"EBAY","n":"eBay","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"ECHO","n":"EchoStar","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"ECL","n":"Ecolab","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"ED","n":"Consolidated Edison","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"EDC","n":"Direxion Daily MSCI Emerging Markets Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"EDZ","n":"Direxion Daily MSCI Emerging Markets Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"EEM","n":"iShares MSCI Emerging Markets ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EEV","n":"ProShares UltraShort MSCI Emerging Markets","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"EFX","n":"Equifax","a":"Equity","s":"Industrials","i":"Consulting Services"},{"t":"EG","n":"Everest Group","a":"Equity","s":"Financial Services","i":"Insurance - Reinsurance"},{"t":"EIX","n":"Edison International","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"EL","n":"The Est\u00e9e Lauder Companies","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"ELM","n":"Elm Market Navigator ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ELV","n":"Elevance Health","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"EME","n":"EMCOR Group","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"EMR","n":"Emerson Electric","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"EOG","n":"EOG Resources","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"EOSE","n":"Eos Energy Enterprises","a":"Equity","s":"Industrials","i":"Electrical Equipment & Parts"},{"t":"EQIX","n":"Equinix","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"EQT","n":"EQT","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"ERIE","n":"Erie Indemnity","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"ERX","n":"Direxion Daily Energy Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"ES","n":"Eversource Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"ESS","n":"Essex Property Trust","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"ESTC","n":"Elastic","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"ET","n":"Energy Transfer LP","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"ETCG","n":"Grayscale Ethereum Classic Trust (ETC)","a":"Equity","s":"Unclassified","i":""},{"t":"ETH","n":"Grayscale Ethereum Mini Trust ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ETH-USD","n":"Ethereum USD","a":"Crypto","s":"Cryptocurrency","i":""},{"t":"ETHA","n":"iShares Ethereum Trust ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"ETHE","n":"Grayscale Ethereum Staking ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"ETHV","n":"VanEck Ethereum ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"ETHW","n":"Bitwise Ethereum ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"ETN","n":"Eaton Corporation","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"ETR","n":"Entergy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"ETSY","n":"Etsy","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"EUM","n":"ProShares Short MSCI Emerging Markets","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"EVGOW","n":"EVgo","a":"Equity","s":"Unclassified","i":""},{"t":"EVR","n":"Evercore","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"EVRG","n":"Evergy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"EW","n":"Edwards Lifesciences","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"EWC","n":"iShares MSCI Canada ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EWG","n":"iShares MSCI Germany ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EWJ","n":"iShares MSCI Japan ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EWL","n":"iShares MSCI Switzerland ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EWU","n":"iShares MSCI United Kingdom ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EWW","n":"iShares MSCI Mexico ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"EXC","n":"Exelon","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"EXE","n":"Expand Energy","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"EXPD","n":"Expeditors International of Washington","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"EXPE","n":"Expedia Group","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"EXR","n":"Extra Space Storage","a":"Equity","s":"Real Estate","i":"REIT - Industrial"},{"t":"F","n":"Ford Motor","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"FANG","n":"Diamondback Energy","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"FAST","n":"Fastenal","a":"Equity","s":"Industrials","i":"Industrial Distribution"},{"t":"FAZ","n":"Direxion Daily Financial Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"FBIO","n":"Fortress Biotech","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"FBL","n":"GraniteShares 2x Long META Daily ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"FCX","n":"Freeport-McMoRan","a":"Equity","s":"Basic Materials","i":"Copper"},{"t":"FDS","n":"FactSet Research Systems","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"FDX","n":"FedEx","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"FDXF","n":"FedEx Freight Holding Company","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"FE","n":"FirstEnergy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"FEMY","n":"Femasys","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"FER","n":"Ferrovial","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"FERG","n":"Ferguson Enterprises","a":"Equity","s":"Industrials","i":"Industrial Distribution"},{"t":"FETH","n":"Fidelity Ethereum Fund","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"FFIV","n":"F5","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"FICO","n":"Fair Isaac","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"FIS","n":"Fidelity National Information Services","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"FISV","n":"Fiserv","a":"Equity","s":"Unclassified","i":""},{"t":"FITB","n":"Fifth Third Bancorp","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"FIX","n":"Comfort Systems USA","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"FKU","n":"First Trust United Kingdom AlphaDEX Fund","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"FLEX","n":"Flex","a":"Equity","s":"Technology","i":"Electronic Components"},{"t":"FLMX","n":"Franklin FTSE Mexico ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"FLNG","n":"FLEX LNG","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"FM","n":"iShares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"FMS","n":"Fresenius Medical Care AG","a":"Equity","s":"Healthcare","i":"Medical Care Facilities"},{"t":"FORM","n":"FormFactor","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"FOX","n":"Fox","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"FOXA","n":"Fox","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"FRT","n":"Federal Realty Investment Trust","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"FSLR","n":"First Solar","a":"Equity","s":"Technology","i":"Solar"},{"t":"FSLY","n":"Fastly","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"FTAI","n":"FTAI Aviation","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"FTNT","n":"Fortinet","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"FTV","n":"Fortive","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"FUTU","n":"Futu Holdings Limited","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"FVRR","n":"Fiverr International","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"FXI","n":"iShares China Large-Cap ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"GAP","n":"The Gap","a":"Equity","s":"Consumer Cyclical","i":"Apparel Retail"},{"t":"GBTC","n":"Grayscale Bitcoin Trust ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"GD","n":"General Dynamics","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"GDDY","n":"GoDaddy","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"GDLC","n":"Grayscale CoinDesk Crypto 5 ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"GE","n":"GE Aerospace","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"GEHC","n":"GE HealthCare Technologies","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"GEN","n":"Gen Digital","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"GEV","n":"GE Vernova","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"GFAI","n":"Guardforce AI Co., Limited","a":"Equity","s":"Industrials","i":"Security & Protection Services"},{"t":"GFF","n":"Griffon","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"GGLL","n":"Direxion Daily GOOGL Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"GGLS","n":"Direxion Daily GOOGL Bear 1X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"GILD","n":"Gilead Sciences","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"GIS","n":"General Mills","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"GL","n":"Globe Life","a":"Equity","s":"Financial Services","i":"Insurance - Life"},{"t":"GLD","n":"SPDR Gold Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"GLDM","n":"SPDR Gold MiniShares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"GLL","n":"ProShares UltraShort Gold","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"GLNCY","n":"Glencore","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"GLW","n":"Corning Incorporated","a":"Equity","s":"Technology","i":"Electronic Components"},{"t":"GM","n":"General Motors","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"GNRC","n":"Generac Holdings","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"GOOG","n":"Alphabet","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"GOOGL","n":"Alphabet","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"GPC","n":"Genuine Parts","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"GPCR","n":"Structure Therapeutics","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"GPN","n":"Global Payments","a":"Equity","s":"Industrials","i":"Specialty Business Services"},{"t":"GRAB","n":"Grab Holdings Limited","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"GRMN","n":"Garmin","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"GRNY","n":"Fundstrat Granny Shots US Large Cap ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"GRRR","n":"Gorilla Technology Group","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"GS","n":"The Goldman Sachs Group","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"GTLB","n":"GitLab","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"GUSH","n":"Direxion Daily S&P Oil & Gas Exp. & Prod. Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"GWRE","n":"Guidewire Software","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"GWW","n":"W.W. Grainger","a":"Equity","s":"Industrials","i":"Industrial Distribution"},{"t":"GXO","n":"GXO Logistics","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"HACK","n":"Amplify Cybersecurity ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"HAIN","n":"The Hain Celestial Group","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"HAL","n":"Halliburton","a":"Equity","s":"Energy","i":"Oil & Gas Equipment & Services"},{"t":"HAS","n":"Hasbro","a":"Equity","s":"Consumer Cyclical","i":"Leisure"},{"t":"HASI","n":"HA Sustainable Infrastructure Capital","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"HBAN","n":"Huntington Bancshares Incorporated","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"HCA","n":"HCA Healthcare","a":"Equity","s":"Healthcare","i":"Medical Care Facilities"},{"t":"HD","n":"The Home Depot","a":"Equity","s":"Consumer Cyclical","i":"Home Improvement Retail"},{"t":"HIG","n":"The Hartford Insurance Group","a":"Equity","s":"Financial Services","i":"Insurance - Diversified"},{"t":"HII","n":"Huntington Ingalls Industries","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"HLT","n":"Hilton Worldwide Holdings","a":"Equity","s":"Consumer Cyclical","i":"Lodging"},{"t":"HNGE","n":"Hinge Health","a":"Equity","s":"Healthcare","i":"Health Information Services"},{"t":"HON","n":"Honeywell International","a":"Equity","s":"Industrials","i":"Conglomerates"},{"t":"HONA","n":"Honeywell Aerospace","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"HOOD","n":"Robinhood Markets","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"HOOG","n":"Leverage Shares 2X Long HOOD Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"HOOX","n":"Defiance Daily Target 2X Long HOOD ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"HPE","n":"Hewlett Packard Enterprise","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"HPQ","n":"HP","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"HRL","n":"Hormel Foods","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"HSIC","n":"Henry Schein","a":"Equity","s":"Healthcare","i":"Medical Distribution"},{"t":"HST","n":"Host Hotels & Resorts","a":"Equity","s":"Real Estate","i":"REIT - Hotel & Motel"},{"t":"HSY","n":"The Hershey","a":"Equity","s":"Consumer Defensive","i":"Confectioners"},{"t":"HUBB","n":"Hubbell Incorporated","a":"Equity","s":"Industrials","i":"Electrical Equipment & Parts"},{"t":"HUBS","n":"HubSpot","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"HUM","n":"Humana","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"HUT","n":"Hut 8","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"HWM","n":"Howmet Aerospace","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"IBIT","n":"iShares Bitcoin Trust ETF","a":"ETF","s":"Digital-Asset Fund","i":""},{"t":"IBKR","n":"Interactive Brokers Group","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"IBM","n":"International Business Machines","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"ICE","n":"Intercontinental Exchange","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"IDXX","n":"IDEXX Laboratories","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"IEO","n":"iShares U.S. Oil & Gas Exploration & Production ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"IEV","n":"iShares Europe ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"IEX","n":"IDEX","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"IFF","n":"International Flavors & Fragrances","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"IGPT","n":"Invesco AI and Next Gen Software ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"IHAK","n":"iShares Cybersecurity and Tech ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ILMN","n":"Illumina","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"INCY","n":"Incyte","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"INFQ","n":"Infleqtion","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"INTC","n":"Intel","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"INTU","n":"Intuit","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"INVH","n":"Invitation Homes","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"IONQ","n":"IonQ","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"IOT","n":"Samsara","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"IP","n":"International Paper","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"IQ","n":"iQIYI","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"IQV","n":"IQVIA Holdings","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"IR","n":"Ingersoll Rand","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"IREN","n":"IREN Limited","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"IRM","n":"Iron Mountain Incorporated","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"ISRG","n":"Intuitive Surgical","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"IT","n":"Gartner","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"ITUB","n":"Ita\u00fa Unibanco Holding","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"ITW","n":"Illinois Tool Works","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"IVV","n":"iShares Core S&P 500 ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"IVZ","n":"Invesco","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"IWM","n":"iShares Russell 2000 ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"J","n":"Jacobs Solutions","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"JBHT","n":"J.B. Hunt Transport Services","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"JBL","n":"Jabil","a":"Equity","s":"Technology","i":"Electronic Components"},{"t":"JCI","n":"Johnson Controls International","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"JD","n":"JD.com","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"JEF","n":"Jefferies Financial Group","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"JKHY","n":"Jack Henry & Associates","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"JKS","n":"JinkoSolar Holding Co.","a":"Equity","s":"Technology","i":"Solar"},{"t":"JNJ","n":"Johnson & Johnson","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"JOBY","n":"Joby Aviation","a":"Equity","s":"Industrials","i":"Airports & Air Services"},{"t":"JPM","n":"JPMorgan Chase &","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"KDP","n":"Keurig Dr Pepper","a":"Equity","s":"Consumer Defensive","i":"Beverages - Non-Alcoholic"},{"t":"KEY","n":"KeyCorp","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"KEYS","n":"Keysight Technologies","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"KHC","n":"The Kraft Heinz","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"KIM","n":"Kimco Realty","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"KKR","n":"KKR & Co.","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"KLAC","n":"KLA","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"KLIC","n":"Kulicke and Soffa Industries","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"KMB","n":"Kimberly-Clark","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"KMI","n":"Kinder Morgan","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"KMX","n":"CarMax","a":"Equity","s":"Consumer Cyclical","i":"Auto & Truck Dealerships"},{"t":"KNSL","n":"Kinsale Capital Group","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"KO","n":"The Coca-Cola","a":"Equity","s":"Consumer Defensive","i":"Beverages - Non-Alcoholic"},{"t":"KOLD","n":"ProShares UltraShort Bloomberg Natural Gas","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"KR","n":"The Kroger","a":"Equity","s":"Consumer Defensive","i":"Grocery Stores"},{"t":"KRE","n":"State Street SPDR S&P Regional Banking ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"KVUE","n":"Kenvue","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"KVYO","n":"Klaviyo","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"KWEB","n":"KraneShares CSI China Internet ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"L","n":"Loews","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"LABD","n":"Direxion Daily S&P Biotech Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"LABU","n":"Direxion Daily S&P Biotech Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"LAC","n":"Lithium Americas","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"LAES","n":"SEALSQ","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"LB","n":"LandBridge Company LLC","a":"Equity","s":"Energy","i":"Oil & Gas Equipment & Services"},{"t":"LCID","n":"Lucid Group","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"LDOS","n":"Leidos Holdings","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"LEN","n":"Lennar","a":"Equity","s":"Consumer Cyclical","i":"Residential Construction"},{"t":"LH","n":"Labcorp Holdings","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"LHX","n":"L3Harris Technologies","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"LI","n":"Li Auto","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"LII","n":"Lennox International","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"LIN","n":"Linde","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"LITE","n":"Lumentum Holdings","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"LKNCY","n":"Luckin Coffee","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"LLY","n":"Eli Lilly and","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"LMND","n":"Lemonade","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"LMT","n":"Lockheed Martin","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"LNT","n":"Alliant Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"LOW","n":"Lowe's Companies","a":"Equity","s":"Consumer Cyclical","i":"Home Improvement Retail"},{"t":"LRCX","n":"Lam Research","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"LULU","n":"lululemon athletica inc.","a":"Equity","s":"Consumer Cyclical","i":"Apparel Retail"},{"t":"LUMN","n":"Lumen Technologies","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"LUNR","n":"Intuitive Machines","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"LUV","n":"Southwest Airlines","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"LVS","n":"Las Vegas Sands","a":"Equity","s":"Consumer Cyclical","i":"Resorts & Casinos"},{"t":"LWAY","n":"Lifeway Foods","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"LYB","n":"LyondellBasell Industries","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"LYFT","n":"Lyft","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"LYG","n":"Lloyds Banking Group","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"LYV","n":"Live Nation Entertainment","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"MA","n":"Mastercard Incorporated","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"MAA","n":"Mid-America Apartment Communities","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"MAC","n":"The Macerich","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"MAR","n":"Marriott International","a":"Equity","s":"Consumer Cyclical","i":"Lodging"},{"t":"MARA","n":"MARA Holdings","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"MAS","n":"Masco","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"MBGYY","n":"Mercedes-Benz Group AG","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"MCD","n":"McDonald's","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"MCHP","n":"Microchip Technology Incorporated","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"MCK","n":"McKesson","a":"Equity","s":"Healthcare","i":"Medical Distribution"},{"t":"MCO","n":"Moody's","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"MDB","n":"MongoDB","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"MDLZ","n":"Mondelez International","a":"Equity","s":"Consumer Defensive","i":"Confectioners"},{"t":"MDT","n":"Medtronic","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"MELI","n":"MercadoLibre","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"MET","n":"MetLife","a":"Equity","s":"Financial Services","i":"Insurance - Life"},{"t":"META","n":"Meta Platforms","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"MGM","n":"MGM Resorts International","a":"Equity","s":"Consumer Cyclical","i":"Resorts & Casinos"},{"t":"MGPI","n":"MGP Ingredients","a":"Equity","s":"Consumer Defensive","i":"Beverages - Wineries & Distilleries"},{"t":"MHK","n":"Mohawk Industries","a":"Equity","s":"Consumer Cyclical","i":"Furnishings, Fixtures & Appliances"},{"t":"MIDZ","n":"Direxion Daily Mid Cap Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"MKC","n":"McCormick & Company, Incorporated","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"MLM","n":"Martin Marietta Materials","a":"Equity","s":"Basic Materials","i":"Building Materials"},{"t":"MMM","n":"3M","a":"Equity","s":"Industrials","i":"Conglomerates"},{"t":"MNST","n":"Monster Beverage","a":"Equity","s":"Consumer Defensive","i":"Beverages - Non-Alcoholic"},{"t":"MO","n":"Altria Group","a":"Equity","s":"Consumer Defensive","i":"Tobacco"},{"t":"MOD","n":"Modine Manufacturing","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"MOS","n":"The Mosaic","a":"Equity","s":"Basic Materials","i":"Agricultural Inputs"},{"t":"MP","n":"MP Materials","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"MPC","n":"Marathon Petroleum","a":"Equity","s":"Energy","i":"Oil & Gas Refining & Marketing"},{"t":"MPWR","n":"Monolithic Power Systems","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"MRK","n":"Merck & Co.","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"MRNA","n":"Moderna","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"MRP","n":"Millrose Properties","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"MRSH","n":"Marsh & McLennan Companies","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"MRVL","n":"Marvell Technology","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"MS","n":"Morgan Stanley","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"MSCI","n":"MSCI","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"MSFT","n":"Microsoft","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"MSFU","n":"Direxion Daily MSFT Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"MSI","n":"Motorola Solutions","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"MSTR","n":"Strategy","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"MSTU","n":"T-Rex 2X Long MSTR Daily Target ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"MT","n":"ArcelorMittal","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"MTB","n":"M&T Bank","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"MTD","n":"Mettler-Toledo International","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"MU","n":"Micron Technology","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"MUU","n":"Direxion Daily MU Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"MYY","n":"ProShares Short MidCap400","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"NBIS","n":"Nebius Group","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"NCLH","n":"Norwegian Cruise Line Holdings","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"NDAQ","n":"Nasdaq","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"NDSN","n":"Nordson","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"NEE","n":"NextEra Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"NEM","n":"Newmont","a":"Equity","s":"Basic Materials","i":"Gold"},{"t":"NET","n":"Cloudflare","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"NFLX","n":"Netflix","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"NGVC","n":"Natural Grocers by Vitamin Cottage","a":"Equity","s":"Consumer Defensive","i":"Grocery Stores"},{"t":"NI","n":"NiSource","a":"Equity","s":"Utilities","i":"Utilities - Regulated Gas"},{"t":"NIO","n":"NIO","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"NKE","n":"NIKE","a":"Equity","s":"Consumer Cyclical","i":"Footwear & Accessories"},{"t":"NNN","n":"NNN REIT","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"NOC","n":"Northrop Grumman","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"NOK","n":"Nokia Oyj","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"NOW","n":"ServiceNow","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"NRG","n":"NRG Energy","a":"Equity","s":"Utilities","i":"Utilities - Independent Power Producers"},{"t":"NSC","n":"Norfolk Southern","a":"Equity","s":"Industrials","i":"Railroads"},{"t":"NTAP","n":"NetApp","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"NTRS","n":"Northern Trust","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"NTSK","n":"Netskope","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"NU","n":"Nu Holdings","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"NUE","n":"Nucor","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"NVD","n":"Graniteshares 2x Short NVDA Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"NVDA","n":"NVIDIA","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"NVDL","n":"GraniteShares 2x Long NVDA Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"NVDX","n":"T-Rex 2X Long NVIDIA Daily Target ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"NVR","n":"NVR","a":"Equity","s":"Consumer Cyclical","i":"Residential Construction"},{"t":"NWS","n":"News","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"NWSA","n":"News","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"NXE","n":"NexGen Energy","a":"Equity","s":"Energy","i":"Uranium"},{"t":"NXPI","n":"NXP Semiconductors","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"O","n":"Realty Income","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"ODFL","n":"Old Dominion Freight Line","a":"Equity","s":"Industrials","i":"Trucking"},{"t":"OGN","n":"Organon &","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"OIH","n":"VanEck Oil Services ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"OKE","n":"ONEOK","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"OKLL","n":"Defiance Daily Target 2X Long OKLO ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"OKLO","n":"Oklo","a":"Equity","s":"Utilities","i":"Utilities - Independent Power Producers"},{"t":"OKTA","n":"Okta","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"OMC","n":"Omnicom Group","a":"Equity","s":"Communication Services","i":"Advertising Agencies"},{"t":"ON","n":"ON Semiconductor","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"ONON","n":"On Holding AG","a":"Equity","s":"Consumer Cyclical","i":"Footwear & Accessories"},{"t":"ONTO","n":"Onto Innovation","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"ORCL","n":"Oracle","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"ORLY","n":"O'Reilly Automotive","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"OTF","n":"Blue Owl Technology Finance","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"OTIS","n":"Otis Worldwide","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"OUSM","n":"ALPS O'Shares U.S. Small-Cap Quality Dividend ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"OWL","n":"Blue Owl Capital","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"OXY","n":"Occidental Petroleum","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"PAAS","n":"Pan American Silver","a":"Equity","s":"Basic Materials","i":"Gold"},{"t":"PANW","n":"Palo Alto Networks","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"PATH","n":"UiPath","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"PAYX","n":"Paychex","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"PBW","n":"Invesco WilderHill Clean Energy ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"PCAR","n":"PACCAR","a":"Equity","s":"Industrials","i":"Farm & Heavy Construction Machinery"},{"t":"PCG","n":"PG&E","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"PDD","n":"PDD Holdings","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"PEG","n":"Public Service Enterprise Group Incorporated","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"PEGA","n":"Pegasystems","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"PEP","n":"PepsiCo","a":"Equity","s":"Consumer Defensive","i":"Beverages - Non-Alcoholic"},{"t":"PFE","n":"Pfizer","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - General"},{"t":"PFG","n":"Principal Financial Group","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"PG","n":"The Procter & Gamble","a":"Equity","s":"Consumer Defensive","i":"Household & Personal Products"},{"t":"PGR","n":"The Progressive","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"PH","n":"Parker-Hannifin","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"PHM","n":"PulteGroup","a":"Equity","s":"Consumer Cyclical","i":"Residential Construction"},{"t":"PKG","n":"Packaging Corporation of America","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"PKX","n":"POSCO Holdings","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"PL","n":"Planet Labs PBC","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"PLD","n":"Prologis","a":"Equity","s":"Real Estate","i":"REIT - Industrial"},{"t":"PLTR","n":"Palantir Technologies","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"PM","n":"Philip Morris International","a":"Equity","s":"Consumer Defensive","i":"Tobacco"},{"t":"PNC","n":"The PNC Financial Services Group","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"PNFP","n":"Pinnacle Financial Partners","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"PNR","n":"Pentair","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"PNW","n":"Pinnacle West Capital","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"PODD","n":"Insulet","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"PONY","n":"Pony AI","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"PPG","n":"PPG Industries","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"PPL","n":"PPL","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"PPLT","n":"abrdn Physical Platinum Shares ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"PRSO","n":"Peraso","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"PRU","n":"Prudential Financial","a":"Equity","s":"Financial Services","i":"Insurance - Life"},{"t":"PSA","n":"Public Storage","a":"Equity","s":"Real Estate","i":"REIT - Industrial"},{"t":"PSKY","n":"Paramount Skydance","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"PSQ","n":"ProShares Short QQQ","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"PSX","n":"Phillips 66","a":"Equity","s":"Energy","i":"Oil & Gas Refining & Marketing"},{"t":"PTC","n":"PTC","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"PWR","n":"Quanta Services","a":"Equity","s":"Industrials","i":"Engineering & Construction"},{"t":"PYPL","n":"PayPal Holdings","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"Q","n":"Qnity Electronics","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"QBTS","n":"D-Wave Quantum","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"QBTX","n":"Tradr 2X Long QBTS Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"QBTZ","n":"Defiance Daily Target 2X Short QBTS ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"QCOM","n":"QUALCOMM Incorporated","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"QID","n":"ProShares UltraShort QQQ","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"QMCO","n":"Quantum","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"QNC","n":"Quantum eMotion","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"QQQ","n":"Invesco QQQ Trust","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"QS","n":"QuantumScape","a":"Equity","s":"Consumer Cyclical","i":"Auto Parts"},{"t":"QSI","n":"Quantum-Si incorporated","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"QTUM","n":"Defiance Quantum ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"QUBT","n":"Quantum Computing","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"QXO","n":"QXO","a":"Equity","s":"Industrials","i":"Industrial Distribution"},{"t":"QYLD","n":"Global X NASDAQ 100 Covered Call ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"RBLX","n":"Roblox","a":"Equity","s":"Communication Services","i":"Electronic Gaming & Multimedia"},{"t":"RCL","n":"Royal Caribbean Cruises","a":"Equity","s":"Consumer Cyclical","i":"Travel Services"},{"t":"RDDT","n":"Reddit","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"RDW","n":"Redwire","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"REBN","n":"Reborn Coffee","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"REG","n":"Regency Centers","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"REGN","n":"Regeneron Pharmaceuticals","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"REMX","n":"VanEck Rare Earth and Strategic Metals ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"RF","n":"Regions Financial","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"RGTI","n":"Rigetti Computing","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"RGTX","n":"Defiance Daily Target 2X Long RGTI ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"RGTZ","n":"Defiance Daily Target 2X Short RGTI ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"RIG","n":"Transocean","a":"Equity","s":"Energy","i":"Oil & Gas Drilling"},{"t":"RIO","n":"Rio Tinto Group","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"RIOT","n":"Riot Platforms","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"RIVN","n":"Rivian Automotive","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"RJF","n":"Raymond James Financial","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"RKDA","n":"Arcadia Biosciences","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"RKLB","n":"Rocket Lab","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"RKLZ","n":"Defiance Daily Target 2X Short RKLB ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"RL","n":"Ralph Lauren","a":"Equity","s":"Consumer Cyclical","i":"Apparel Manufacturing"},{"t":"RLAY","n":"Relay Therapeutics","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"RMD","n":"ResMed","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"ROBO","n":"Robo Global Robotics and Automation Index ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"ROK","n":"Rockwell Automation","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"ROL","n":"Rollins","a":"Equity","s":"Consumer Cyclical","i":"Personal Services"},{"t":"ROOT","n":"Root","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"ROP","n":"Roper Technologies","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"ROST","n":"Ross Stores","a":"Equity","s":"Consumer Cyclical","i":"Apparel Retail"},{"t":"RS","n":"Reliance","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"RSG","n":"Republic Services","a":"Equity","s":"Industrials","i":"Waste Management"},{"t":"RSP","n":"Invesco S&P 500 Equal Weight ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"RTX","n":"RTX","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"RUN","n":"Sunrun","a":"Equity","s":"Technology","i":"Solar"},{"t":"RVTY","n":"Revvity","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"RWM","n":"ProShares Short Russell2000","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"RXRX","n":"Recursion Pharmaceuticals","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"S","n":"SentinelOne","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"SAIC","n":"Science Applications International","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"SAN","n":"Banco Santander","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"SAP","n":"SAP SE","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"SBAC","n":"SBA Communications","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"SBB","n":"ProShares Short SmallCap600","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SBRA","n":"Sabra Health Care REIT","a":"Equity","s":"Real Estate","i":"REIT - Healthcare Facilities"},{"t":"SBSW","n":"Sibanye Stillwater Limited","a":"Equity","s":"Basic Materials","i":"Other Precious Metals & Mining"},{"t":"SBUX","n":"Starbucks","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"SCCO","n":"Southern Copper","a":"Equity","s":"Basic Materials","i":"Copper"},{"t":"SCHW","n":"The Charles Schwab","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"SCHW-PD","n":"The Charles Schwab","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"SCO","n":"ProShares UltraShort Bloomberg Crude Oil","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SDOW","n":"ProShares UltraPro Short Dow30","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SDP","n":"ProShares UltraShort Utilities","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SDS","n":"ProShares UltraShort S&P500","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SEB","n":"Seaboard","a":"Equity","s":"Industrials","i":"Conglomerates"},{"t":"SEMI","n":"Columbia Select Technology ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"SFM","n":"Sprouts Farmers Market","a":"Equity","s":"Consumer Defensive","i":"Grocery Stores"},{"t":"SFTBY","n":"SoftBank Group","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"SG","n":"Sweetgreen","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"SGML","n":"Sigma Lithium","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"SH","n":"ProShares Short S&P500","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SHAK","n":"Shake Shack","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"SHEL","n":"Shell","a":"Equity","s":"Energy","i":"Oil & Gas Integrated"},{"t":"SHMD","n":"SCHMID Group","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"SHOP","n":"Shopify","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"SHW","n":"The Sherwin-Williams","a":"Equity","s":"Basic Materials","i":"Specialty Chemicals"},{"t":"SJM","n":"The J. M. Smucker","a":"Equity","s":"Consumer Defensive","i":"Packaged Foods"},{"t":"SKF","n":"ProShares UltraShort Financials","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SKHY","n":"SK hynix","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"SLB","n":"SLB","a":"Equity","s":"Energy","i":"Oil & Gas Equipment & Services"},{"t":"SLG","n":"SL Green Realty","a":"Equity","s":"Real Estate","i":"REIT - Office"},{"t":"SLV","n":"iShares Silver Trust","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"SMCI","n":"Super Micro Computer","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"SMDD","n":"ProShares UltraPro Short MidCap400","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SMH","n":"VanEck Semiconductor ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"SMST","n":"Defiance Daily Target 2X Short MSTR ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SMTC","n":"Semtech","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"SN","n":"SharkNinja","a":"Equity","s":"Consumer Cyclical","i":"Furnishings, Fixtures & Appliances"},{"t":"SNA","n":"Snap-on Incorporated","a":"Equity","s":"Industrials","i":"Tools & Accessories"},{"t":"SNDK","n":"Sandisk","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"SNDU","n":"T-REX 2X Long SNDK Daily Target ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SNOW","n":"Snowflake","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"SNPS","n":"Synopsys","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"SNX","n":"TD SYNNEX","a":"Equity","s":"Technology","i":"Electronics & Computer Distribution"},{"t":"SO","n":"The Southern","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"SOL-USD","n":"Solana USD","a":"Crypto","s":"Cryptocurrency","i":""},{"t":"SOLT","n":"2x Solana ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SOLV","n":"Solventum","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"SOLZ","n":"Solana ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SOUN","n":"SoundHound AI","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"SOUX","n":"Defiance Daily Target 2X Long SOUN ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SOXL","n":"Direxion Daily Semiconductor Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SOXS","n":"Direxion Daily Semiconductor Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SPAM","n":"Themes Cybersecurity ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"SPCX","n":"Space Exploration Technologies","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"SPG","n":"Simon Property Group","a":"Equity","s":"Real Estate","i":"REIT - Retail"},{"t":"SPGI","n":"S&P Global","a":"Equity","s":"Financial Services","i":"Financial Data & Stock Exchanges"},{"t":"SPOT","n":"Spotify Technology","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"SPWR","n":"SunPower","a":"Equity","s":"Technology","i":"Solar"},{"t":"SPXL","n":"Direxion Daily S&P500 Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SPXS","n":"Direxion Daily S&P 500 Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SPXU","n":"ProShares UltraPro Short S&P500","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SQQQ","n":"ProShares UltraPro Short QQQ","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SRE","n":"Sempra","a":"Equity","s":"Utilities","i":"Utilities - Diversified"},{"t":"SRNE","n":"Sorrento Therapeutics","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"SRRK","n":"Scholar Rock Holding","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"SRTA","n":"Strata Critical Medical","a":"Equity","s":"Healthcare","i":"Medical Care Facilities"},{"t":"SRTY","n":"ProShares UltraPro Short Russell2000","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"SRUUF","n":"Sprott Physical Uranium Trust Fund","a":"Equity","s":"Energy","i":"Uranium"},{"t":"SSG","n":"ProShares UltraShort Semiconductors","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"STE","n":"STERIS","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"STLD","n":"Steel Dynamics","a":"Equity","s":"Basic Materials","i":"Steel"},{"t":"STT","n":"State Street","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"STX","n":"Seagate Technology Holdings","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"STZ","n":"Constellation Brands","a":"Equity","s":"Consumer Defensive","i":"Beverages - Brewers"},{"t":"SW","n":"Smurfit Westrock Plc","a":"Equity","s":"Consumer Cyclical","i":"Packaging & Containers"},{"t":"SWK","n":"Stanley Black & Decker","a":"Equity","s":"Industrials","i":"Tools & Accessories"},{"t":"SWKS","n":"Skyworks Solutions","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"SYF","n":"Synchrony Financial","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"SYK","n":"Stryker","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"SYM","n":"Symbotic","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"SYY","n":"Sysco","a":"Equity","s":"Consumer Defensive","i":"Food Distribution"},{"t":"SZK","n":"ProShares UltraShort Consumer Staples","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"T","n":"AT&T","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"TACK","n":"Fairlead Tactical Sector Fund","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"TAN","n":"Invesco Solar ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"TAP","n":"Molson Coors Beverage","a":"Equity","s":"Consumer Defensive","i":"Beverages - Brewers"},{"t":"TBHC","n":"The Brand House Collective","a":"Equity","s":"Consumer Cyclical","i":"Home Improvement Retail"},{"t":"TCEHY","n":"Tencent Holdings Limited","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"TDC","n":"Teradata","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"TDG","n":"TransDigm Group Incorporated","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"TDOC","n":"Teladoc Health","a":"Equity","s":"Healthcare","i":"Health Information Services"},{"t":"TDY","n":"Teledyne Technologies Incorporated","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"TEAM","n":"Atlassian","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"TECH","n":"Bio-Techne","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"TECK","n":"Teck Resources Limited","a":"Equity","s":"Basic Materials","i":"Copper"},{"t":"TECS","n":"Direxion Daily Technology Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TEL","n":"TE Connectivity","a":"Equity","s":"Technology","i":"Electronic Components"},{"t":"TER","n":"Teradyne","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"TEX","n":"Terex","a":"Equity","s":"Industrials","i":"Farm & Heavy Construction Machinery"},{"t":"TFC","n":"Truist Financial","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"TGE","n":"The Generation Essentials Group","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"TGT","n":"Target","a":"Equity","s":"Consumer Defensive","i":"Discount Stores"},{"t":"TH","n":"Target Hospitality","a":"Equity","s":"Industrials","i":"Specialty Business Services"},{"t":"TIGR","n":"UP Fintech Holding Limited","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"TJX","n":"The TJX Companies","a":"Equity","s":"Consumer Cyclical","i":"Apparel Retail"},{"t":"TKO","n":"TKO Group Holdings","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"TLT","n":"iShares 20+ Year Treasury Bond ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"TMO","n":"Thermo Fisher Scientific","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"TMUS","n":"T-Mobile US","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"TNA","n":"Direxion Daily Small Cap Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TNK","n":"Teekay Tankers","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"TOL","n":"Toll Brothers","a":"Equity","s":"Consumer Cyclical","i":"Residential Construction"},{"t":"TOST","n":"Toast","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"TPL","n":"Texas Pacific Land","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"TPR","n":"Tapestry","a":"Equity","s":"Consumer Cyclical","i":"Luxury Goods"},{"t":"TQQQ","n":"ProShares UltraPro QQQ","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TRGP","n":"Targa Resources","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"TRI","n":"Thomson Reuters","a":"Equity","s":"Industrials","i":"Specialty Business Services"},{"t":"TRMB","n":"Trimble","a":"Equity","s":"Technology","i":"Scientific & Technical Instruments"},{"t":"TRMD","n":"TORM","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"TROW","n":"T. Rowe Price Group","a":"Equity","s":"Financial Services","i":"Asset Management"},{"t":"TRV","n":"The Travelers Companies","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"TSCO","n":"Tractor Supply","a":"Equity","s":"Consumer Cyclical","i":"Specialty Retail"},{"t":"TSDD","n":"Graniteshares 2x Short TSLA Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TSLA","n":"Tesla","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"TSLL","n":"Direxion Daily TSLA Bull 2X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TSLR","n":"Graniteshares 2x Long TSLA Daily ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TSLS","n":"Direxion Daily TSLA Bear 1X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TSLZ","n":"T-Rex 2X Inverse Tesla Daily Target ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TSM","n":"Taiwan Semiconductor Manufacturing Company Limited","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"TSN","n":"Tyson Foods","a":"Equity","s":"Consumer Defensive","i":"Farm Products"},{"t":"TT","n":"Trane Technologies","a":"Equity","s":"Industrials","i":"Building Products & Equipment"},{"t":"TTD","n":"The Trade Desk","a":"Equity","s":"Communication Services","i":"Advertising Agencies"},{"t":"TTWO","n":"Take-Two Interactive Software","a":"Equity","s":"Communication Services","i":"Electronic Gaming & Multimedia"},{"t":"TUR","n":"iShares MSCI Turkey ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"TW","n":"Tradeweb Markets","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"TWLO","n":"Twilio","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"TWM","n":"ProShares UltraShort Russell2000","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"TXN","n":"Texas Instruments Incorporated","a":"Equity","s":"Technology","i":"Semiconductors"},{"t":"TXT","n":"Textron","a":"Equity","s":"Industrials","i":"Aerospace & Defense"},{"t":"TYL","n":"Tyler Technologies","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"TZA","n":"Direxion Daily Small Cap Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"U","n":"Unity Software","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"UAL","n":"United Airlines Holdings","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"UBER","n":"Uber Technologies","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"UCAR","n":"U Power Limited","a":"Equity","s":"Consumer Cyclical","i":"Auto & Truck Dealerships"},{"t":"UCO","n":"ProShares Ultra Bloomberg Crude Oil","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"UCTT","n":"Ultra Clean Holdings","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"UCYB","n":"ProShares Ultra Nasdaq Cybersecurity","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"UDOW","n":"ProShares UltraPro Dow30","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"UDR","n":"UDR","a":"Equity","s":"Real Estate","i":"REIT - Residential"},{"t":"UEC","n":"Uranium Energy","a":"Equity","s":"Energy","i":"Uranium"},{"t":"UGL","n":"ProShares Ultra Gold","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"UHS","n":"Universal Health Services","a":"Equity","s":"Healthcare","i":"Medical Care Facilities"},{"t":"UI","n":"Ubiquiti","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"ULTA","n":"Ulta Beauty","a":"Equity","s":"Consumer Cyclical","i":"Specialty Retail"},{"t":"UNG","n":"United States Natural Gas Fund, LP","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"UNH","n":"UnitedHealth Group Incorporated","a":"Equity","s":"Healthcare","i":"Healthcare Plans"},{"t":"UNP","n":"Union Pacific","a":"Equity","s":"Industrials","i":"Railroads"},{"t":"UPRO","n":"ProShares UltraPro S&P500","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"UPS","n":"United Parcel Service","a":"Equity","s":"Industrials","i":"Integrated Freight & Logistics"},{"t":"UPST","n":"Upstart Holdings","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"UPWK","n":"Upwork","a":"Equity","s":"Communication Services","i":"Internet Content & Information"},{"t":"URA","n":"Global X Uranium ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"URI","n":"United Rentals","a":"Equity","s":"Industrials","i":"Rental & Leasing Services"},{"t":"URNM","n":"Sprott Uranium Miners ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"USB","n":"U.S. Bancorp","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"UVXY","n":"ProShares Ultra VIX Short-Term Futures ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"V","n":"Visa","a":"Equity","s":"Financial Services","i":"Credit Services"},{"t":"VALE","n":"Vale","a":"Equity","s":"Basic Materials","i":"Other Industrial Metals & Mining"},{"t":"VECO","n":"Veeco Instruments","a":"Equity","s":"Technology","i":"Semiconductor Equipment & Materials"},{"t":"VEEV","n":"Veeva Systems","a":"Equity","s":"Healthcare","i":"Health Information Services"},{"t":"VGK","n":"Vanguard FTSE Europe ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VGT","n":"Vanguard Information Technology Index Fund ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VICI","n":"VICI Properties","a":"Equity","s":"Real Estate","i":"REIT - Diversified"},{"t":"VIPS","n":"Vipshop Holdings Limited","a":"Equity","s":"Consumer Cyclical","i":"Internet Retail"},{"t":"VIRT","n":"Virtu Financial","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"VIS","n":"Vanguard Industrials Index Fund ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VIXY","n":"ProShares VIX Short-Term Futures ETF","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"VKTX","n":"Viking Therapeutics","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"VLO","n":"Valero Energy","a":"Equity","s":"Energy","i":"Oil & Gas Refining & Marketing"},{"t":"VLRS","n":"Controladora Vuela Compa\u00f1\u00eda de Aviaci\u00f3n, S.A.B. de C.V.","a":"Equity","s":"Industrials","i":"Airlines"},{"t":"VLTO","n":"Veralto","a":"Equity","s":"Industrials","i":"Pollution & Treatment Controls"},{"t":"VMC","n":"Vulcan Materials","a":"Equity","s":"Basic Materials","i":"Building Materials"},{"t":"VNOM","n":"Viper Energy","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"VOX","n":"Vanguard Communication Services Index Fund ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VRSK","n":"Verisk Analytics","a":"Equity","s":"Industrials","i":"Consulting Services"},{"t":"VRSN","n":"VeriSign","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"VRT","n":"Vertiv Holdings Co","a":"Equity","s":"Industrials","i":"Electrical Equipment & Parts"},{"t":"VRTX","n":"Vertex Pharmaceuticals Incorporated","a":"Equity","s":"Healthcare","i":"Biotechnology"},{"t":"VST","n":"Vistra","a":"Equity","s":"Utilities","i":"Utilities - Independent Power Producers"},{"t":"VTR","n":"Ventas","a":"Equity","s":"Real Estate","i":"REIT - Healthcare Facilities"},{"t":"VTRS","n":"Viatris","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - Specialty & Generic"},{"t":"VTSAX","n":"Vanguard MStar Total Stk Mkt Idx Admiral","a":"Fund","s":"Mutual Fund","i":""},{"t":"VTWO","n":"Vanguard Russell 2000 Index Fund ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VTWV","n":"Vanguard Russell 2000 Value Index Fund ETF Shares","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"VZ","n":"Verizon Communications","a":"Equity","s":"Communication Services","i":"Telecom Services"},{"t":"WAB","n":"Westinghouse Air Brake Technologies","a":"Equity","s":"Industrials","i":"Railroads"},{"t":"WAL","n":"Western Alliance Bancorporation","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"WANT","n":"Direxion Daily Cnsmr Discret Bull 3XShrs","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"WAT","n":"Waters","a":"Equity","s":"Healthcare","i":"Diagnostics & Research"},{"t":"WBD","n":"Warner Bros. Discovery","a":"Equity","s":"Communication Services","i":"Entertainment"},{"t":"WCBR","n":"WisdomTree Cybersecurity Fund","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"WDAY","n":"Workday","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"WDC","n":"Western Digital","a":"Equity","s":"Technology","i":"Computer Hardware"},{"t":"WEAT","n":"Teucrium Wheat Fund","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"WEC","n":"WEC Energy Group","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"WELL","n":"Welltower","a":"Equity","s":"Real Estate","i":"REIT - Healthcare Facilities"},{"t":"WEN","n":"The Wendy's","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"WFC","n":"Wells Fargo &","a":"Equity","s":"Financial Services","i":"Banks - Diversified"},{"t":"WHR","n":"Whirlpool","a":"Equity","s":"Consumer Cyclical","i":"Furnishings, Fixtures & Appliances"},{"t":"WIMI","n":"WiMi Hologram Cloud","a":"Equity","s":"Communication Services","i":"Advertising Agencies"},{"t":"WISE","n":"Themes Generative Artificial Intelligence ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"WIT","n":"Wipro Limited","a":"Equity","s":"Technology","i":"Information Technology Services"},{"t":"WM","n":"Waste Management","a":"Equity","s":"Industrials","i":"Waste Management"},{"t":"WMB","n":"The Williams Companies","a":"Equity","s":"Energy","i":"Oil & Gas Midstream"},{"t":"WMT","n":"Walmart","a":"Equity","s":"Consumer Defensive","i":"Discount Stores"},{"t":"WRB","n":"W. R. Berkley","a":"Equity","s":"Financial Services","i":"Insurance - Property & Casualty"},{"t":"WSM","n":"Williams-Sonoma","a":"Equity","s":"Consumer Cyclical","i":"Specialty Retail"},{"t":"WST","n":"West Pharmaceutical Services","a":"Equity","s":"Healthcare","i":"Medical Instruments & Supplies"},{"t":"WTI","n":"W&T Offshore","a":"Equity","s":"Energy","i":"Oil & Gas E&P"},{"t":"WTW","n":"Willis Towers Watson Public Limited","a":"Equity","s":"Financial Services","i":"Insurance Brokers"},{"t":"WULF","n":"TeraWulf","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"WY","n":"Weyerhaeuser","a":"Equity","s":"Real Estate","i":"REIT - Specialty"},{"t":"WYNN","n":"Wynn Resorts, Limited","a":"Equity","s":"Consumer Cyclical","i":"Resorts & Casinos"},{"t":"XEL","n":"Xcel Energy","a":"Equity","s":"Utilities","i":"Utilities - Regulated Electric"},{"t":"XLB","n":"State Street Materials Select Sector SPDR ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XLC","n":"State Street Communication Services Select Sector SPDR ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XLE","n":"State Street Energy Select Sector SPDR ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XLI","n":"State Street Industrial Select Sector SPDR ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XLU","n":"State Street Utilities Select Sector SPDR ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XMAG","n":"Defiance Large Cap ex-Mag 7 ETF","a":"ETF","s":"Index / Sector / Thematic","i":""},{"t":"XOM","n":"ExxonMobil Holdings","a":"Equity","s":"Energy","i":"Oil & Gas Integrated"},{"t":"XP","n":"XP","a":"Equity","s":"Financial Services","i":"Capital Markets"},{"t":"XPEV","n":"XPeng","a":"Equity","s":"Consumer Cyclical","i":"Auto Manufacturers"},{"t":"XYL","n":"Xylem","a":"Equity","s":"Industrials","i":"Specialty Industrial Machinery"},{"t":"XYZ","n":"Block","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"YANG","n":"Direxion Daily FTSE China Bear 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"YINN","n":"Direxion Daily FTSE China Bull 3X Shares","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"YMM","n":"Full Truck Alliance Co.","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"YQ","n":"17 Education & Technology Group","a":"Equity","s":"Consumer Defensive","i":"Education & Training Services"},{"t":"YUM","n":"Yum! Brands","a":"Equity","s":"Consumer Cyclical","i":"Restaurants"},{"t":"ZBH","n":"Zimmer Biomet Holdings","a":"Equity","s":"Healthcare","i":"Medical Devices"},{"t":"ZBRA","n":"Zebra Technologies","a":"Equity","s":"Technology","i":"Communication Equipment"},{"t":"ZION","n":"Zions Bancorporation, National Association","a":"Equity","s":"Financial Services","i":"Banks - Regional"},{"t":"ZM","n":"Zoom Communications","a":"Equity","s":"Technology","i":"Software - Application"},{"t":"ZS","n":"Zscaler","a":"Equity","s":"Technology","i":"Software - Infrastructure"},{"t":"ZSL","n":"ProShares UltraShort Silver","a":"ETF","s":"Leveraged & Inverse","i":""},{"t":"ZTS","n":"Zoetis","a":"Equity","s":"Healthcare","i":"Drug Manufacturers - Specialty & Generic"}];
+
+const TYPE_COLOR = { Equity: 'var(--equity)', ETF: 'var(--etf)', Crypto: 'var(--crypto)', Fund: 'var(--fund)' };
+
+const state = { query: '', type: null, sector: null, sortKey: 't', sortDir: 1 };
+
+function computeStats(rows) {
+  const byType = {};
+  for (const r of rows) byType[r.a] = (byType[r.a] || 0) + 1;
+  return byType;
+}
+
+function computeSectors(rows) {
+  const bySector = {};
+  for (const r of rows) {
+    const key = r.s || 'Unclassified';
+    bySector[key] = (bySector[key] || 0) + 1;
+  }
+  return Object.entries(bySector).sort((a, b) => b[1] - a[1]);
+}
+
+function renderStats() {
+  const byType = computeStats(DATA);
+  const order = ['Equity', 'ETF', 'Crypto', 'Fund'];
+  const el = document.getElementById('stats');
+  el.innerHTML = '';
+
+  const totalBtn = document.createElement('button');
+  totalBtn.className = 'stat' + (state.type === null ? ' is-active' : '');
+  totalBtn.innerHTML = `<div class="stat-num">${DATA.length}</div><div class="stat-label">Total</div>`;
+  totalBtn.onclick = () => { state.type = null; render(); };
+  el.appendChild(totalBtn);
+
+  for (const type of order) {
+    if (!byType[type]) continue;
+    const btn = document.createElement('button');
+    btn.className = 'stat' + (state.type === type ? ' is-active' : '');
+    btn.innerHTML = `<div class="stat-num"><span class="dot" style="background:${TYPE_COLOR[type]}"></span>${byType[type]}</div><div class="stat-label">${type}s</div>`;
+    btn.onclick = () => { state.type = state.type === type ? null : type; render(); };
+    el.appendChild(btn);
+  }
+}
+
+function renderSectors() {
+  const sectors = computeSectors(DATA);
+  const max = sectors[0][1];
+  const el = document.getElementById('sectors');
+  el.innerHTML = '';
+  for (const [name, count] of sectors) {
+    const row = document.createElement('button');
+    row.className = 'sector-row' + (state.sector === name ? ' is-active' : '');
+    const pct = Math.round((count / max) * 100);
+    row.innerHTML = `
+      <span class="sector-name">${name}</span>
+      <span class="sector-bar-track"><span class="sector-bar-fill" style="width:${pct}%"></span></span>
+      <span class="sector-count">${count}</span>
+    `;
+    row.onclick = () => { state.sector = state.sector === name ? null : name; render(); };
+    el.appendChild(row);
+  }
+}
+
+function renderActiveFilters() {
+  const el = document.getElementById('active-filters');
+  el.innerHTML = '';
+  el.style.display = 'flex';
+  el.style.gap = '8px';
+  if (state.type) {
+    const pill = document.createElement('span');
+    pill.className = 'filter-pill';
+    pill.innerHTML = `${state.type} <button aria-label="clear type filter">✕</button>`;
+    pill.querySelector('button').onclick = () => { state.type = null; render(); };
+    el.appendChild(pill);
+  }
+  if (state.sector) {
+    const pill = document.createElement('span');
+    pill.className = 'filter-pill';
+    pill.innerHTML = `${state.sector} <button aria-label="clear sector filter">✕</button>`;
+    pill.querySelector('button').onclick = () => { state.sector = null; render(); };
+    el.appendChild(pill);
+  }
+}
+
+function getFiltered() {
+  let rows = DATA;
+  if (state.type) rows = rows.filter(r => r.a === state.type);
+  if (state.sector) rows = rows.filter(r => (r.s || 'Unclassified') === state.sector);
+  if (state.query) {
+    const q = state.query.toLowerCase();
+    rows = rows.filter(r =>
+      r.t.toLowerCase().includes(q) ||
+      r.n.toLowerCase().includes(q) ||
+      r.i.toLowerCase().includes(q) ||
+      r.s.toLowerCase().includes(q)
+    );
+  }
+  const key = state.sortKey, dir = state.sortDir;
+  return [...rows].sort((a, b) => {
+    const av = (a[key] || '').toLowerCase(), bv = (b[key] || '').toLowerCase();
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+
+function renderTable() {
+  const rows = getFiltered();
+  const tbody = document.getElementById('tbody');
+  document.getElementById('result-count').textContent = `${rows.length} of ${DATA.length}`;
+  document.getElementById('footer-count').textContent = `showing ${rows.length} ticker${rows.length === 1 ? '' : 's'}`;
+
+  document.querySelectorAll('thead th').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.key === state.sortKey);
+    th.querySelector('.arrow').textContent = state.sortDir === 1 ? '▾' : '▴';
+  });
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No tickers match these filters.</div></td></tr>';
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const color = TYPE_COLOR[r.a] || 'var(--text-faint)';
+    tr.innerHTML = `
+      <td class="cell-ticker">${r.t}</td>
+      <td class="cell-name">${r.n}</td>
+      <td><span class="cell-type" style="background:color-mix(in srgb, ${color} 18%, transparent); color:${color}">${r.a}</span></td>
+      <td class="cell-sector">${r.s}</td>
+      <td class="cell-industry">${r.i}</td>
+    `;
+    frag.appendChild(tr);
+  }
+  tbody.innerHTML = '';
+  tbody.appendChild(frag);
+}
+
+function render() {
+  renderStats();
+  renderSectors();
+  renderActiveFilters();
+  renderTable();
+}
+
+document.getElementById('search').addEventListener('input', (e) => {
+  state.query = e.target.value;
+  renderTable();
+  document.getElementById('result-count').textContent =
+    document.getElementById('result-count').textContent;
+});
+
+document.querySelectorAll('thead th').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    if (state.sortKey === key) {
+      state.sortDir *= -1;
+    } else {
+      state.sortKey = key;
+      state.sortDir = 1;
+    }
+    renderTable();
+  });
+});
+
+render();
+</script>

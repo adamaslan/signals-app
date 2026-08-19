@@ -1,0 +1,425 @@
+<!doctype html>
+<title>Build-Out Status</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --border: #dde1e8;
+    --text: #1c2029;
+    --text-dim: #5b6272;
+    --text-faint: #8a90a0;
+    --accent: #0d9488;
+    --accent-bg: #0d948818;
+    --done: #16a34a;
+    --done-bg: #16a34a14;
+    --pending: #64748b;
+    --pending-bg: #64748b12;
+    --blocked: #d97706;
+    --blocked-bg: #d9770614;
+    --font-display: "Inter", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f14;
+      --surface: #151822;
+      --surface-2: #1b1f2b;
+      --border: #262b3a;
+      --text: #e6e8ef;
+      --text-dim: #9aa1b5;
+      --text-faint: #6b7185;
+      --accent: #5eead4;
+      --accent-bg: #5eead41a;
+      --done: #4ade80;
+      --done-bg: #4ade8016;
+      --pending: #8b93a7;
+      --pending-bg: #8b93a712;
+      --blocked: #fbbf24;
+      --blocked-bg: #fbbf2416;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0f14;
+    --surface: #151822;
+    --surface-2: #1b1f2b;
+    --border: #262b3a;
+    --text: #e6e8ef;
+    --text-dim: #9aa1b5;
+    --text-faint: #6b7185;
+    --accent: #5eead4;
+    --accent-bg: #5eead41a;
+    --done: #4ade80;
+    --done-bg: #4ade8016;
+    --pending: #8b93a7;
+    --pending-bg: #8b93a712;
+    --blocked: #fbbf24;
+    --blocked-bg: #fbbf2416;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  .subhead { color: var(--text-dim); font-size: 15px; max-width: 66ch; margin: 0 0 4px; }
+  .subhead code {
+    font-family: var(--font-mono); font-size: 13px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px; color: var(--text);
+  }
+  a { color: var(--accent); }
+
+  /* Progress bar */
+  .progress-wrap { margin: 28px 0 32px; }
+  .progress-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .progress-label { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.07em; }
+  .progress-num { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .progress-track {
+    height: 10px; background: var(--surface-2); border-radius: 5px;
+    overflow: hidden; display: flex; border: 1px solid var(--border);
+  }
+  .progress-fill { height: 100%; background: var(--done); }
+
+  /* Phase list */
+  .phase {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .phase:last-child { border-bottom: none; }
+  .phase-marker {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    margin-top: 1px;
+  }
+  .phase.done .phase-marker { background: var(--done-bg); color: var(--done); }
+  .phase.next .phase-marker { background: var(--blocked-bg); color: var(--blocked); }
+  .phase.pending .phase-marker { background: var(--pending-bg); color: var(--pending); }
+
+  .phase-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .phase-title { font-size: 15px; font-weight: 700; }
+  .phase.pending .phase-title { color: var(--text-dim); }
+  .phase-status {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+  .phase.done .phase-status { background: var(--done-bg); color: var(--done); }
+  .phase.next .phase-status { background: var(--blocked-bg); color: var(--blocked); }
+  .phase.pending .phase-status { background: var(--pending-bg); color: var(--pending); }
+  .phase-delivers { color: var(--text-dim); font-size: 13px; margin: 0 0 6px; }
+  .phase-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-faint); }
+  .phase-meta code {
+    font-family: var(--font-mono); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+  }
+  .pr-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 4px;
+    padding: 2px 7px; background: var(--surface-2);
+  }
+  .pr-link:hover { border-color: var(--accent); }
+
+  /* Panel */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 22px 24px; margin-bottom: 22px;
+  }
+  .panel-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--text-faint); margin: 0 0 16px;
+  }
+
+  /* Next-up detail cards */
+  .next-card {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 10px; background: var(--surface-2);
+  }
+  .next-card:last-child { margin-bottom: 0; }
+  .next-card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+  .next-card-num {
+    font-family: var(--font-mono); font-size: 11px; color: var(--blocked);
+    background: var(--blocked-bg); border-radius: 4px; padding: 1px 6px; font-weight: 700;
+  }
+  .next-card-title { font-weight: 700; font-size: 13.5px; }
+  .next-card-desc { color: var(--text-dim); font-size: 13px; margin: 0; }
+
+  footer.page-foot {
+    margin-top: 28px; color: var(--text-faint); font-size: 12px;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  footer.page-foot code {
+    font-family: var(--font-mono); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+  }
+
+  @media (max-width: 560px) {
+    .phase { grid-template-columns: 26px 1fr; }
+  }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<div class="wrap">
+  <p class="eyebrow">signals-app · GitHub Actions + Supabase build-out</p>
+  <h1>Build-Out Status</h1>
+  <p class="subhead">
+    Progress against the 11-phase plan in
+    <code>docs/backend-state-and-supabase-plan.md</code>. Phase 5 was the
+    milestone — the deployed site went from a functional shell to actually
+    working end to end against live Supabase data at
+    <a href="https://adamaslan.github.io/signals-app/" target="_blank" rel="noopener">adamaslan.github.io/signals-app</a>.
+  </p>
+
+  <div class="progress-wrap">
+    <div class="progress-head">
+      <span class="progress-label">Phases complete</span>
+      <span class="progress-num">6 / 11 (0–5)</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" style="width: 54.5%"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Phase Timeline</p>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">0 · Repo hygiene</span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers"><code>pip install -e .</code> works — fixed <code>build-backend</code>, added <code>aiosqlite</code>, <code>.nvmrc</code>, <code>lifespan</code>, CORS.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/7" target="_blank" rel="noopener">PR #7 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">1 · <code style="font-family:inherit">ci.yml</code></span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">Ruff + mypy (advisory) + pytest (blocking) on every push/PR.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/7" target="_blank" rel="noopener">PR #7 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">2 · Supabase project + schema + RLS</span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">8 tables live, RLS proven with real anon-key / service-role-key probes, not just read from the migration file.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/8" target="_blank" rel="noopener">PR #8 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">3 · Supabase writer + <code style="font-family:inherit">scan_universe.py</code></span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">Full <code>SignalOutput</code> (evidence + counter-evidence) persisted, not just metadata. Publication gate runs before LLM synthesis.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/8" target="_blank" rel="noopener">PR #8 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">4 · <code style="font-family:inherit">signals-scan.yml</code></span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">Scheduled + manual scan on a 5-ticker pilot. Verified on real Actions infra via <code>workflow_dispatch</code>, not just locally.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/9" target="_blank" rel="noopener">PR #9 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">5 · Frontend reads Supabase</span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">
+          The milestone. Also fixed a chain of pre-existing deploy blockers found only by real-browser
+          verification: a static-export <code>generateStaticParams()</code> requirement, a clobbered
+          <code>404.html</code>, a Next.js client-router incompatibility with un-prerendered dynamic
+          routes (fixed by moving <code>/signals/[symbol]</code> → <code>/signal/?symbol=</code>), and
+          GitHub Pages needing the repo public on the free plan. Confirmed live against real Supabase
+          data with zero console errors.
+        </p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/10" target="_blank" rel="noopener">PR #10 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase next">
+      <div class="phase-marker">→</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">6 · <code style="font-family:inherit">backfill.yml</code> + <code style="font-family:inherit">detector_hits</code></span>
+          <span class="phase-status">Next up</span>
+        </div>
+        <p class="phase-delivers">Historical bar-by-bar scan writes detector hits for every past bar, not just the latest — the corpus calibration needs.</p>
+      </div>
+    </div>
+
+    <div class="phase pending">
+      <div class="phase-marker">7</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title"><code style="font-family:inherit">calibrate.yml</code> + <code style="font-family:inherit">calibration</code> table</span>
+          <span class="phase-status">Pending</span>
+        </div>
+        <p class="phase-delivers">Closes the validation loop — hit-rate calibration was already wired into <code>ConfluenceRanker</code>, just reading a non-persistent local file. Point it at Supabase.</p>
+      </div>
+    </div>
+
+    <div class="phase pending">
+      <div class="phase-marker">8</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">Supabase Auth + <code style="font-family:inherit">watchlist</code>/<code style="font-family:inherit">profiles</code> sync</span>
+          <span class="phase-status">Pending</span>
+        </div>
+        <p class="phase-delivers">User state survives a browser wipe — watchlists and preferences currently live only in Dexie/IndexedDB, one device only.</p>
+      </div>
+    </div>
+
+    <div class="phase pending">
+      <div class="phase-marker">9</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">Scale to full 954-ticker seed, shard the matrix</span>
+          <span class="phase-status">Pending</span>
+        </div>
+        <p class="phase-delivers">Real coverage — matrix-shard <code>signals-scan.yml</code> across the full <code>seed/universe_symbols.csv</code> instead of the 5-ticker pilot.</p>
+      </div>
+    </div>
+
+    <div class="phase pending">
+      <div class="phase-marker">10</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">Wire multi-timeframe <code style="font-family:inherit">matrix</code></span>
+          <span class="phase-status">Pending</span>
+        </div>
+        <p class="phase-delivers"><code>compute_multi_timeframe()</code> is fully implemented and never called from a route — <code>CouncilPanel</code>/<code>SignalMatrixRow</code> have no live data source yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">What's Actually Left</p>
+    <div class="next-card">
+      <div class="next-card-head">
+        <span class="next-card-num">06</span>
+        <span class="next-card-title">Backfill historical detector hits</span>
+      </div>
+      <p class="next-card-desc">
+        Without this, calibration (phase 7) has to wait months to accumulate
+        enough samples per strength bucket (<code>CALIBRATION_MIN_BUCKET_SIZE = 30</code>).
+        A one-time <code>workflow_dispatch</code> job scans years of history for
+        the pilot tickers and writes every detector hit.
+      </p>
+    </div>
+    <div class="next-card">
+      <div class="next-card-head">
+        <span class="next-card-num">07</span>
+        <span class="next-card-title">Close the calibration loop</span>
+      </div>
+      <p class="next-card-desc">
+        The mechanism already exists in code — <code>ConfluenceRanker</code>
+        accepts <code>strength_hit_rates</code>, and the live route already calls
+        <code>load_strength_hit_rates()</code>. It currently reads a JSON file
+        that doesn't survive a container restart. Point it at the new
+        <code>calibration</code> table instead — a small change with
+        disproportionate payoff.
+      </p>
+    </div>
+    <div class="next-card">
+      <div class="next-card-head">
+        <span class="next-card-num">08</span>
+        <span class="next-card-title">Auth + synced user state</span>
+      </div>
+      <p class="next-card-desc">
+        Supabase Auth on the frontend, RLS-scoped <code>profiles</code>/<code>watchlist</code>
+        tables already exist in the schema from Phase 2. Dexie stays as an
+        offline cache for signed-out use — no regression for anonymous users.
+      </p>
+    </div>
+    <div class="next-card">
+      <div class="next-card-head">
+        <span class="next-card-num">09</span>
+        <span class="next-card-title">Scale the universe</span>
+      </div>
+      <p class="next-card-desc">
+        From 5 pilot tickers to the full 954-ticker seed
+        (<a href="uni2.html">browse it</a>), sharded across parallel
+        <code>signals-scan.yml</code> jobs to stay under the Actions job
+        time cap. Cost/rate-limit envelope already sized in the plan doc.
+      </p>
+    </div>
+    <div class="next-card">
+      <div class="next-card-head">
+        <span class="next-card-num">10</span>
+        <span class="next-card-title">Wire the multi-timeframe matrix</span>
+      </div>
+      <p class="next-card-desc">
+        The last defect from the original audit — fully-implemented code
+        with no caller. Closes it and gives <code>CouncilPanel</code> and
+        <code>SignalMatrixRow</code> real data for the first time.
+      </p>
+    </div>
+  </div>
+
+  <footer class="page-foot">
+    <span>See <code>docs/backend-state-and-supabase-plan.md</code> for full phase details and dependencies</span>
+    <span>Generated 2026-08-19</span>
+  </footer>
+</div>
