@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -37,9 +37,14 @@ jobs:
 
       - name: Build static export
         env:
-          # Point the static build at the hosted backend.
-          # Set this secret in: Settings → Secrets and variables → Actions.
-          # Leave unset to build without a live backend (homepage still works).
+          # Public by design (see web/src/lib/supabase.ts) — RLS on the
+          # anon key is the actual access control, not secrecy of these
+          # values. Set both as repo VARIABLES (not secrets): Settings →
+          # Secrets and variables → Actions → Variables.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Legacy FastAPI backend — unused by the site as of Phase 5;
+          # left wired in case a hosted backend appears later.
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         run: npm run build
 
