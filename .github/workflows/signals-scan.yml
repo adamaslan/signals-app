@@ -1,0 +1,80 @@
+name: Signals Scan
+
+# Phase 4 of docs/backend-state-and-supabase-plan.md. Starts on a fixed
+# 5-ticker pilot list; sharding across the full universe seed lands in
+# Phase 9 once this pilot has run cleanly for a while.
+
+on:
+  schedule:
+    # 21:25 UTC ~= 16:25 ET, ~10 min after US market close, weekdays only.
+    - cron: "25 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Space-separated tickers (blank = default 5-ticker pilot list)"
+        required: false
+        default: ""
+      period:
+        description: "yfinance period string"
+        required: false
+        default: "3mo"
+      dry_run:
+        description: "Gate + log only, no LLM calls or writes"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  # Two overlapping scans would double-write and double-spend LLM tokens.
+  group: signals-scan
+  cancel-in-progress: false
+
+env:
+  # Phase 4 pilot universe. Replace with the full seed/universe_symbols.csv
+  # in Phase 9 once sharding is in place.
+  DEFAULT_SYMBOLS: "AAPL MSFT GOOGL SPY QQQ"
+
+jobs:
+  scan:
+    # Scheduled runs only fire on the canonical repo, never a fork.
+    if: github.event_name != 'schedule' || github.repository == 'adamaslan/signals-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Run scan
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          SYMBOLS="${{ github.event.inputs.symbols }}"
+          SYMBOLS="${SYMBOLS:-$DEFAULT_SYMBOLS}"
+          PERIOD="${{ github.event.inputs.period }}"
+          PERIOD="${PERIOD:-3mo}"
+          DRY_RUN_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          TRIGGER="manual"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            TRIGGER="cron"
+          fi
+          python scripts/scan_universe.py $SYMBOLS \
+            --period "$PERIOD" \
+            --trigger "$TRIGGER" \
+            $DRY_RUN_FLAG
