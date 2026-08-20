@@ -128,18 +128,33 @@ def passes_publication_gate(
     total_signals: int,
     confluence_score: float,
     ai_degraded: bool,
+    direction: str | None = None,
 ) -> bool:
     """The publication gate — see config.py's PUBLISH_MIN_* constants and
     docs/backend-state-and-supabase-plan.md Part 3 §3 ("Selective").
 
     Most ticker-days should fail this gate. That is the point: an engine
     that always emits a direction carries no information.
+
+    Args:
+        direction: None (default) gates on |confluence_score| — either
+            direction publishes, matching current behavior. "bullish"
+            requires confluence_score to clear the threshold on the positive
+            side only; "bearish" requires it on the negative side only.
     """
+    if direction not in (None, "bullish", "bearish"):
+        raise ValueError(f"direction must be None, 'bullish', or 'bearish', got {direction!r}")
     if data_quality_score is None or data_quality_score < PUBLISH_MIN_DATA_QUALITY:
         return False
     if total_signals < PUBLISH_MIN_SIGNALS:
         return False
-    if abs(confluence_score) < PUBLISH_MIN_CONFLUENCE_SCORE:
+    if direction == "bullish":
+        if confluence_score < PUBLISH_MIN_CONFLUENCE_SCORE:
+            return False
+    elif direction == "bearish":
+        if confluence_score > -PUBLISH_MIN_CONFLUENCE_SCORE:
+            return False
+    elif abs(confluence_score) < PUBLISH_MIN_CONFLUENCE_SCORE:
         return False
     return True
 
@@ -222,11 +237,16 @@ def scan_one_symbol(
     dry_run: bool,
     strength_hit_rates: dict[str, float] | None = None,
     compute_matrix: bool = False,
+    direction: str | None = None,
 ) -> SymbolResult:
     """Run L1-L4 for one ticker, gate, optionally synthesize + persist.
 
     Never raises — every failure mode is caught and returned as a
     SymbolResult so scan_universe() can tally without aborting the run.
+
+    Args:
+        direction: Forwarded to passes_publication_gate() — None gates both
+            directions (default), "bullish"/"bearish" gates one side only.
     """
     try:
         fetcher = DataFetcher(settings=settings)
@@ -250,12 +270,13 @@ def scan_one_symbol(
             writer.write_detector_hits(ticker, bar_ts, list(signal_list))
 
         if not passes_publication_gate(
-            data_quality.score, len(signal_list), confluence.score, signal_list.degraded
+            data_quality.score, len(signal_list), confluence.score, signal_list.degraded,
+            direction=direction,
         ):
             return SymbolResult(ticker, ok=True, published=False, reason="gated")
 
         # Only symbols that cleared the gate pay for LLM synthesis.
-        direction: str | None = None
+        ai_direction: str | None = None
         confidence: float | None = None
         evidence: list[dict[str, Any]] = []
         counter_evidence: list[dict[str, Any]] = []
@@ -288,7 +309,7 @@ def scan_one_symbol(
             signal = synthesize_single(
                 ticker=ticker, timeframe=timeframe, features=features, settings=settings,
             )
-            direction = signal.direction.value
+            ai_direction = signal.direction.value
             confidence = signal.confidence
             ai_degraded = signal.ai_degraded
             prompt_version = signal.prompt_version
@@ -313,7 +334,7 @@ def scan_one_symbol(
                 confluence=confluence,
                 data_quality_score=data_quality.score,
                 data_quality_reasons=data_quality.reasons,
-                direction=direction,
+                direction=ai_direction,
                 confidence=confidence,
                 evidence=evidence,
                 counter_evidence=counter_evidence,
@@ -340,6 +361,7 @@ def scan_universe(
     dry_run: bool = False,
     max_concurrent: int = MAX_CONCURRENT_FETCHES,
     compute_matrix: bool = False,
+    direction: str | None = None,
 ) -> list[SymbolResult]:
     """Run the pipeline over a universe and persist gated results.
 
@@ -355,6 +377,8 @@ def scan_universe(
         compute_matrix: Also compute the 5-timeframe matrix (Phase 10) for
             symbols that clear the publication gate — up to 5x the fetches
             and LLM calls per gated symbol, so opt-in rather than default.
+        direction: Gate for one direction only — None gates both, "bullish"
+            gates positive confluence only, "bearish" gates negative only.
 
     Returns:
         One SymbolResult per input symbol.
@@ -377,7 +401,7 @@ def scan_universe(
         futures = {
             pool.submit(
                 scan_one_symbol,
-                t, period, writer, run, settings, dry_run, strength_hit_rates, compute_matrix,
+                t, period, writer, run, settings, dry_run, strength_hit_rates, compute_matrix, direction,
             ): t
             for t in symbols
         }
@@ -448,6 +472,16 @@ def main() -> None:
             "gated symbol — opt-in, not the default."
         ),
     )
+    parser.add_argument(
+        "--direction",
+        choices=["bullish", "bearish"],
+        default=None,
+        help=(
+            "Gate for one direction only. 'bullish' requires positive confluence "
+            "(>= 0.35), 'bearish' requires negative confluence (<= -0.35). "
+            "Default (None) gates both directions."
+        ),
+    )
     args = parser.parse_args()
 
     symbols = list(args.symbols)
@@ -483,6 +517,7 @@ def main() -> None:
             dry_run=args.dry_run,
             max_concurrent=args.max_concurrent,
             compute_matrix=args.matrix,
+            direction=args.direction,
         )
     finally:
         if writer is not None:
