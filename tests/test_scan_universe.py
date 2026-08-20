@@ -105,6 +105,81 @@ class TestPublicationGate:
             data_quality_score=0.9, total_signals=10, confluence_score=0.01, ai_degraded=False,
         )
 
+    def test_bullish_direction_gates_positive_only(self) -> None:
+        # Strong bullish: passes
+        assert passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=PUBLISH_MIN_CONFLUENCE_SCORE + 0.1,
+            ai_degraded=False,
+            direction="bullish",
+        )
+        # Strong bearish: fails (even though it would pass without direction)
+        assert not passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=-(PUBLISH_MIN_CONFLUENCE_SCORE + 0.1),
+            ai_degraded=False,
+            direction="bullish",
+        )
+        # Weak positive: fails (confluence_score below threshold)
+        assert not passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=0.1,
+            ai_degraded=False,
+            direction="bullish",
+        )
+
+    def test_bearish_direction_gates_negative_only(self) -> None:
+        # Strong bearish: passes
+        assert passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=-(PUBLISH_MIN_CONFLUENCE_SCORE + 0.1),
+            ai_degraded=False,
+            direction="bearish",
+        )
+        # Strong bullish: fails (even though it would pass without direction)
+        assert not passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=PUBLISH_MIN_CONFLUENCE_SCORE + 0.1,
+            ai_degraded=False,
+            direction="bearish",
+        )
+        # Weak negative: fails (confluence_score above -threshold)
+        assert not passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=-0.1,
+            ai_degraded=False,
+            direction="bearish",
+        )
+
+    def test_none_direction_gates_both_sides(self) -> None:
+        # Strong bullish: passes
+        assert passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=PUBLISH_MIN_CONFLUENCE_SCORE + 0.1,
+            ai_degraded=False,
+            direction=None,
+        )
+        # Strong bearish: passes
+        assert passes_publication_gate(
+            data_quality_score=0.9,
+            total_signals=5,
+            confluence_score=-(PUBLISH_MIN_CONFLUENCE_SCORE + 0.1),
+            ai_degraded=False,
+            direction=None,
+        )
+        # Weak either side: fails
+        assert not passes_publication_gate(
+            data_quality_score=0.9, total_signals=5, confluence_score=0.1, ai_degraded=False,
+            direction=None,
+        )
+
 
 class TestScanOneSymbolIsolation:
     def test_bad_ticker_returns_failed_result_not_exception(self) -> None:
