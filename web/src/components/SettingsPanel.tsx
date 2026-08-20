@@ -9,11 +9,20 @@ import { useRouter } from "next/navigation";
 import { useProfile } from "@/lib/useProfile";
 import { exportAll, wipeAll, clearHistory } from "@/lib/db";
 import { PERIOD_OPTIONS } from "@/lib/types";
+import { useAuth, signOut } from "@/lib/auth";
+import { syncProfileToCloud, wipeCloudData } from "@/lib/sync";
+import { AuthPanel } from "./AuthPanel";
 
 export function SettingsPanel() {
   const router = useRouter();
   const { profile, patchProfile, forget } = useProfile();
+  const { user } = useAuth();
   const [confirmWipe, setConfirmWipe] = useState(false);
+
+  async function patchProfileAndSync(patch: Parameters<typeof patchProfile>[0]) {
+    await patchProfile(patch);
+    if (user) await syncProfileToCloud(user.id, patch);
+  }
 
   if (!profile) {
     return (
@@ -41,6 +50,14 @@ export function SettingsPanel() {
   }
 
   async function handleWipe() {
+    // "Forget me" must actually forget: if signed in, wiping only the local
+    // Dexie store would leave the cloud profile/watchlist rows in place —
+    // and syncOnSignIn would silently repopulate the device from them on
+    // the next sign-in, making the "cannot be undone" promise false.
+    if (user) {
+      await wipeCloudData(user.id);
+      await signOut();
+    }
     await wipeAll();
     await forget();
     router.push("/");
@@ -48,6 +65,8 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
+      <AuthPanel />
+
       {/* Profile */}
       <section className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-4">
         <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
@@ -59,7 +78,7 @@ export function SettingsPanel() {
           <input
             type="text"
             defaultValue={profile.name}
-            onBlur={(e) => patchProfile({ name: e.target.value.trim() || "Trader" })}
+            onBlur={(e) => patchProfileAndSync({ name: e.target.value.trim() || "Trader" })}
             className="w-full rounded-lg bg-[#12121f] border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-white/30"
           />
         </label>
@@ -68,7 +87,7 @@ export function SettingsPanel() {
           <span className="text-sm text-gray-400">Default period</span>
           <select
             defaultValue={profile.defaultPeriod}
-            onChange={(e) => patchProfile({ defaultPeriod: e.target.value })}
+            onChange={(e) => patchProfileAndSync({ defaultPeriod: e.target.value })}
             className="w-full rounded-lg bg-[#12121f] border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-white/30"
           >
             {PERIOD_OPTIONS.map((o) => (
@@ -129,7 +148,9 @@ export function SettingsPanel() {
           <div className="rounded-lg border border-red-800 bg-red-950/30 p-3 space-y-2">
             <p className="text-red-300 text-sm">
               This permanently deletes your profile, history, watchlist,
-              presets, and alerts on this device. This cannot be undone.
+              presets, and alerts on this device
+              {user ? ", and your synced profile/watchlist in the cloud" : ""}.
+              This cannot be undone.
             </p>
             <div className="flex gap-2">
               <button

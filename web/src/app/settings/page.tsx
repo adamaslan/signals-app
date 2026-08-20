@@ -11,7 +11,8 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Your profile and history live only on this device.
+          Your data lives on this device. Sign in below to sync your profile
+          and watchlist across devices.
         </p>
       </div>
       <SettingsPanel />
