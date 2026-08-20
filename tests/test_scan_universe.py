@@ -180,6 +180,16 @@ class TestPublicationGate:
             direction=None,
         )
 
+    def test_invalid_direction_raises(self) -> None:
+        with pytest.raises(ValueError):
+            passes_publication_gate(
+                data_quality_score=0.9,
+                total_signals=5,
+                confluence_score=PUBLISH_MIN_CONFLUENCE_SCORE + 0.1,
+                ai_degraded=False,
+                direction="bullish ",  # trailing space — not a valid value
+            )
+
 
 class TestScanOneSymbolIsolation:
     def test_bad_ticker_returns_failed_result_not_exception(self) -> None:

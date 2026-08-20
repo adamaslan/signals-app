@@ -54,7 +54,7 @@ The layers are called individually by `scripts/scan_universe.py` rather than
 through the API's `get_signals()`, specifically so the gate can be inserted
 between L4 and L5.
 
-```
+```text
 L1  fetch          data/fetcher.py         yfinance OHLCV, 3mo default
      ↓                                     (<20 bars → insufficient_bars, tallied)
 L2  indicators     indicators/compute.py   RSI, MACD, ADX, ATR, Bollinger,
@@ -90,12 +90,21 @@ the full-universe workflow path.
 ```python
 # scan_universe.py
 def passes_publication_gate(data_quality_score, total_signals,
-                            confluence_score, ai_degraded) -> bool:
+                            confluence_score, ai_degraded,
+                            direction=None) -> bool:
+    if direction not in (None, "bullish", "bearish"):
+        raise ValueError(...)
     if data_quality_score is None or data_quality_score < 0.7:   # PUBLISH_MIN_DATA_QUALITY
         return False
     if total_signals < 3:                                        # PUBLISH_MIN_SIGNALS
         return False
-    if abs(confluence_score) < 0.35:                             # PUBLISH_MIN_CONFLUENCE_SCORE
+    if direction == "bullish":
+        if confluence_score < 0.35:                              # PUBLISH_MIN_CONFLUENCE_SCORE
+            return False
+    elif direction == "bearish":
+        if confluence_score > -0.35:
+            return False
+    elif abs(confluence_score) < 0.35:                            # default: either direction
         return False
     return True
 ```
@@ -104,9 +113,14 @@ Three properties matter:
 
 1. **It runs before synthesis.** A rejected symbol costs a fetch and some pandas,
    not an API call. This is why a 954-ticker run is ~403 LLM calls, not 954.
-2. **`abs()` makes it direction-neutral.** A strong bearish reading publishes as
-   readily as a strong bullish one. The gate suppresses *weak* opinions, not
-   negative ones.
+2. **Direction-neutral by default, one-sided on request.** With `direction=None`
+   (the default — every production `signals-scan.yml` run), `abs()` makes the
+   gate direction-neutral: a strong bearish reading publishes as readily as a
+   strong bullish one, suppressing *weak* opinions rather than negative ones.
+   Passing `--direction bullish`/`bearish` (CLI) restricts the gate to one side
+   of `confluence_score` only — this is a separate concept from the direction
+   the LLM later *synthesizes* in L5; the gate's `direction` selects which
+   confluence sign publishes, it doesn't read or set the AI's output.
 3. **Rejecting most input is the product.** Per the plan: *an engine that always
    emits a direction carries no information.* The ~58 % rejection rate is a
    feature; a rate near 0 % would mean the gate had broken.
@@ -119,7 +133,7 @@ isn't worth persisting.
 
 ## 4. Repository map
 
-```
+```text
 src/signals_app/
   config.py          all constants + Settings; the single source of tunables
   data/fetcher.py    yfinance wrapper → OHLCV
@@ -135,7 +149,10 @@ src/signals_app/
   schemas/           Pydantic output contracts
   utils/safety.py
 
-scripts/scan_universe.py   the production entry point Actions calls
+scripts/scan_universe.py          the production entry point Actions calls
+scripts/generate_signal_report.py per-ticker Markdown report (docs/reports/,
+                                   no LLM calls, no Supabase writes) — reuses
+                                   the same L1-L4 pipeline as scan_universe.py
 seed/universe_symbols.csv  954 tickers: ticker, name, asset_type, sector_group
 supabase/migrations/       initial schema, RLS policies
 tests/                     72 tests, 6 files

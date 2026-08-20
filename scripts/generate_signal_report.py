@@ -18,6 +18,7 @@ a production path.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -38,6 +39,17 @@ from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
 from scripts.scan_universe import load_symbols_from_csv  # noqa: E402
 
 TOP_N_SIGNALS = 15
+_SAFE_TICKER_RE = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def _safe_filename_component(ticker: str) -> str:
+    """Collapse a ticker into a single safe filename component.
+
+    Strips path separators, `..`, and any other character outside
+    [A-Za-z0-9_.-] so a ticker sourced from CLI args or a seed CSV can never
+    make out_path resolve outside out_dir.
+    """
+    return _SAFE_TICKER_RE.sub("_", ticker).strip("._") or "UNKNOWN"
 
 
 def _render_report(
@@ -55,12 +67,15 @@ def _render_report(
     category_counts = Counter(s.category for s in signals)
     signal_name_counts = Counter(s.signal for s in signals)
 
+    data_quality_text = (
+        f"{data_quality_score:.2f}" if data_quality_score is not None else "N/A"
+    )
+
     lines: list[str] = [
         f"# Signal Report — {ticker}",
         "",
         f"**Generated:** {generated_at} · **Period:** {period} · "
-        f"**Bars:** {bar_count} · **Data quality:** "
-        f"{data_quality_score:.2f}" if data_quality_score is not None else "N/A",
+        f"**Bars:** {bar_count} · **Data quality:** {data_quality_text}",
         "",
         "---",
         "",
@@ -159,7 +174,8 @@ def generate_report_for_symbol(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = out_dir / f"{ticker}_{ts}_optimal.md"
+    safe_ticker = _safe_filename_component(ticker)
+    out_path = out_dir / f"{safe_ticker}_{ts}_optimal.md"
     out_path.write_text(report)
     print(f"  {ticker}: {len(signal_list)} signals -> {out_path}")
     return out_path
@@ -174,7 +190,10 @@ def main() -> None:
         "--seed", help="CSV file with a 'ticker' column (e.g. seed/universe_symbols.csv)"
     )
     parser.add_argument(
-        "--limit", type=int, default=None, help="Cap the number of symbols reported"
+        "--limit",
+        type=int,
+        default=None,
+        help="Cap the number of symbols reported (must be positive)",
     )
     parser.add_argument("--period", default=DEFAULT_PERIOD)
     parser.add_argument(
@@ -190,14 +209,22 @@ def main() -> None:
     if not symbols:
         parser.error("no symbols given — pass tickers directly or use --seed")
     symbols = sorted(set(symbols))
-    if args.limit:
+    if args.limit is not None:
+        if args.limit <= 0:
+            parser.error("--limit must be a positive integer")
         symbols = symbols[: args.limit]
 
     out_dir = _project_root / args.out_dir
     print(f"Generating reports for {len(symbols)} symbol(s) -> {out_dir}")
-    written = [
-        p for t in symbols if (p := generate_report_for_symbol(t, args.period, out_dir))
-    ]
+    written: list[Path] = []
+    for t in symbols:
+        try:
+            p = generate_report_for_symbol(t, args.period, out_dir)
+        except Exception as exc:
+            print(f"  {t}: failed — {exc}")
+            continue
+        if p is not None:
+            written.append(p)
     print(f"Done — {len(written)}/{len(symbols)} reports written")
 
 

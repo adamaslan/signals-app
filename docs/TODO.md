@@ -180,13 +180,13 @@ comparison table, the gap is two separate things — do them as separate PRs:
 
 ### 9b. New script: per-symbol signal report (`boll-4`-style optimal.md)
 `boll-4-april-500.py` writes a human-readable Markdown report per symbol
-(`{SYMBOL}_{ts}.md`) alongside its JSON output — `signals-app` has no
+(`{SYMBOL}_{ts}.md`) alongside its JSON output — `signals-app` had no
 equivalent; `scan_universe.py` only prints a one-line summary to stdout.
 
-- [ ] New `scripts/generate_signal_report.py`:
+- [x] New `scripts/generate_signal_report.py`:
       - Takes a ticker (or `--seed` list) and reuses the same L1–L4 pipeline
         `scan_universe.py` calls (fetch → indicators → detect → confluence) —
-        do not duplicate pipeline logic, import from `signals_app.*` exactly
+        does not duplicate pipeline logic, imports from `signals_app.*` exactly
         as `scan_universe.py` does.
       - Writes `{ticker}_{timestamp}_optimal.md` with: signal counts by
         strength and category (mirroring boll4-500b.md's "At a Glance" /
@@ -194,11 +194,13 @@ equivalent; `scan_universe.py` only prints a one-line summary to stdout.
         confluence score/bias/action, and the top-N most active signals —
         i.e. the same shape as boll4-500b.md itself, generated instead of
         hand-written.
-      - No LLM calls, no Supabase writes — this is a local
-        analysis/documentation tool, not a production path. Should work
-        standalone against `--dry-run`-equivalent data.
-      - Output directory: `docs/reports/` (gitignored, or archived per the
-        docs/archive convention if checked in).
+      - No LLM calls, no Supabase writes — a local analysis/documentation
+        tool, not a production path. Per-symbol failures are caught and
+        reported, not fatal to the batch; ticker input is sanitized before
+        being used as a filename component.
+      - Output directory: `docs/reports/` (gitignored — regenerated output,
+        not authored documentation).
+- [ ] Follow-up: add a `SUPPORT_RESISTANCE` category section once 9a lands.
 
 ### 9c. Matrix computation at full-universe scale
 `--matrix` is pilot-only by design — up to **5x** fetches and LLM calls per gated

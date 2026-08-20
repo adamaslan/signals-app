@@ -142,6 +142,8 @@ def passes_publication_gate(
             requires confluence_score to clear the threshold on the positive
             side only; "bearish" requires it on the negative side only.
     """
+    if direction not in (None, "bullish", "bearish"):
+        raise ValueError(f"direction must be None, 'bullish', or 'bearish', got {direction!r}")
     if data_quality_score is None or data_quality_score < PUBLISH_MIN_DATA_QUALITY:
         return False
     if total_signals < PUBLISH_MIN_SIGNALS:
