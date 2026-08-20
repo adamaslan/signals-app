@@ -8,9 +8,16 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.scan_universe import passes_publication_gate, scan_one_symbol  # noqa: E402
+from scripts.scan_universe import (  # noqa: E402
+    apply_shard,
+    parse_shard_spec,
+    passes_publication_gate,
+    scan_one_symbol,
+)
 from signals_app.config import (  # noqa: E402
     PUBLISH_MIN_CONFLUENCE_SCORE,
     PUBLISH_MIN_DATA_QUALITY,
@@ -116,3 +123,41 @@ class TestScanOneSymbolIsolation:
         assert result.published is False
         assert result.reason is not None
         # No exception propagated — this is the whole point of the isolation.
+
+
+class TestShardSpec:
+    def test_parses_valid_spec(self) -> None:
+        assert parse_shard_spec("0/4") == (0, 4)
+        assert parse_shard_spec("3/4") == (3, 4)
+
+    def test_rejects_index_out_of_range(self) -> None:
+        with pytest.raises(ValueError, match="0 <= INDEX < TOTAL"):
+            parse_shard_spec("4/4")
+        with pytest.raises(ValueError, match="0 <= INDEX < TOTAL"):
+            parse_shard_spec("-1/4")
+
+    def test_rejects_unparseable_spec(self) -> None:
+        with pytest.raises(ValueError, match="INDEX/TOTAL"):
+            parse_shard_spec("garbage")
+        with pytest.raises(ValueError, match="INDEX/TOTAL"):
+            parse_shard_spec("1/2/3")
+
+
+class TestApplyShard:
+    def test_four_shards_partition_the_full_list_with_no_overlap_or_gaps(self) -> None:
+        symbols = [f"T{i:03d}" for i in range(23)]  # deliberately not divisible by 4
+        shards = [apply_shard(symbols, i, 4) for i in range(4)]
+        reunited = sorted(s for shard in shards for s in shard)
+        assert reunited == symbols
+        # Every symbol appears in exactly one shard.
+        assert sum(len(shard) for shard in shards) == len(symbols)
+
+    def test_single_shard_returns_everything(self) -> None:
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+        assert apply_shard(symbols, 0, 1) == symbols
+
+    def test_shard_result_is_deterministic_regardless_of_call_order(self) -> None:
+        symbols = ["AAPL", "MSFT", "GOOGL", "SPY", "QQQ"]
+        first = apply_shard(symbols, 2, 3)
+        second = apply_shard(symbols, 2, 3)
+        assert first == second

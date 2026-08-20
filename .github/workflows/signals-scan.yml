@@ -1,8 +1,14 @@
 name: Signals Scan
 
-# Phase 4 of docs/backend-state-and-supabase-plan.md. Starts on a fixed
-# 5-ticker pilot list; sharding across the full universe seed lands in
-# Phase 9 once this pilot has run cleanly for a while.
+# Phase 4 (pilot) + Phase 9 (full universe, sharded) of
+# docs/backend-state-and-supabase-plan.md.
+#
+# workflow_dispatch defaults to the small pilot list for quick manual checks
+# (fast, single job, no matrix). The scheduled cron run scans the full
+# 954-ticker seed, sharded 4 ways per the plan's sizing
+# (strategy.matrix.shard: [0,1,2,3], each job taking ticker_index % 4 ==
+# shard) to stay well under the Actions job time cap and isolate failures —
+# one shard's yfinance hiccup doesn't take down the other three.
 
 on:
   schedule:
@@ -11,9 +17,14 @@ on:
   workflow_dispatch:
     inputs:
       symbols:
-        description: "Space-separated tickers (blank = default 5-ticker pilot list)"
+        description: "Space-separated tickers (blank = default 5-ticker pilot list; ignored if 'full' is checked)"
         required: false
         default: ""
+      full_universe:
+        description: "Scan the full seed/universe_symbols.csv, sharded 4 ways (ignores 'symbols' above)"
+        type: boolean
+        required: false
+        default: false
       period:
         description: "yfinance period string"
         required: false
@@ -30,14 +41,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Phase 4 pilot universe. Replace with the full seed/universe_symbols.csv
-  # in Phase 9 once sharding is in place.
   DEFAULT_SYMBOLS: "AAPL MSFT GOOGL SPY QQQ"
 
 jobs:
-  scan:
-    # Scheduled runs only fire on the canonical repo, never a fork.
-    if: github.event_name != 'schedule' || github.repository == 'adamaslan/signals-app'
+  # Pilot path: manual dispatch with a small explicit or default symbol
+  # list. Not used by the schedule — the schedule always runs the sharded
+  # full-universe job below.
+  scan-pilot:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_universe != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -70,11 +81,60 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             DRY_RUN_FLAG="--dry-run"
           fi
+          python scripts/scan_universe.py $SYMBOLS \
+            --period "$PERIOD" \
+            --trigger manual \
+            $DRY_RUN_FLAG
+
+  # Full-universe path: the scheduled cron run, or a manual dispatch with
+  # full_universe=true. Matrix-sharded 4 ways across seed/universe_symbols.csv.
+  scan-full:
+    # Fires on: the schedule (canonical repo only, never a fork), or a
+    # manual dispatch with full_universe=true.
+    if: |
+      (github.event_name == 'schedule' && github.repository == 'adamaslan/signals-app') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.full_universe == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Run scan (shard ${{ matrix.shard }}/4)
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          PERIOD="${{ github.event.inputs.period }}"
+          PERIOD="${PERIOD:-3mo}"
+          DRY_RUN_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
           TRIGGER="manual"
           if [ "${{ github.event_name }}" = "schedule" ]; then
             TRIGGER="cron"
           fi
-          python scripts/scan_universe.py $SYMBOLS \
+          python scripts/scan_universe.py \
+            --seed seed/universe_symbols.csv \
+            --shard "${{ matrix.shard }}/4" \
             --period "$PERIOD" \
             --trigger "$TRIGGER" \
             $DRY_RUN_FLAG
