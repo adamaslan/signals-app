@@ -1,5 +1,12 @@
 import { supabase, supabaseConfigured } from "./supabase";
-import type { EvidenceItem, Signal, SignalDirection, SignalOutput, Timeframe } from "./types";
+import type {
+  EvidenceItem,
+  Signal,
+  SignalDirection,
+  SignalOutput,
+  Timeframe,
+  TimeframeMatrix,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -46,7 +53,7 @@ interface SignalRow {
   data_quality_reasons: string[];
   evidence: EvidenceItem[];
   counter_evidence: EvidenceItem[];
-  matrix: unknown | null;
+  matrix: TimeframeMatrix | null;
   ai_degraded: boolean;
   no_llm: boolean;
   prompt_version: string | null;
@@ -78,7 +85,7 @@ function rowToSignalOutput(row: SignalRow, period: string): SignalOutput {
   return {
     ticker: row.ticker,
     signal,
-    matrix: null, // wired in Phase 10
+    matrix: row.matrix ?? null,
     feature_unavailable: row.no_llm ? ["llm_synthesis"] : [],
     schema_version: "1.0",
     code_version: row.code_version,
