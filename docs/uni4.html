@@ -179,6 +179,16 @@
   .next-card-title { font-weight: 700; font-size: 13.5px; }
   .next-card-desc { color: var(--text-dim); font-size: 13px; margin: 0; }
 
+  /* Findings list — bugs found only by live testing */
+  .finding {
+    display: flex; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .finding:last-child { border-bottom: none; }
+  .finding-icon { color: var(--blocked); flex-shrink: 0; }
+  .finding-text { color: var(--text-dim); }
+  .finding-text strong { color: var(--text); font-weight: 600; }
+
   footer.page-foot {
     margin-top: 28px; color: var(--text-faint); font-size: 12px;
     display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
@@ -206,15 +216,17 @@
     milestone — the deployed site went from a functional shell to actually
     working end to end against live Supabase data at
     <a href="https://adamaslan.github.io/signals-app/" target="_blank" rel="noopener">adamaslan.github.io/signals-app</a>.
+    Phases 6-7 closed the calibration loop with real, differentiated hit-rate
+    data now live.
   </p>
 
   <div class="progress-wrap">
     <div class="progress-head">
       <span class="progress-label">Phases complete</span>
-      <span class="progress-num">6 / 11 (0–5)</span>
+      <span class="progress-num">8 / 11 (0–7)</span>
     </div>
     <div class="progress-track">
-      <div class="progress-fill" style="width: 54.5%"></div>
+      <div class="progress-fill" style="width: 72.7%"></div>
     </div>
   </div>
 
@@ -240,7 +252,7 @@
           <span class="phase-title">1 · <code style="font-family:inherit">ci.yml</code></span>
           <span class="phase-status">Shipped</span>
         </div>
-        <p class="phase-delivers">Ruff + mypy (advisory) + pytest (blocking) on every push/PR.</p>
+        <p class="phase-delivers">Ruff + mypy (advisory) + pytest (blocking) on every push/PR. Later split into backend/frontend jobs (PR #10).</p>
         <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/7" target="_blank" rel="noopener">PR #7 ↗</a></div>
       </div>
     </div>
@@ -300,34 +312,41 @@
       </div>
     </div>
 
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">6 · <code style="font-family:inherit">backfill.yml</code> + <code style="font-family:inherit">detector_hits</code></span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">Historical bar-by-bar scan writes detector hits for every past bar. Verified live: 3,314 rows from 2 symbols.</p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/12" target="_blank" rel="noopener">PR #12 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="phase done">
+      <div class="phase-marker">✓</div>
+      <div>
+        <div class="phase-head">
+          <span class="phase-title">7 · <code style="font-family:inherit">calibrate.yml</code> + <code style="font-family:inherit">calibration</code> table</span>
+          <span class="phase-status">Shipped</span>
+        </div>
+        <p class="phase-delivers">
+          The validation loop actually closes now — <code>ConfluenceRanker</code>'s
+          <code>strength_hit_rates</code> param, previously fed by a local JSON file that
+          never survived a container restart, now reads real, differentiated hit rates
+          from Supabase (e.g. <code>RANGE</code> 77.8% vs <code>MA_DISTANCE</code> 28.7%, n=108/369).
+        </p>
+        <div class="phase-meta"><a class="pr-link" href="https://github.com/adamaslan/signals-app/pull/13" target="_blank" rel="noopener">PR #13 ↗</a></div>
+      </div>
+    </div>
+
     <div class="phase next">
       <div class="phase-marker">→</div>
       <div>
         <div class="phase-head">
-          <span class="phase-title">6 · <code style="font-family:inherit">backfill.yml</code> + <code style="font-family:inherit">detector_hits</code></span>
+          <span class="phase-title">8 · Supabase Auth + <code style="font-family:inherit">watchlist</code>/<code style="font-family:inherit">profiles</code> sync</span>
           <span class="phase-status">Next up</span>
-        </div>
-        <p class="phase-delivers">Historical bar-by-bar scan writes detector hits for every past bar, not just the latest — the corpus calibration needs.</p>
-      </div>
-    </div>
-
-    <div class="phase pending">
-      <div class="phase-marker">7</div>
-      <div>
-        <div class="phase-head">
-          <span class="phase-title"><code style="font-family:inherit">calibrate.yml</code> + <code style="font-family:inherit">calibration</code> table</span>
-          <span class="phase-status">Pending</span>
-        </div>
-        <p class="phase-delivers">Closes the validation loop — hit-rate calibration was already wired into <code>ConfluenceRanker</code>, just reading a non-persistent local file. Point it at Supabase.</p>
-      </div>
-    </div>
-
-    <div class="phase pending">
-      <div class="phase-marker">8</div>
-      <div>
-        <div class="phase-head">
-          <span class="phase-title">Supabase Auth + <code style="font-family:inherit">watchlist</code>/<code style="font-family:inherit">profiles</code> sync</span>
-          <span class="phase-status">Pending</span>
         </div>
         <p class="phase-delivers">User state survives a browser wipe — watchlists and preferences currently live only in Dexie/IndexedDB, one device only.</p>
       </div>
@@ -360,32 +379,6 @@
     <p class="panel-title">What's Actually Left</p>
     <div class="next-card">
       <div class="next-card-head">
-        <span class="next-card-num">06</span>
-        <span class="next-card-title">Backfill historical detector hits</span>
-      </div>
-      <p class="next-card-desc">
-        Without this, calibration (phase 7) has to wait months to accumulate
-        enough samples per strength bucket (<code>CALIBRATION_MIN_BUCKET_SIZE = 30</code>).
-        A one-time <code>workflow_dispatch</code> job scans years of history for
-        the pilot tickers and writes every detector hit.
-      </p>
-    </div>
-    <div class="next-card">
-      <div class="next-card-head">
-        <span class="next-card-num">07</span>
-        <span class="next-card-title">Close the calibration loop</span>
-      </div>
-      <p class="next-card-desc">
-        The mechanism already exists in code — <code>ConfluenceRanker</code>
-        accepts <code>strength_hit_rates</code>, and the live route already calls
-        <code>load_strength_hit_rates()</code>. It currently reads a JSON file
-        that doesn't survive a container restart. Point it at the new
-        <code>calibration</code> table instead — a small change with
-        disproportionate payoff.
-      </p>
-    </div>
-    <div class="next-card">
-      <div class="next-card-head">
         <span class="next-card-num">08</span>
         <span class="next-card-title">Auth + synced user state</span>
       </div>
@@ -404,7 +397,9 @@
         From 5 pilot tickers to the full 954-ticker seed
         (<a href="uni2.html">browse it</a>), sharded across parallel
         <code>signals-scan.yml</code> jobs to stay under the Actions job
-        time cap. Cost/rate-limit envelope already sized in the plan doc.
+        time cap. Cost/rate-limit envelope already sized in the plan doc —
+        the publication gate runs before LLM synthesis specifically so this
+        scale-up doesn't multiply LLM spend by 954/5.
       </p>
     </div>
     <div class="next-card">
@@ -417,6 +412,26 @@
         with no caller. Closes it and gives <code>CouncilPanel</code> and
         <code>SignalMatrixRow</code> real data for the first time.
       </p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Findings Only Live Testing Caught</p>
+    <div class="finding">
+      <span class="finding-icon">▸</span>
+      <span class="finding-text"><strong>GitHub Pages had never actually deployed successfully</strong> since 2026-06-28 — three stacked bugs (export validator, clobbered 404.html, client-router/RSC incompatibility) plus the repo needing to be public. Found only by driving a real browser against a GitHub-Pages-accurate static server.</span>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">▸</span>
+      <span class="finding-text"><strong>PostgREST upserts silently 409'd</strong> without an explicit <code>on_conflict</code> query param — synthetic unit tests with a fake writer couldn't catch this; only a real write against the live project did.</span>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">▸</span>
+      <span class="finding-text"><strong>Timestamp timezone normalization broke the calibration join</strong> — Postgres normalizes any offset to UTC on storage, so raw <code>isoformat()</code> string comparison between a fetched price DataFrame and a stored <code>bar_ts</code> silently never matched.</span>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">▸</span>
+      <span class="finding-text"><strong>A raw f-string query URL broke calibration activation</strong> — a <code>computed_at</code> value containing <code>+</code> decoded to a space in the unencoded URL, 400'ing every activation PATCH until switched to httpx's <code>params=</code>.</span>
     </div>
   </div>
 
