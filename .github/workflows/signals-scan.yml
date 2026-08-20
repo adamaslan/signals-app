@@ -34,6 +34,11 @@ on:
         type: boolean
         required: false
         default: false
+      matrix:
+        description: "Also compute the 5-timeframe matrix (Phase 10) for gated symbols — up to 5x fetches/LLM calls. Pilot job only, not available on full_universe (too expensive at 954 tickers)."
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   # Two overlapping scans would double-write and double-spend LLM tokens.
@@ -81,10 +86,15 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             DRY_RUN_FLAG="--dry-run"
           fi
+          MATRIX_FLAG=""
+          if [ "${{ github.event.inputs.matrix }}" = "true" ]; then
+            MATRIX_FLAG="--matrix"
+          fi
           python scripts/scan_universe.py $SYMBOLS \
             --period "$PERIOD" \
             --trigger manual \
-            $DRY_RUN_FLAG
+            $DRY_RUN_FLAG \
+            $MATRIX_FLAG
 
   # Full-universe path: the scheduled cron run, or a manual dispatch with
   # full_universe=true. Matrix-sharded 4 ways across seed/universe_symbols.csv.

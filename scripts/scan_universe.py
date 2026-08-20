@@ -58,12 +58,18 @@ from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.indicators.data_quality import score_data_quality  # noqa: E402
 from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase  # noqa: E402
 from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
+from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 MAX_CONCURRENT_FETCHES = 4
 _PERIOD_TO_TIMEFRAME: dict[str, str] = {
     "1d": "1D", "5d": "5D", "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1Y",
+}
+# Inverse mapping for Phase 10 (multi-timeframe matrix): SUPPORTED_TIMEFRAMES
+# ("1D","5D","1M","3M","6M") -> the yfinance period string DataFetcher expects.
+_TIMEFRAME_TO_PERIOD: dict[str, str] = {
+    "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", "6M": "6mo",
 }
 
 
@@ -138,6 +144,75 @@ def passes_publication_gate(
     return True
 
 
+def build_matrix_for_symbol(ticker: str, settings: Any) -> dict[str, Any] | None:
+    """Compute the full 5-timeframe matrix (Phase 10) for a symbol that has
+    already cleared the single-period publication gate.
+
+    Fetches SUPPORTED_TIMEFRAMES's 5 periods, scores each with
+    compute_multi_timeframe(), then calls build_timeframe_matrix() — which
+    makes up to 5 LLM calls, one per timeframe. Deliberately only called for
+    already-gated symbols (see scan_one_symbol) so the 5x fetch/LLM cost is
+    never paid for a symbol that would be rejected anyway.
+
+    Returns:
+        The TimeframeMatrix as a JSON-serializable dict (matches
+        SignalMatrixRow.tsx's expected shape exactly), or None if fewer than
+        2 timeframes had enough data to score — a 1-timeframe "matrix" isn't
+        informative and isn't worth the LLM spend to synthesize.
+    """
+    import asyncio
+
+    from signals_app.scoring.mtf import compute_multi_timeframe
+    from signals_app.synthesis.mtf_llm import build_timeframe_matrix
+
+    dfs_by_timeframe: dict[str, Any] = {}
+    for tf in SUPPORTED_TIMEFRAMES:
+        period = _TIMEFRAME_TO_PERIOD.get(tf)
+        if period is None:
+            continue
+        try:
+            fetcher = DataFetcher(settings=settings)
+            df = fetcher.fetch(ticker, period).df
+            if len(df) >= 20:
+                dfs_by_timeframe[tf] = df
+        except Exception as exc:
+            logger.warning("matrix: %s %s fetch failed: %s", ticker, tf, exc)
+
+    if len(dfs_by_timeframe) < 2:
+        logger.info(
+            "matrix: %s — only %d/%d timeframes had data, skipping matrix",
+            ticker, len(dfs_by_timeframe), len(SUPPORTED_TIMEFRAMES),
+        )
+        return None
+
+    mtf_result = compute_multi_timeframe(ticker, dfs_by_timeframe)
+
+    features_by_timeframe: dict[str, dict[str, Any]] = {}
+    for tf, ts in mtf_result.timeframe_scores.items():
+        features_by_timeframe[tf] = {
+            "symbol": ticker,
+            "confluence_score": ts.result.score,
+            "bias": ts.result.bias,
+            "action": ts.result.action,
+            "bull_count": ts.result.bull_count,
+            "bear_count": ts.result.bear_count,
+            "total_signals": ts.result.total_signals,
+        }
+
+    if not features_by_timeframe:
+        return None
+
+    loop = asyncio.new_event_loop()
+    try:
+        matrix = loop.run_until_complete(
+            build_timeframe_matrix(ticker, features_by_timeframe, settings=settings)
+        )
+    finally:
+        loop.close()
+
+    return matrix.model_dump(mode="json")  # type: ignore[no-any-return]
+
+
 def scan_one_symbol(
     ticker: str,
     period: str,
@@ -146,6 +221,7 @@ def scan_one_symbol(
     settings: Any,
     dry_run: bool,
     strength_hit_rates: dict[str, float] | None = None,
+    compute_matrix: bool = False,
 ) -> SymbolResult:
     """Run L1-L4 for one ticker, gate, optionally synthesize + persist.
 
@@ -223,6 +299,13 @@ def scan_one_symbol(
                 e.model_dump(mode="json") for e in signal.evidence.items if e.is_counter
             ]
 
+            matrix: dict[str, Any] | None = None
+            if compute_matrix:
+                try:
+                    matrix = build_matrix_for_symbol(ticker, settings)
+                except Exception as exc:
+                    logger.warning("matrix: %s failed, publishing without it: %s", ticker, exc)
+
             record = confluence_result_to_signal_record(
                 ticker=ticker,
                 period=period,
@@ -234,6 +317,7 @@ def scan_one_symbol(
                 confidence=confidence,
                 evidence=evidence,
                 counter_evidence=counter_evidence,
+                matrix=matrix,
                 ai_degraded=ai_degraded,
                 no_llm=False,
                 prompt_version=prompt_version,
@@ -255,6 +339,7 @@ def scan_universe(
     trigger: str = "manual",
     dry_run: bool = False,
     max_concurrent: int = MAX_CONCURRENT_FETCHES,
+    compute_matrix: bool = False,
 ) -> list[SymbolResult]:
     """Run the pipeline over a universe and persist gated results.
 
@@ -267,6 +352,9 @@ def scan_universe(
         dry_run: Skip LLM synthesis and all writes; just run L1-L4 and log
             what would have been gated/published.
         max_concurrent: Bounded fetch concurrency (yfinance throttles).
+        compute_matrix: Also compute the 5-timeframe matrix (Phase 10) for
+            symbols that clear the publication gate — up to 5x the fetches
+            and LLM calls per gated symbol, so opt-in rather than default.
 
     Returns:
         One SymbolResult per input symbol.
@@ -288,7 +376,8 @@ def scan_universe(
     with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
         futures = {
             pool.submit(
-                scan_one_symbol, t, period, writer, run, settings, dry_run, strength_hit_rates
+                scan_one_symbol,
+                t, period, writer, run, settings, dry_run, strength_hit_rates, compute_matrix,
             ): t
             for t in symbols
         }
@@ -350,6 +439,15 @@ def main() -> None:
         "--dry-run", action="store_true", help="Gate + log only, no LLM calls or writes"
     )
     parser.add_argument("--max-concurrent", type=int, default=MAX_CONCURRENT_FETCHES)
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help=(
+            "Also compute the 5-timeframe matrix (Phase 10) for symbols that "
+            "clear the publication gate. Up to 5x the fetches/LLM calls per "
+            "gated symbol — opt-in, not the default."
+        ),
+    )
     args = parser.parse_args()
 
     symbols = list(args.symbols)
@@ -384,6 +482,7 @@ def main() -> None:
             trigger=args.trigger,
             dry_run=args.dry_run,
             max_concurrent=args.max_concurrent,
+            compute_matrix=args.matrix,
         )
     finally:
         if writer is not None:
