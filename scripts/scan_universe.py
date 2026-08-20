@@ -92,6 +92,31 @@ def load_symbols_from_csv(path: str) -> list[str]:
         return [row["ticker"].strip().upper() for row in csv.DictReader(f) if row.get("ticker")]
 
 
+def parse_shard_spec(spec: str) -> tuple[int, int]:
+    """Parse a "INDEX/TOTAL" shard spec (e.g. "0/4") into (index, total).
+
+    Raises:
+        ValueError: If the spec isn't parseable as two ints, or index is out
+            of range for total (0 <= index < total).
+    """
+    try:
+        index_str, total_str = spec.split("/")
+        index, total = int(index_str), int(total_str)
+    except ValueError as exc:
+        raise ValueError(f"--shard must be INDEX/TOTAL (e.g. '0/4'), got {spec!r}") from exc
+    if not (0 <= index < total):
+        raise ValueError(f"--shard index must satisfy 0 <= INDEX < TOTAL, got {spec!r}")
+    return index, total
+
+
+def apply_shard(symbols: list[str], shard_index: int, shard_total: int) -> list[str]:
+    """Select every shard_total-th symbol starting at shard_index, from an
+    already-sorted list — so the same shard spec always selects the same
+    tickers regardless of which GitHub Actions matrix job runs first.
+    """
+    return [s for i, s in enumerate(symbols) if i % shard_total == shard_index]
+
+
 def passes_publication_gate(
     data_quality_score: float | None,
     total_signals: int,
@@ -307,6 +332,18 @@ def main() -> None:
     parser.add_argument(
         "--limit", type=int, default=None, help="Cap the number of symbols scanned"
     )
+    parser.add_argument(
+        "--shard",
+        default=None,
+        metavar="INDEX/TOTAL",
+        help=(
+            "Process only every TOTAL-th symbol starting at INDEX (0-based), e.g. "
+            "'0/4' or '3/4' — for GitHub Actions matrix sharding across a large "
+            "universe (Phase 9). Sharding happens after sorting the full symbol "
+            "list, so the same --shard value always selects the same tickers "
+            "regardless of which shard runs first."
+        ),
+    )
     parser.add_argument("--period", default=DEFAULT_PERIOD)
     parser.add_argument("--trigger", default="manual", choices=["cron", "manual", "backfill"])
     parser.add_argument(
@@ -321,6 +358,15 @@ def main() -> None:
     if not symbols:
         parser.error("no symbols given — pass tickers directly or use --seed")
     symbols = sorted(set(symbols))
+
+    if args.shard:
+        try:
+            shard_index, shard_total = parse_shard_spec(args.shard)
+        except ValueError as exc:
+            parser.error(str(exc))
+        else:
+            symbols = apply_shard(symbols, shard_index, shard_total)
+
     if args.limit:
         symbols = symbols[: args.limit]
 
