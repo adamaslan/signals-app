@@ -1,0 +1,626 @@
+<title>signals-app — Local Dev Run: Issues &amp; Fixes</title>
+<style>
+  :root {
+    --paper: #F7F6F2;
+    --paper-raised: #FCFBF8;
+    --ink: #1A1D1F;
+    --ink-soft: #5B5F5A;
+    --line: #DDD9D0;
+    --signal: #1F6F5C;
+    --signal-soft: #E4EEE9;
+    --flag: #B8862B;
+    --flag-soft: #F5EBD8;
+    --bad: #A13D2E;
+    --bad-soft: #F6E4E0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 64px 24px 96px;
+  }
+
+  .mono { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+
+  .page { max-width: 780px; margin: 0 auto; }
+
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+  }
+
+  .eyebrow {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+
+  .dek {
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin: 0;
+    max-width: 64ch;
+  }
+
+  .status-strip {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+
+  .status-cell {
+    background: var(--paper-raised);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+  }
+  .status-dot.ok { background: var(--signal); }
+  .status-dot.warn { background: var(--flag); }
+
+  .status-text .svc { font-weight: 700; font-size: 14px; }
+  .status-text .detail {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  section { margin-bottom: 40px; }
+
+  h2 {
+    font-size: 13px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    margin: 0 0 18px;
+  }
+
+  .issue {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper-raised);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .issue-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .badge {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 3px 8px;
+    flex: none;
+  }
+  .badge.fixed { background: var(--signal-soft); color: var(--signal); }
+  .badge.open { background: var(--bad-soft); color: var(--bad); }
+
+  .issue-title { font-weight: 700; font-size: 14.5px; }
+
+  .issue-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+  .field-label {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+
+  .field-value { font-size: 14px; }
+
+  pre {
+    background: #F1EFE8;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12.5px;
+    overflow-x: auto;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .remaining-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .remaining-item {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .remaining-item:last-child { border-bottom: none; }
+
+  .remaining-check {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--flag);
+    border-radius: 3px;
+    margin-top: 2px;
+  }
+
+  .remaining-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .remaining-detail { font-size: 13px; color: var(--ink-soft); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media (max-width: 620px) {
+    .status-strip { grid-template-columns: 1fr; }
+  }
+
+  /* Signal pipeline section */
+  .stage-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 28px;
+    overflow-x: auto;
+  }
+
+  .stage {
+    flex: 1 1 0;
+    min-width: 108px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    position: relative;
+  }
+  .stage:not(:first-child) { border-left: none; }
+  .stage:first-child { border-radius: 6px 0 0 6px; }
+  .stage:last-child { border-radius: 0 6px 6px 0; }
+
+  .stage-num {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 10.5px;
+    color: var(--signal);
+    letter-spacing: 0.04em;
+  }
+
+  .stage-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-top: 3px;
+    line-height: 1.3;
+  }
+
+  .stage::after {
+    content: "→";
+    position: absolute;
+    right: -11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-soft);
+    font-size: 13px;
+    z-index: 1;
+  }
+  .stage:last-child::after { content: none; }
+
+  .subsystem {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper-raised);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+
+  .subsystem-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--line);
+    background: #F1EFE8;
+  }
+
+  .subsystem-tag {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 3px 8px;
+    flex: none;
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .subsystem-tag.web { background: var(--flag-soft); color: var(--flag); }
+
+  .subsystem-title { font-weight: 700; font-size: 14.5px; }
+  .subsystem-file {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-left: auto;
+  }
+
+  .subsystem-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  .signal-groups {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .signal-group {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 10px 12px;
+    background: var(--paper);
+  }
+
+  .signal-group-head {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    margin-bottom: 7px;
+  }
+
+  .signal-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .signal-tag {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 10.5px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  .endpoint-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .endpoint-table th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 0 10px 6px 0;
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+  }
+
+  .endpoint-table td {
+    padding: 8px 10px 8px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .endpoint-table tr:last-child td { border-bottom: none; }
+
+  .endpoint-path {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .direction-scale {
+    display: flex;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+
+  .direction-cell {
+    flex: 1;
+    padding: 8px 6px;
+    text-align: center;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  @media (max-width: 700px) {
+    .signal-groups { grid-template-columns: 1fr; }
+    .stage-flow { flex-wrap: nowrap; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Dev Session Log · signals-app</p>
+    <h1>Getting local dev running: issues hit and fixes applied</h1>
+    <p class="dek">Backend (FastAPI) and frontend (Next.js) were started locally for the first time. Three environment/config issues surfaced along the way — this is what broke, what was changed, and what's still unverified.</p>
+  </header>
+
+  <div class="status-strip">
+    <div class="status-cell">
+      <span class="status-dot ok"></span>
+      <div class="status-text">
+        <div class="svc">Backend — FastAPI/uvicorn</div>
+        <div class="detail">localhost:8010 (moved off :8000) · reload on</div>
+      </div>
+    </div>
+    <div class="status-cell">
+      <span class="status-dot warn"></span>
+      <div class="status-text">
+        <div class="svc">Frontend — Next.js</div>
+        <div class="detail">localhost:3000 · started, response unverified</div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>What "Signals" Means in This App</h2>
+    <p class="dek" style="margin-bottom: 18px;">A signal is a directional call (strong buy → strong sell) on one ticker, assembled by running ~18 independent technical detectors over OHLCV data, ranking them by confluence, and optionally passing the result through an LLM for a written rationale. The stages below run on every <span class="mono">GET /signals/{symbol}</span> request.</p>
+
+    <div class="stage-flow">
+      <div class="stage"><div class="stage-num">L1</div><div class="stage-name">Fetch OHLCV</div></div>
+      <div class="stage"><div class="stage-num">L2</div><div class="stage-name">Compute indicators</div></div>
+      <div class="stage"><div class="stage-num">L3</div><div class="stage-name">Detect signals</div></div>
+      <div class="stage"><div class="stage-num">L4</div><div class="stage-name">Confluence rank</div></div>
+      <div class="stage"><div class="stage-num">L5</div><div class="stage-name">LLM synthesis</div></div>
+    </div>
+
+    <div class="subsystem">
+      <div class="subsystem-head">
+        <span class="subsystem-tag">Backend</span>
+        <span class="subsystem-title">Signal detection — 18 detectors, 3 categories</span>
+        <span class="subsystem-file">src/signals_app/detection/</span>
+      </div>
+      <div class="subsystem-body">
+        <div>Each detector reads the latest 1–2 bars of the indicator DataFrame and independently emits zero or more <span class="mono">MutableSignal</span> objects (label, strength, category). A per-detector thread-pool timeout means one slow or failing detector degrades the result rather than crashing the request — <span class="mono">orchestrator.py</span> marks the response <span class="mono">degraded</span> if too many detectors fail.</div>
+        <div class="signal-groups">
+          <div class="signal-group">
+            <div class="signal-group-head">Trend (9 detectors)</div>
+            <div class="signal-tag-list">
+              <span class="signal-tag">GOLDEN CROSS</span>
+              <span class="signal-tag">DEATH CROSS</span>
+              <span class="signal-tag">MA ALIGNMENT</span>
+              <span class="signal-tag">ICHIMOKU TK CROSS</span>
+              <span class="signal-tag">PRICE vs KUMO</span>
+              <span class="signal-tag">BOLLINGER BAND</span>
+              <span class="signal-tag">BB EXPANSION</span>
+              <span class="signal-tag">LARGE GAIN/LOSS</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-head">Momentum (6 detectors)</div>
+            <div class="signal-tag-list">
+              <span class="signal-tag">RSI OB/OS</span>
+              <span class="signal-tag">MULTI-PERIOD RSI</span>
+              <span class="signal-tag">MACD CROSS</span>
+              <span class="signal-tag">MULTI-PARAM MACD</span>
+              <span class="signal-tag">STOCHASTIC OB/OS</span>
+              <span class="signal-tag">STOCH %K/%D CROSS</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-head">Volume (3 detectors)</div>
+            <div class="signal-tag-list">
+              <span class="signal-tag">VOLUME SPIKE 2X/3X</span>
+              <span class="signal-tag">VOLUME DIVERGENCE</span>
+              <span class="signal-tag">OBV CROSS/DIVERGENCE</span>
+              <span class="signal-tag">CMF BUY/SELL</span>
+            </div>
+          </div>
+        </div>
+        <div>Signals then pass through <span class="mono">ConfluenceRanker</span> (L4), which counts bullish vs. bearish signals into a <span class="mono">bull_count</span> / <span class="mono">bear_count</span> / <span class="mono">score</span>, and <span class="mono">compute_multi_timeframe</span>, which maps the requested period (<span class="mono">1d…1y</span>) to a timeframe label (<span class="mono">1D…1Y</span>) for synthesis.</div>
+      </div>
+    </div>
+
+    <div class="subsystem">
+      <div class="subsystem-head">
+        <span class="subsystem-tag">Backend</span>
+        <span class="subsystem-title">LLM synthesis &amp; API surface</span>
+        <span class="subsystem-file">src/signals_app/synthesis/, api/routes.py</span>
+      </div>
+      <div class="subsystem-body">
+        <div><span class="mono">synthesize_single()</span> feeds the confluence result plus current indicator values (RSI, MACD, ADX, Close, Volume, ATR, Price_Change) to an LLM prompt, which returns a structured <span class="mono">Signal</span>: a <span class="mono">direction</span>, <span class="mono">confidence</span> (0–1), and an evidence list. If the LLM call fails or is disabled (<span class="mono">no_llm=true</span> or no key configured), a rule-based <span class="mono">_fallback_signal()</span> is returned instead and flagged <span class="mono">ai_degraded</span> — the pipeline never 500s just because the LLM is unavailable.</div>
+        <table class="endpoint-table">
+          <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="endpoint-path">GET /signals/{symbol}</td><td>Full pipeline (L1–L5) for one ticker; params <span class="mono">period</span>, <span class="mono">no_llm</span>.</td></tr>
+            <tr><td class="endpoint-path">GET /history/{symbol}</td><td>Past runs for a ticker from the SQL DB, newest first (paginated).</td></tr>
+            <tr><td class="endpoint-path">GET /health</td><td>Liveness probe.</td></tr>
+          </tbody>
+        </table>
+        <div>Every run is persisted via <span class="mono">record_run()</span> (ticker, period, direction, confidence, degraded flags) — fire-and-forget, so a DB write failure is logged but never fails the response.</div>
+      </div>
+    </div>
+
+    <div class="subsystem">
+      <div class="subsystem-head">
+        <span class="subsystem-tag web">Frontend</span>
+        <span class="subsystem-title">Rendering a signal</span>
+        <span class="subsystem-file">web/src/components/SignalCard.tsx, ConfluenceBar.tsx</span>
+      </div>
+      <div class="subsystem-body">
+        <div><span class="mono">SignalCard</span> is the primary unit of display: one ticker, one synthesized direction. Confidence drives the visual weight directly — card opacity is <span class="mono">0.3 + 0.7 × confidence</span> and border width is <span class="mono">1 + 4 × confidence</span>px, so a low-confidence call visibly recedes rather than needing a separate label to read as "weak."</div>
+        <div class="direction-scale">
+          <div class="direction-cell" style="background:#00C853;">STRONG BUY</div>
+          <div class="direction-cell" style="background:#4CAF50;">BUY</div>
+          <div class="direction-cell" style="background:#757575;">HOLD</div>
+          <div class="direction-cell" style="background:#EF5350;">SELL</div>
+          <div class="direction-cell" style="background:#D50000;">STRONG SELL</div>
+        </div>
+        <div>Evidence items (the individual detector hits feeding the call) are collapsed by default behind a "Show N evidence items" toggle. An <span class="mono">⚠ AI unavailable</span> badge appears whenever <span class="mono">ai_degraded</span> is true, so a rule-based fallback is never presented as if it were LLM-reasoned. <span class="mono">ConfluenceBar</span> separately visualizes the raw bull/neutral/bear signal split as a segmented bar, plus a multi-timeframe "alignment score" bar (green &gt;70%, amber 40–70%, red &lt;40%) showing how much the different timeframes agree.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Issues &amp; Fixes</h2>
+
+    <div class="issue">
+      <div class="issue-head">
+        <span class="badge fixed">Fixed</span>
+        <span class="issue-title">Missing mamba environment</span>
+      </div>
+      <div class="issue-body">
+        <div>
+          <div class="field-label">Problem</div>
+          <div class="field-value">No <span class="mono">signals-app</span> mamba env existed yet, so the backend couldn't import <span class="mono">signals_app</span> at all.</div>
+        </div>
+        <div>
+          <div class="field-label">Fix</div>
+          <pre>mamba env create -f environment.yml -y
+mamba install -n signals-app -c conda-forge aiosqlite -y</pre>
+        </div>
+        <div>
+          <div class="field-label">Note</div>
+          <div class="field-value"><span class="mono">aiosqlite</span> is used by <span class="mono">db/session.py</span> and listed in <span class="mono">pyproject.toml</span>, but was missing from <span class="mono">environment.yml</span> — added manually.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-head">
+        <span class="badge fixed">Fixed</span>
+        <span class="issue-title">Port 8000 already occupied by an unrelated project</span>
+      </div>
+      <div class="issue-body">
+        <div>
+          <div class="field-label">Problem</div>
+          <div class="field-value">Port 8000 was already bound by a long-running uvicorn process from an unrelated project (<span class="mono">social-pr-autopilot</span>). Starting signals-app's backend there would have silently talked to the wrong service — not something to kill without asking first.</div>
+        </div>
+        <div>
+          <div class="field-label">Fix</div>
+          <div class="field-value">Ran the signals-app backend on <span class="mono">:8010</span> instead, and pointed the frontend at it via <span class="mono">web/.env.local</span>:</div>
+          <pre>BACKEND_URL=http://localhost:8010</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-head">
+        <span class="badge fixed">Fixed</span>
+        <span class="issue-title">SSR crash: <span class="mono">localStorage.getItem is not a function</span></span>
+      </div>
+      <div class="issue-body">
+        <div>
+          <div class="field-label">Problem</div>
+          <div class="field-value">Every server-rendered route returned 500. Root cause: Node 25 (the local <span class="mono">node</span> is v25.8.2) ships an experimental global <span class="mono">localStorage</span> that exists but isn't fully functional. Dexie (<span class="mono">web/src/lib/db.ts</span>), imported transitively during SSR, feature-detects it as present and tries to use it, then throws. Next.js 15.3.3 / React 19 predate Node 25, so this combination was never targeted by the app.</div>
+        </div>
+        <div>
+          <div class="field-label">Fix</div>
+          <div class="field-value">Disabled the experimental API for the dev process rather than touching app code:</div>
+          <pre>NODE_OPTIONS="--no-experimental-webstorage" npm run dev</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-head">
+        <span class="badge open">Open</span>
+        <span class="issue-title"><span class="mono">.claude/commands/dev.sh</span> breaks when copied elsewhere</span>
+      </div>
+      <div class="issue-body">
+        <div>
+          <div class="field-label">Problem</div>
+          <div class="field-value">The script resolves its own directory and does <span class="mono">cd "$SCRIPT_DIR/web"</span>, so it only works if invoked from the repo root. It also calls <span class="mono">mamba run -n signals-app uvicorn ...</span> directly, which did not reliably inherit <span class="mono">PYTHONPATH</span> in this session.</div>
+        </div>
+        <div>
+          <div class="field-label">Workaround used</div>
+          <div class="field-value">Started backend and frontend as two separate background commands instead of via the script.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What Remains</h2>
+    <div class="remaining-list">
+      <div class="remaining-item">
+        <span class="remaining-check"></span>
+        <div>
+          <div class="remaining-title">Confirm both servers actually respond after the webstorage fix</div>
+          <div class="remaining-detail">Backend restarted on :8010 and frontend restarted with <span class="mono">NODE_OPTIONS="--no-experimental-webstorage"</span>, but live HTTP checks against <span class="mono">/openapi.json</span> and <span class="mono">/</span> were not completed this session — verify both return 200 before treating dev as ready.</div>
+        </div>
+      </div>
+      <div class="remaining-item">
+        <span class="remaining-check"></span>
+        <div>
+          <div class="remaining-title">Decide on a permanent Node version pin</div>
+          <div class="remaining-detail">No <span class="mono">.nvmrc</span> or engines field exists. Pinning to Node 20 or 22 LTS would avoid relying on the <span class="mono">--no-experimental-webstorage</span> flag going forward.</div>
+        </div>
+      </div>
+      <div class="remaining-item">
+        <span class="remaining-check"></span>
+        <div>
+          <div class="remaining-title">Fix <span class="mono">dev.sh</span> path assumptions</div>
+          <div class="remaining-detail">Make the script resolve the true repo root (e.g. <span class="mono">git rev-parse --show-toplevel</span>) instead of assuming it lives one level above <span class="mono">web/</span>, so it works regardless of where it's copied or symlinked.</div>
+        </div>
+      </div>
+      <div class="remaining-item">
+        <span class="remaining-check"></span>
+        <div>
+          <div class="remaining-title">Reconcile the port-8000 default</div>
+          <div class="remaining-detail"><span class="mono">environment.yml</span>-based docs still assume :8000. Either standardize on :8010 in local docs/README, or free up :8000 deliberately when needed.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Local dev session — not yet confirmed end-to-end</span>
+    <span class="mono">~/code/code2/signals-app · main</span>
+  </footer>
+
+</div>
