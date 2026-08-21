@@ -51,8 +51,8 @@ from signals_app.scoring.calibration import load_strength_hit_rates  # noqa: E40
 
 logger = logging.getLogger(__name__)
 
-CALIBRATION_FILE_10D = "./calibration/strength_hit_rates_10d.json"
-OUTPUT_DIR = Path("calibration")
+CALIBRATION_FILE_10D = _project_root / "calibration" / "strength_hit_rates_10d.json"
+OUTPUT_DIR = _project_root / "calibration"
 
 
 @dataclass

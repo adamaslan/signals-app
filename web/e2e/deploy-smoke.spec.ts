@@ -10,7 +10,7 @@ test.describe('Deploy smoke tests', () => {
       }
     });
 
-    await page.goto('/');
+    await page.goto('./');
     expect(errors).toHaveLength(0);
   });
 
@@ -23,10 +23,8 @@ test.describe('Deploy smoke tests', () => {
       }
     });
 
-    await page.goto('/');
-    expect(failedRequests.filter((r) => !r.includes('/_next/static/'))).toHaveLength(
-      0,
-    );
+    await page.goto('./');
+    expect(failedRequests).toHaveLength(0);
   });
 
   test('deep link survives 404 redirect', async ({ page }) => {
@@ -43,7 +41,7 @@ test.describe('Deploy smoke tests', () => {
   });
 
   test('page title is present', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     const title = await page.title();
     expect(title).toBeTruthy();
   });

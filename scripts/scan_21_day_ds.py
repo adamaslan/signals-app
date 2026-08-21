@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-CALIBRATION_FILE_21D = "./calibration/strength_hit_rates_21d.json"
+CALIBRATION_FILE_21D = _project_root / "calibration" / "strength_hit_rates_21d.json"
 OUTPUT_DIR = _project_root / "docs"  # Reports go into docs/ at project root
 HORIZON_DAYS = 21  # ~1 trading month
 DEFAULT_SCAN_PERIOD = "6mo"
