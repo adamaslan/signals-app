@@ -56,12 +56,18 @@ The frontend keeps its own full history entirely in the browser via Dexie
 | `watchlist` | starred tickers with note, targetPrice, lastSignal/lastCheckedAt |
 | `savedConfigs` | named (period, noLlm) presets |
 | `alerts` | per-ticker rules: target direction + minConfidence, fires via `evaluateAlerts()` |
+| `universes` | **v2** — named basket of tickers (`name`, `note`, `tickers[]`, `defaultPeriod`, `revision`, cached `coverage`). See [concepts/local-universes.md](../concepts/local-universes.md). |
+| `universeRuns` | **v2** — one batch refresh of a universe: `universeRevision` snapshot, denormalised `results[]`, `summary`. |
+| `universeBacktests` | **v2** — cached universe hit-rate buckets, keyed on the compound index `[universeId+universeRevision+horizonDays]`. |
 
-`createDb()` guards against SSR (`typeof window === "undefined"` → `null`),
-and every exported function short-circuits to a no-op/empty value when `db`
-is null — this is the seam that a Node runtime with a broken global
-`localStorage` can trip over if that guard is bypassed at import time by a
-polyfill (see [ops/known-issues.md](../ops/known-issues.md)).
+`createDb()` guards against SSR — as of the v2 (local-universes) change it
+keys off **`typeof indexedDB === "undefined"` → `null`** rather than
+`window`, so a test runner that polyfills `indexedDB` (`fake-indexeddb`)
+gets a real, queryable store. Every exported function still short-circuits
+to a no-op/empty value when `db` is null — this is the seam that a Node
+runtime with a broken global `localStorage` can trip over if that guard is
+bypassed at import time by a polyfill (see
+[ops/known-issues.md](../ops/known-issues.md)).
 
 `recordRun()` is the central write path: appends to `history`, bumps
 `profile` (`lastSeen`/`lastTicker`/`lastSignal`/`totalRuns` via a
@@ -70,7 +76,8 @@ is watched, and evaluates `alerts` for that ticker — returning any that
 fired so the UI can surface a notification.
 
 `exportAll()` / `wipeAll()` give the user full data ownership — dump
-everything as JSON, or erase every table ("forget me").
+everything as JSON, or erase every table ("forget me"). Both cover the v2
+`universes` / `universeRuns` / `universeBacktests` tables.
 
 ## SSR ↔ client bridge (`cookies.ts`, `useProfile.ts`)
 
