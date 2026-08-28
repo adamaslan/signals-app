@@ -4,24 +4,46 @@ import { useState } from "react";
 import type { Signal } from "@/lib/types";
 import { SIGNAL_COLORS, SIGNAL_LABELS } from "@/lib/types";
 import { EvidenceList } from "./EvidenceList";
+import { FreshnessBadge } from "./FreshnessBadge";
+import { DataQualityMeter, isLowDataQuality } from "./DataQualityMeter";
 
 interface SignalCardProps {
   ticker: string;
   signal: Signal;
+  /** The bar this signal describes (epoch ms / ISO) — drives the freshness
+   * badge (§5 item #1). */
+  barTs?: number | string | null;
+  /** When the row was computed/published. */
+  createdAt?: number | string | null;
+  /** 0–1 data-quality score — drives the meter and card demotion (item #2). */
+  dataQualityScore?: number | null;
+  dataQualityReasons?: string[];
 }
 
 /**
  * Web port of gcp3-mobile/components/SignalCard.tsx.
- * Renders the primary synthesized signal with collapsible evidence.
+ * Renders the primary synthesized signal with collapsible evidence, a
+ * freshness badge, and a data-quality meter that visually demotes the card
+ * when input quality is poor.
  */
-export function SignalCard({ ticker, signal }: SignalCardProps) {
+export function SignalCard({
+  ticker,
+  signal,
+  barTs,
+  createdAt,
+  dataQualityScore = null,
+  dataQualityReasons = [],
+}: SignalCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const color = SIGNAL_COLORS[signal.direction];
   const confidencePct = Math.round(signal.confidence * 100);
+  const lowQuality = isLowDataQuality(dataQualityScore);
 
-  // Card opacity and border scale with confidence — mirrored from mobile
-  const cardOpacity = 0.3 + 0.7 * signal.confidence;
+  // Card opacity and border scale with confidence — mirrored from mobile.
+  // A low data-quality score desaturates the whole card further, so a
+  // signal built on gappy data can't look as authoritative as a clean one.
+  const cardOpacity = (0.3 + 0.7 * signal.confidence) * (lowQuality ? 0.6 : 1);
   const borderWidth = 1 + 4 * signal.confidence;
 
   return (
@@ -36,26 +58,36 @@ export function SignalCard({ ticker, signal }: SignalCardProps) {
       }}
     >
       {/* Header row */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <span className="text-white text-xl font-bold">{ticker}</span>
-        {signal.ai_degraded && (
-          <span
-            className="rounded-lg text-xs px-2 py-0.5 font-medium"
-            style={{
-              backgroundColor: "#FF6D0033",
-              border: "1px solid #FF6D00",
-              color: "#FF6D00",
-            }}
-          >
-            ⚠ AI unavailable
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <FreshnessBadge barTs={barTs} createdAt={createdAt} />
+          {signal.ai_degraded && (
+            <span
+              className="rounded-lg text-xs px-2 py-0.5 font-medium"
+              style={{
+                backgroundColor: "#FF6D0033",
+                border: "1px solid #FF6D00",
+                color: "#FF6D00",
+              }}
+            >
+              ⚠ AI unavailable
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Direction label */}
       <p className="text-2xl font-extrabold tracking-wide" style={{ color }}>
         {SIGNAL_LABELS[signal.direction]}
       </p>
+
+      {(dataQualityScore != null || dataQualityReasons.length > 0) && (
+        <DataQualityMeter
+          score={dataQualityScore}
+          reasons={dataQualityReasons}
+        />
+      )}
 
       {/* Confidence pill */}
       <div className="flex items-center gap-3">

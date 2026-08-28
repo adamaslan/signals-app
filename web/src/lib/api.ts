@@ -288,6 +288,74 @@ export async function fetchSignal(
   return rowToSignalOutput(data as unknown as SignalRow, period);
 }
 
+/** Latest engine-run health, for the site-wide status strip (§5 item #9). */
+export interface EngineHealth {
+  status: string;
+  symbolsTotal: number;
+  symbolsOk: number;
+  symbolsFailed: number;
+  finishedAt: string | null;
+  startedAt: string;
+  /** True when the newest run failed/partial, or finished > STALE_HOURS ago,
+   * or is still "running" well past when it should have finished. */
+  degraded: boolean;
+  ageHours: number | null;
+}
+
+interface EngineRunRow {
+  status: string;
+  symbols_total: number;
+  symbols_ok: number;
+  symbols_failed: number;
+  finished_at: string | null;
+  started_at: string;
+}
+
+const ENGINE_STALE_HOURS = 26;
+
+/**
+ * Read the newest `engine_runs` row. Returns null when Supabase isn't
+ * configured or there are no runs yet (never throws — a status strip must
+ * not take the page down).
+ */
+export async function fetchEngineHealth(): Promise<EngineHealth | null> {
+  if (!supabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("engine_runs")
+      .select(
+        "status,symbols_total,symbols_ok,symbols_failed,finished_at,started_at",
+      )
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+
+    const row = data as unknown as EngineRunRow;
+    const refTs = row.finished_at
+      ? new Date(row.finished_at).getTime()
+      : new Date(row.started_at).getTime();
+    const ageHours = (Date.now() - refTs) / (60 * 60 * 1000);
+    const degraded =
+      row.status === "failed" ||
+      row.status === "partial" ||
+      ageHours > ENGINE_STALE_HOURS;
+
+    return {
+      status: row.status,
+      symbolsTotal: row.symbols_total,
+      symbolsOk: row.symbols_ok,
+      symbolsFailed: row.symbols_failed,
+      finishedAt: row.finished_at,
+      startedAt: row.started_at,
+      degraded,
+      ageHours: Number.isFinite(ageHours) ? ageHours : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Check whether Supabase is reachable and configured.
  *

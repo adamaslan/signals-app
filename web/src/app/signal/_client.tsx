@@ -153,7 +153,14 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
         </div>
       )}
 
-      <SignalCard ticker={ticker} signal={signal} />
+      <SignalCard
+        ticker={ticker}
+        signal={signal}
+        barTs={data.bar_ts}
+        createdAt={data.created_at}
+        dataQualityScore={data.data_quality_score}
+        dataQualityReasons={data.data_quality_reasons}
+      />
 
       {matrix && (
         <div className="rounded-xl bg-[#1a1a2e] p-4">
