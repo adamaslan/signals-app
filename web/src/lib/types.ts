@@ -70,6 +70,13 @@ export interface SignalOutput {
   code_version: string | null;
   data_quality_score: number | null;
   data_quality_reasons: string[];
+  /** ISO timestamp of the bar this signal describes (§5.1 freshness). May be
+   * null for rows stored before `bar_ts` was surfaced to the client. */
+  bar_ts: string | null;
+  /** Weighted confluence score, if computed. */
+  confluence_score: number | null;
+  /** ISO timestamp of when this signal row was computed/published. */
+  created_at: string | null;
 }
 
 /** Periods the backend currently accepts end-to-end. */

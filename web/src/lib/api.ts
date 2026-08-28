@@ -43,8 +43,11 @@ const PERIOD_TO_TIMEFRAME: Record<string, Timeframe> = {
 interface SignalRow {
   ticker: string;
   period: string;
+  /** The bar this signal describes — distinct from `created_at` (§5.1). */
+  bar_ts: string | null;
   direction: string | null;
   confidence: number | null;
+  confluence_score: number | null;
   bias: string;
   bull_count: number;
   bear_count: number;
@@ -62,9 +65,9 @@ interface SignalRow {
 }
 
 const SIGNAL_ROW_COLUMNS =
-  "ticker,period,direction,confidence,bias,bull_count,bear_count,total_signals," +
-  "data_quality_score,data_quality_reasons,evidence,counter_evidence,matrix," +
-  "ai_degraded,no_llm,prompt_version,code_version,created_at";
+  "ticker,period,bar_ts,direction,confidence,confluence_score,bias,bull_count," +
+  "bear_count,total_signals,data_quality_score,data_quality_reasons,evidence," +
+  "counter_evidence,matrix,ai_degraded,no_llm,prompt_version,code_version,created_at";
 
 function rowToSignalOutput(row: SignalRow, period: string): SignalOutput {
   const timeframe = PERIOD_TO_TIMEFRAME[period] ?? "3M" as Timeframe;
@@ -91,7 +94,152 @@ function rowToSignalOutput(row: SignalRow, period: string): SignalOutput {
     code_version: row.code_version,
     data_quality_score: row.data_quality_score,
     data_quality_reasons: row.data_quality_reasons ?? [],
+    bar_ts: row.bar_ts,
+    confluence_score: row.confluence_score,
+    created_at: row.created_at,
   };
+}
+
+/** Columns pulled for universe list/run rendering — omits the heavy
+ * `evidence` / `counter_evidence` JSONB, keeping the batched read small. */
+const UNIVERSE_SIGNAL_COLUMNS =
+  "ticker,period,bar_ts,direction,confidence,confluence_score,data_quality_score," +
+  "matrix,ai_degraded,code_version,created_at";
+
+/** One newest-per-ticker signal snapshot for a universe refresh. */
+export interface UniverseSignalSnapshot {
+  ticker: string;
+  direction: SignalDirection | null;
+  confidence: number | null;
+  confluenceScore: number | null;
+  dataQuality: number | null;
+  alignmentScore: number | null;
+  divergencePattern: string | null;
+  aiDegraded: boolean;
+  barTs: number | null;
+  codeVersion: string | null;
+}
+
+interface UniverseSignalRow {
+  ticker: string;
+  period: string;
+  bar_ts: string | null;
+  direction: string | null;
+  confidence: number | null;
+  confluence_score: number | null;
+  data_quality_score: number | null;
+  matrix: TimeframeMatrix | null;
+  ai_degraded: boolean;
+  code_version: string;
+  created_at: string;
+}
+
+const IN_CHUNK = 200;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+function rowToSnapshot(row: UniverseSignalRow): UniverseSignalSnapshot {
+  return {
+    ticker: row.ticker,
+    direction: (row.direction as SignalDirection | null) ?? null,
+    confidence: row.confidence,
+    confluenceScore: row.confluence_score,
+    dataQuality: row.data_quality_score,
+    alignmentScore: row.matrix?.alignment_score ?? null,
+    divergencePattern: row.matrix?.divergence_pattern ?? null,
+    aiDegraded: row.ai_degraded,
+    barTs: row.bar_ts ? new Date(row.bar_ts).getTime() : null,
+    codeVersion: row.code_version ?? null,
+  };
+}
+
+/**
+ * Fetch the newest published signal for many tickers in one (or a few)
+ * round-trips. Because reads go direct-to-Postgres, `.in()` does the
+ * batching — a universe refresh is 1–3 queries, never a fan-out of N.
+ *
+ * Returns a Map keyed by ticker. Tickers absent from the Map are
+ * **uncovered** (the scanner has no row), which the caller must render
+ * distinctly from a failure — see the spec's §3.4.
+ *
+ * @param tickers - Uppercased ticker symbols.
+ * @param period - Backend period string (e.g. "3mo").
+ * @throws ApiError if Supabase isn't configured or a query fails.
+ */
+export async function fetchUniverseSignals(
+  tickers: string[],
+  period: string,
+): Promise<Map<string, UniverseSignalSnapshot>> {
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured");
+  }
+  const newest = new Map<string, UniverseSignalSnapshot>();
+  if (tickers.length === 0) return newest;
+
+  for (const batch of chunk(tickers, IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from("signals")
+      .select(UNIVERSE_SIGNAL_COLUMNS)
+      .in("ticker", batch)
+      .eq("period", period)
+      .order("bar_ts", { ascending: false });
+
+    if (error) throw new ApiError(500, error.message);
+
+    // PostgREST has no DISTINCT ON — keep the first (newest) row per ticker.
+    for (const row of (data ?? []) as unknown as UniverseSignalRow[]) {
+      if (!newest.has(row.ticker)) newest.set(row.ticker, rowToSnapshot(row));
+    }
+  }
+  return newest;
+}
+
+/** Coverage classification for a set of tickers against the scan universe. */
+export interface CoverageResult {
+  covered: string[];
+  inactive: string[];
+  uncovered: string[];
+}
+
+interface SymbolRow {
+  ticker: string;
+  active: boolean;
+}
+
+/**
+ * One cheap query classifying each ticker as covered (active in the scan
+ * universe), inactive (a known symbol, but `active = false` — signals may be
+ * stale), or uncovered (not in `symbols` at all — will always render blank).
+ *
+ * @param tickers - Uppercased ticker symbols.
+ * @throws ApiError if Supabase isn't configured or the query fails.
+ */
+export async function fetchCoverage(tickers: string[]): Promise<CoverageResult> {
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured");
+  }
+  const covered: string[] = [];
+  const inactive: string[] = [];
+  const known = new Set<string>();
+
+  for (const batch of chunk(tickers, IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from("symbols")
+      .select("ticker,active")
+      .in("ticker", batch);
+    if (error) throw new ApiError(500, error.message);
+    for (const row of (data ?? []) as SymbolRow[]) {
+      known.add(row.ticker);
+      if (row.active) covered.push(row.ticker);
+      else inactive.push(row.ticker);
+    }
+  }
+  const uncovered = tickers.filter((t) => !known.has(t));
+  return { covered, inactive, uncovered };
 }
 
 /**
