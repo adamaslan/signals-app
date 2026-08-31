@@ -19,7 +19,13 @@ import {
   type UniverseBacktest,
   type HitRateBucketDTO,
 } from "./db";
-import { fetchUniverseSignals, fetchCoverage } from "./api";
+import {
+  fetchUniverseSignals,
+  fetchCoverage,
+  fetchUniverseHitRates,
+  fetchUniverseBacktestMeta,
+} from "./api";
+import { wilsonLowerBound as wilsonLowerBoundImpl } from "./stats";
 import type { SignalDirection } from "./types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -638,22 +644,16 @@ export async function diffRuns(
 }
 
 /* ────────────────────────────────────────────────────────────────────────
- * Backtest — cached; the actual SQL RPC lands in a later step (spec §4).
+ * Backtest — cached; computed via the universe_hit_rates /
+ * universe_backtest_meta RPCs (migration 20260831000002).
  * ──────────────────────────────────────────────────────────────────────── */
 
-/** Wilson score interval lower bound at 95% (z = 1.96). The honest number
- * for a hit rate — a 3/3 bucket has a true lower bound near 0.44, not 1.0. */
-export function wilsonLowerBound(hits: number, total: number): number {
-  if (total === 0) return 0;
-  const z = 1.96;
-  const p = hits / total;
-  const denom = 1 + (z * z) / total;
-  const centre = p + (z * z) / (2 * total);
-  const margin =
-    z * Math.sqrt((p * (1 - p) + (z * z) / (4 * total)) / total);
-  return Math.max(0, (centre - margin) / denom);
-}
+// Re-exported for call-site / test compatibility; the implementations now
+// live in ./stats so the backtest panel can import them without pulling in
+// the whole universe module.
+export { wilsonLowerBound, wilsonUpperBound } from "./stats";
 
+/** @deprecated use `toHitRateBucket` from ./stats (this drops the upper bound). */
 export function toBucketDTO(
   key: string,
   hits: number,
@@ -664,7 +664,7 @@ export function toBucketDTO(
     hits,
     total,
     hitRate: total ? hits / total : 0,
-    hitRateLower: wilsonLowerBound(hits, total),
+    hitRateLower: wilsonLowerBoundImpl(hits, total),
   };
 }
 
@@ -682,24 +682,76 @@ export async function getCachedUniverseBacktest(
   return hit ?? null;
 }
 
+function dtoFromRaw(
+  b: { bucket_key: string; hits: number; total: number },
+): HitRateBucketDTO {
+  return {
+    key: b.bucket_key,
+    hits: b.hits,
+    total: b.total,
+    hitRate: b.total ? b.hits / b.total : 0,
+    hitRateLower: wilsonLowerBoundImpl(b.hits, b.total),
+  };
+}
+
+export interface BacktestUniverseOpts {
+  /** Skip the cache and recompute. */
+  force?: boolean;
+}
+
 /**
- * Backtest a universe. Returns the cached result when one exists for the
- * current membership revision + horizon; otherwise computes via the
- * `universe_hit_rates` RPC (added in a later migration) and caches it.
+ * Backtest a universe over `horizonDays`. Returns a cached row when one
+ * exists for the current membership revision + horizon (unless `force`);
+ * otherwise calls the `universe_hit_rates` RPC three times (by strength,
+ * category, ticker) plus `universe_backtest_meta`, assembles a
+ * `UniverseBacktest`, caches it, and returns it.
  *
- * Until that migration ships, this throws a clear "not yet available" error
- * rather than silently returning empty buckets.
+ * Throws an ApiError(501) with an actionable message when the RPC migration
+ * hasn't been applied — never silently returns empty buckets.
  */
 export async function backtestUniverse(
   id: number,
   horizonDays: number,
+  opts: BacktestUniverseOpts = {},
 ): Promise<UniverseBacktest> {
   if (!db) throw new Error("No local database");
-  const cached = await getCachedUniverseBacktest(id, horizonDays);
-  if (cached) return cached;
-  throw new Error(
-    "Universe backtest RPC not deployed yet — see the migration in build step 6",
-  );
+  const u = await db.universes.get(id);
+  if (!u) throw new Error(`Universe ${id} not found`);
+
+  if (!opts.force) {
+    const cached = await getCachedUniverseBacktest(id, horizonDays);
+    if (cached) return cached;
+  }
+
+  const [byStrengthRaw, byCategoryRaw, byTickerRaw, meta] = await Promise.all([
+    fetchUniverseHitRates(u.tickers, horizonDays, "strength"),
+    fetchUniverseHitRates(u.tickers, horizonDays, "category"),
+    fetchUniverseHitRates(u.tickers, horizonDays, "ticker"),
+    fetchUniverseBacktestMeta(u.tickers, horizonDays),
+  ]);
+
+  const record: UniverseBacktest = {
+    universeId: id,
+    universeRevision: u.revision,
+    horizonDays,
+    ranAt: Date.now(),
+    byStrength: byStrengthRaw.map(dtoFromRaw),
+    byCategory: byCategoryRaw.map(dtoFromRaw),
+    byTicker: byTickerRaw.map(dtoFromRaw),
+    tickersScored: meta.tickersScored,
+    tickersRequested: u.tickers.length,
+    hitsTotal: meta.hitsTotal,
+    signalsTotal: meta.signalsTotal,
+    baselineUpRate: meta.baselineUpRate,
+  };
+
+  // Replace any stale row for this exact key, then insert.
+  await db.universeBacktests
+    .where("[universeId+universeRevision+horizonDays]")
+    .equals([id, u.revision, horizonDays])
+    .delete();
+  const btId = await db.universeBacktests.add(record);
+  return { ...record, id: btId };
 }
 
 /* ────────────────────────────────────────────────────────────────────────

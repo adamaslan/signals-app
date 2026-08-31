@@ -12,10 +12,27 @@ const fetchCoverage = vi.fn<
     uncovered: string[];
   }>
 >();
+const fetchUniverseHitRates = vi.fn<
+  (tickers: string[], horizon: number, bucket: string) => Promise<
+    { bucket_key: string; hits: number; total: number; hit_rate: number }[]
+  >
+>();
+const fetchUniverseBacktestMeta = vi.fn<
+  (tickers: string[], horizon: number) => Promise<{
+    tickersScored: number;
+    hitsTotal: number;
+    signalsTotal: number;
+    baselineUpRate: number | null;
+  }>
+>();
 
 vi.mock("./api", () => ({
   fetchUniverseSignals: (...a: unknown[]) => fetchUniverseSignals(...(a as [string[], string])),
   fetchCoverage: (...a: unknown[]) => fetchCoverage(...(a as [string[]])),
+  fetchUniverseHitRates: (...a: unknown[]) =>
+    fetchUniverseHitRates(...(a as [string[], number, string])),
+  fetchUniverseBacktestMeta: (...a: unknown[]) =>
+    fetchUniverseBacktestMeta(...(a as [string[], number])),
 }));
 
 import {
@@ -64,6 +81,8 @@ function snap(over: Partial<UniverseSignalSnapshot> = {}): UniverseSignalSnapsho
 beforeEach(() => {
   fetchUniverseSignals.mockReset();
   fetchCoverage.mockReset();
+  fetchUniverseHitRates.mockReset();
+  fetchUniverseBacktestMeta.mockReset();
 });
 
 describe("ticker parsing", () => {
@@ -371,9 +390,8 @@ describe("wilson bounds + backtest cache", () => {
     expect(wilsonLowerBound(50, 100)).toBeLessThan(0.5);
   });
 
-  it("backtestUniverse returns a cached row when present, else throws not-deployed", async () => {
+  it("backtestUniverse returns a cached row when present without calling the RPC", async () => {
     const u = await createUniverse("B", { tickers: ["AAPL"] });
-    await expect(backtestUniverse(u.id!, 20)).rejects.toThrow(/not deployed/);
     await db!.universeBacktests.add({
       universeId: u.id!,
       universeRevision: 1,
@@ -391,6 +409,45 @@ describe("wilson bounds + backtest cache", () => {
     const got = await getCachedUniverseBacktest(u.id!, 20);
     expect(got?.hitsTotal).toBe(3);
     expect((await backtestUniverse(u.id!, 20)).hitsTotal).toBe(3);
+    expect(fetchUniverseHitRates).not.toHaveBeenCalled();
+  });
+
+  it("backtestUniverse computes via the RPC on a cache miss and caches the result", async () => {
+    const u = await createUniverse("B", { tickers: ["AAPL", "MSFT"] });
+    fetchUniverseHitRates.mockImplementation(async (_t, _h, bucket) => {
+      if (bucket === "strength")
+        return [{ bucket_key: "BULLISH", hits: 30, total: 50, hit_rate: 0.6 }];
+      if (bucket === "category")
+        return [{ bucket_key: "momentum", hits: 20, total: 40, hit_rate: 0.5 }];
+      return [{ bucket_key: "AAPL", hits: 18, total: 30, hit_rate: 0.6 }];
+    });
+    fetchUniverseBacktestMeta.mockResolvedValue({
+      tickersScored: 1,
+      hitsTotal: 30,
+      signalsTotal: 50,
+      baselineUpRate: 0.52,
+    });
+
+    const bt = await backtestUniverse(u.id!, 20);
+    expect(bt.byStrength[0].key).toBe("BULLISH");
+    expect(bt.byStrength[0].hitRate).toBeCloseTo(0.6);
+    expect(bt.byStrength[0].hitRateLower).toBeLessThan(0.6);
+    expect(bt.byCategory[0].key).toBe("momentum");
+    expect(bt.byTicker[0].key).toBe("AAPL");
+    expect(bt.tickersScored).toBe(1);
+    expect(bt.tickersRequested).toBe(2);
+    expect(bt.baselineUpRate).toBeCloseTo(0.52);
+    expect(fetchUniverseHitRates).toHaveBeenCalledTimes(3);
+
+    // Second call hits the cache — no further RPC calls.
+    fetchUniverseHitRates.mockClear();
+    const again = await backtestUniverse(u.id!, 20);
+    expect(again.id).toBe(bt.id);
+    expect(fetchUniverseHitRates).not.toHaveBeenCalled();
+
+    // force:true recomputes.
+    await backtestUniverse(u.id!, 20, { force: true });
+    expect(fetchUniverseHitRates).toHaveBeenCalledTimes(3);
   });
 
   it("cache miss after a membership change (revision is part of the key)", async () => {

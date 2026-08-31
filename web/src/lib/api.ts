@@ -181,21 +181,117 @@ export async function fetchUniverseSignals(
   if (tickers.length === 0) return newest;
 
   for (const batch of chunk(tickers, IN_CHUNK)) {
-    const { data, error } = await supabase
-      .from("signals")
+    // `latest_signals` (migration 20260831000001) is DISTINCT ON (ticker,
+    // period) — one indexed row per ticker, no client-side de-dup. Falls
+    // back to the raw `signals` table + newest-wins loop if the view is
+    // missing (older DB), so a not-yet-migrated environment still works.
+    let rows: UniverseSignalRow[] | null = null;
+    const viewRes = await supabase
+      .from("latest_signals")
       .select(UNIVERSE_SIGNAL_COLUMNS)
       .in("ticker", batch)
-      .eq("period", period)
-      .order("bar_ts", { ascending: false });
+      .eq("period", period);
+    if (!viewRes.error) {
+      rows = (viewRes.data ?? []) as unknown as UniverseSignalRow[];
+    } else {
+      const rawRes = await supabase
+        .from("signals")
+        .select(UNIVERSE_SIGNAL_COLUMNS)
+        .in("ticker", batch)
+        .eq("period", period)
+        .order("bar_ts", { ascending: false });
+      if (rawRes.error) throw new ApiError(500, rawRes.error.message);
+      rows = (rawRes.data ?? []) as unknown as UniverseSignalRow[];
+    }
 
-    if (error) throw new ApiError(500, error.message);
-
-    // PostgREST has no DISTINCT ON — keep the first (newest) row per ticker.
-    for (const row of (data ?? []) as unknown as UniverseSignalRow[]) {
+    for (const row of rows) {
+      // From the view each ticker appears once; from the raw fallback the
+      // first (newest by bar_ts) wins.
       if (!newest.has(row.ticker)) newest.set(row.ticker, rowToSnapshot(row));
     }
   }
   return newest;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Universe backtest — the `universe_hit_rates` / `universe_backtest_meta`
+ * RPCs (migration 20260831000002). Aggregate-only; the underlying
+ * detector_hits / forward_returns tables are never exposed to the browser.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type BacktestBucketKind = "strength" | "category" | "ticker" | "detector";
+
+export interface RawHitRateBucket {
+  bucket_key: string;
+  hits: number;
+  total: number;
+  hit_rate: number;
+}
+
+export interface UniverseBacktestMeta {
+  tickersScored: number;
+  hitsTotal: number;
+  signalsTotal: number;
+  baselineUpRate: number | null;
+}
+
+/** Call `universe_hit_rates` for one bucketing. */
+export async function fetchUniverseHitRates(
+  tickers: string[],
+  horizonDays: number,
+  bucket: BacktestBucketKind,
+): Promise<RawHitRateBucket[]> {
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured");
+  }
+  if (tickers.length > 500) {
+    throw new ApiError(400, "Universe backtest supports at most 500 tickers");
+  }
+  const { data, error } = await supabase.rpc("universe_hit_rates", {
+    p_tickers: tickers,
+    p_horizon_days: horizonDays,
+    p_bucket: bucket,
+  });
+  if (error) {
+    // A missing function (migration not applied) is a distinct, actionable case.
+    if (/function .*universe_hit_rates.* does not exist/i.test(error.message)) {
+      throw new ApiError(
+        501,
+        "Universe backtest RPC not deployed (migration 20260831000002)",
+      );
+    }
+    throw new ApiError(500, error.message);
+  }
+  return (data ?? []) as RawHitRateBucket[];
+}
+
+/** Call `universe_backtest_meta` for coverage + baseline numbers. */
+export async function fetchUniverseBacktestMeta(
+  tickers: string[],
+  horizonDays: number,
+): Promise<UniverseBacktestMeta> {
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured");
+  }
+  const { data, error } = await supabase.rpc("universe_backtest_meta", {
+    p_tickers: tickers,
+    p_horizon_days: horizonDays,
+  });
+  if (error) throw new ApiError(500, error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        tickers_scored: number;
+        hits_total: number;
+        signals_total: number;
+        baseline_up_rate: number | null;
+      }
+    | undefined;
+  return {
+    tickersScored: row?.tickers_scored ?? 0,
+    hitsTotal: row?.hits_total ?? 0,
+    signalsTotal: row?.signals_total ?? 0,
+    baselineUpRate: row?.baseline_up_rate ?? null,
+  };
 }
 
 /** Coverage classification for a set of tickers against the scan universe. */
