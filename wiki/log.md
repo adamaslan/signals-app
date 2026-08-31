@@ -33,3 +33,18 @@ prop shapes not read in detail (stubbed in `signal-rendering.md`);
 `data/fetcher.py`, `utils/safety.py`, and `backtests/` not yet ingested at
 the same depth as detection/scoring/synthesis/schema — worth a follow-up
 pass. `tests/` not reviewed for what behavior is actually covered.
+
+## [2026-08-30] ingest | PR #21 feat: service.py seam + `signals` CLI (build steps 1–3) | pages touched: 3
+
+Ingested the platform steps 1–3 change. `src/signals_app/service.py` is now
+the single framework-agnostic seam; `api/routes.py` became a thin adapter
+over it; a real `signals` Typer CLI replaced the misnamed `signals-analyze`
+console script (now a deprecation shim → `signals serve`).
+
+Pages: created `decisions/2026-08-30-service-seam-and-cli.md`; updated
+`entities/api-endpoints.md` (error codes 404/503 replace 400/500 for
+bad-symbol/upstream; CLI section added) and `index.md` (new decision link).
+
+Not yet reflected: `architecture/backend.md` still describes the pre-seam
+route structure — worth a pass when steps 4–5 (scan seam + MCP server) land,
+since those touch the same section.
