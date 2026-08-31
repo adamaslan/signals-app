@@ -28,6 +28,7 @@ import json
 import logging
 import sys
 from enum import IntEnum
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
@@ -54,6 +55,24 @@ app = typer.Typer(
 # stdout is reserved for data (esp. with --json); everything human goes to stderr.
 _out = Console()
 _err = Console(stderr=True)
+
+# Named scan presets (design doc §3.6) — one code path, different filter params.
+# Only the two *simple* screens (horizon + direction over service.scan) are
+# folded in here. The two that grew their own calibration / MIN_CATEGORIES
+# gating — scan_21_day_ds.py, scan_optimal_monthly.py — are NOT presets yet;
+# they still live in scripts/ and need their own PR to fold safely.
+SCAN_PRESETS: dict[str, dict[str, Any]] = {
+    "bullish-2wk": {
+        "period": "2y",
+        "direction": "bullish",
+        "help": "Bullish screen, 10-day (~2 trading week) horizon. Was scan_bullish_2wk.py.",
+    },
+    "best1": {
+        "period": "3mo",
+        "direction": None,
+        "help": "Both-direction screen over the default period. Was best1_scan.py.",
+    },
+}
 
 logger = logging.getLogger("signals_app.cli")
 
@@ -370,6 +389,14 @@ def scan(
     seed: Annotated[
         str | None, typer.Option("--seed", help="CSV file with a `ticker` column.")
     ] = None,
+    universe: Annotated[
+        str | None,
+        typer.Option("--universe", help="Name of a local universe (see `signals universe`)."),
+    ] = None,
+    preset: Annotated[
+        str | None,
+        typer.Option("--preset", help=f"Named screen: {', '.join(SCAN_PRESETS)}."),
+    ] = None,
     period: Annotated[str, typer.Option(help="yfinance period string.")] = DEFAULT_PERIOD,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Gate + log only — no LLM calls, no writes.")
@@ -402,9 +429,33 @@ def scan(
     if trigger not in ("cron", "manual", "backfill"):
         _err.print("[red]error:[/red] --trigger must be cron | manual | backfill")
         raise typer.Exit(Exit.USAGE)
+
+    if preset is not None:
+        if preset not in SCAN_PRESETS:
+            _err.print(
+                f"[red]error:[/red] unknown --preset {preset!r} — one of: {', '.join(SCAN_PRESETS)}"
+            )
+            raise typer.Exit(Exit.USAGE)
+        p = SCAN_PRESETS[preset]
+        # A preset supplies defaults; an explicit flag still wins.
+        if period == DEFAULT_PERIOD:
+            period = p["period"]
+        if direction is None:
+            direction = p["direction"]
+
     if direction is not None and direction not in ("bullish", "bearish"):
         _err.print("[red]error:[/red] --direction must be bullish | bearish")
         raise typer.Exit(Exit.USAGE)
+
+    if universe is not None:
+        from signals_app import universes
+
+        try:
+            u = universes.load_universe(universe)
+        except universes.UniverseError as exc:
+            _err.print(f"[red]error:[/red] {exc}")
+            raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+        symbols = list(symbols or []) + u.tickers
 
     shard_tuple: tuple[int, int] | None = None
     if shard is not None:
@@ -596,6 +647,236 @@ def _render_universe_backtest(merged: Any) -> None:
         _out.print(table)
     if merged.symbols_failed:
         _err.print("failed: " + ", ".join(f.symbol for f in merged.symbols_failed))
+
+
+# ---------------------------------------------------------------------------
+# universe — local ticker baskets in ~/.signals/universes/ (design doc §3.5)
+# ---------------------------------------------------------------------------
+
+universe_app = typer.Typer(
+    name="universe",
+    help="Manage local ticker baskets (CSV in ~/.signals/universes/).",
+    no_args_is_help=True,
+)
+app.add_typer(universe_app)
+
+
+@universe_app.command("list")
+def universe_list(
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """List local universes."""
+    from signals_app import universes
+
+    us = universes.list_universes()
+    if as_json:
+        _print_json([{"name": u.name, "size": u.size, "path": str(u.path)} for u in us])
+        raise typer.Exit(Exit.OK)
+    if not us:
+        _err.print(
+            "no universes yet — create one with `signals universe create`\n"
+            f"(dir: {universes.universe_dir()})"
+        )
+        raise typer.Exit(Exit.OK)
+    table = Table(title=f"{len(us)} universe(s)")
+    table.add_column("name")
+    table.add_column("tickers", justify="right")
+    for u in us:
+        table.add_row(u.name, str(u.size))
+    _out.print(table)
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("create")
+def universe_create(
+    name: Annotated[str, typer.Argument(help="Universe name (lowercase, - and _).")],
+    tickers: Annotated[list[str] | None, typer.Argument(help="Tickers, or use --from.")] = None,
+    from_csv: Annotated[
+        str | None, typer.Option("--from", help="CSV file with a `ticker` column.")
+    ] = None,
+    force: Annotated[bool, typer.Option("--force", help="Overwrite an existing universe.")] = False,
+) -> None:
+    """Create a universe from tickers on the command line and/or a CSV."""
+    from signals_app import universes
+
+    syms = list(tickers or [])
+    if from_csv:
+        try:
+            syms += universes.tickers_from_csv(from_csv)
+        except OSError as exc:
+            _err.print(f"[red]error:[/red] {exc}")
+            raise typer.Exit(Exit.ERROR) from None
+    if not syms:
+        _err.print("[red]error:[/red] no tickers — pass them as arguments or use --from FILE")
+        raise typer.Exit(Exit.USAGE)
+    try:
+        u = universes.create_universe(name, syms, overwrite=force)
+    except universes.UniverseExists as exc:
+        _err.print(f"[red]error:[/red] {exc} (use --force to overwrite)")
+        raise typer.Exit(Exit.ERROR) from None
+    except universes.InvalidUniverseName as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.USAGE) from None
+    _out.print(f"created [bold]{u.name}[/bold] with {u.size} ticker(s) → {u.path}")
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("show")
+def universe_show(
+    name: Annotated[str, typer.Argument()],
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Print a universe's tickers."""
+    from signals_app import universes
+
+    try:
+        u = universes.load_universe(name)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+    if as_json:
+        _print_json({"name": u.name, "tickers": u.tickers})
+        raise typer.Exit(Exit.OK)
+    _out.print(f"[bold]{u.name}[/bold] ({u.size})\n" + "\n".join(u.tickers))
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("delete")
+def universe_delete(name: Annotated[str, typer.Argument()]) -> None:
+    """Delete a universe file."""
+    from signals_app import universes
+
+    try:
+        universes.delete_universe(name)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+    _out.print(f"deleted [bold]{name}[/bold]")
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("run")
+def universe_run(
+    name: Annotated[str, typer.Argument()],
+    period: Annotated[str, typer.Option()] = DEFAULT_PERIOD,
+    no_llm: Annotated[bool, typer.Option("--no-llm")] = True,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """Analyze every ticker in a universe (rule-based by default)."""
+    _configure_logging(quiet, verbose)
+    from signals_app import universes
+
+    try:
+        u = universes.load_universe(name)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+
+    batch = _run(service.analyze_many(u.tickers, period, no_llm=no_llm))
+    if as_json:
+        _print_json(
+            {
+                "universe": u.name,
+                "ok": [s.model_dump(mode="json") for s in batch.ok],
+                "failed": [
+                    {"symbol": f.symbol, "error_type": f.error_type, "message": f.message}
+                    for f in batch.failed
+                ],
+            }
+        )
+    else:
+        _render_batch(batch)
+    if batch.failed and batch.ok:
+        raise typer.Exit(Exit.PARTIAL)
+    if batch.failed and not batch.ok:
+        raise typer.Exit(Exit.UPSTREAM_UNAVAILABLE)
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("backtest")
+def universe_backtest(
+    name: Annotated[str, typer.Argument()],
+    horizon: Annotated[int, typer.Option("--horizon")] = 20,
+    period: Annotated[str, typer.Option()] = "2y",
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """Merged historical hit-rate across a universe."""
+    _configure_logging(quiet, verbose)
+    from signals_app import universes
+
+    try:
+        u = universes.load_universe(name)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+
+    merged = _run(service.backtest_many(u.tickers, period, horizon))
+    if as_json:
+        _print_json(merged)
+    else:
+        _render_universe_backtest(merged)
+    if merged.symbols_failed and merged.symbols_ok:
+        raise typer.Exit(Exit.PARTIAL)
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("export")
+def universe_export(
+    name: Annotated[str, typer.Argument()],
+    fmt: Annotated[str, typer.Option("--format", help="csv | json.")] = "csv",
+) -> None:
+    """Print a universe to stdout as CSV (git-friendly) or the browser JSON."""
+    from signals_app import universes
+
+    try:
+        u = universes.load_universe(name)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.SYMBOL_NOT_FOUND) from None
+    if fmt == "json":
+        print(universes.to_export_json(u))
+    elif fmt == "csv":
+        print("ticker")
+        for t in u.tickers:
+            print(t)
+    else:
+        _err.print("[red]error:[/red] --format must be csv | json")
+        raise typer.Exit(Exit.USAGE)
+    raise typer.Exit(Exit.OK)
+
+
+@universe_app.command("import")
+def universe_import(
+    file: Annotated[str, typer.Argument(help="A browser-exported universe JSON file.")],
+    name: Annotated[
+        str | None, typer.Option("--name", help="Override the name in the file.")
+    ] = None,
+    force: Annotated[bool, typer.Option("--force")] = False,
+) -> None:
+    """Create a local universe from a browser-exported JSON file."""
+    from signals_app import universes
+
+    try:
+        text = Path(file).read_text()
+    except OSError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.ERROR) from None
+    try:
+        parsed_name, tickers = universes.from_export_json(text)
+    except universes.UniverseError as exc:
+        _err.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(Exit.USAGE) from None
+    try:
+        u = universes.create_universe(name or parsed_name, tickers, overwrite=force)
+    except universes.UniverseExists as exc:
+        _err.print(f"[red]error:[/red] {exc} (use --force)")
+        raise typer.Exit(Exit.ERROR) from None
+    _out.print(f"imported [bold]{u.name}[/bold] — {u.size} ticker(s) → {u.path}")
+    raise typer.Exit(Exit.OK)
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Best-1 scan for the Signals App.
 
+DEPRECATED (design doc §3.6). The both-direction screen this runs is now
+`signals scan --preset best1`. This script still works — it keeps the top-N
+confluence ranking the preset doesn't replicate yet — but new usage should
+prefer the preset. Not archived: still referenced by tests/test_best1_scan.py.
+
 This script intentionally follows the same L1 → L5 app pipeline as
 `scan_universe.py`, but narrows the final output to the top `top_n` published
 symbols by confluence score.

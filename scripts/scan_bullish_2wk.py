@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Bullish 2-week candidate scanner.
 
+DEPRECATED (design doc §3.6). The bullish + 10-day-horizon screen is now
+`signals scan --preset bullish-2wk`. This script keeps the auto-calibration
+step and confidence ranking the preset doesn't do yet; fold those in and
+archive this in a follow-up PR.
+
 Scans the universe for symbols that are:
 1. Passing the publication gate on the bullish side only (confluence_score > 0.35)
 2. Ranked by LLM confidence (calibrated against 10-day forward returns)
