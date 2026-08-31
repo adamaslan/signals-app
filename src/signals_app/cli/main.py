@@ -56,6 +56,25 @@ app = typer.Typer(
 _out = Console()
 _err = Console(stderr=True)
 
+# §3.4 cost safety — a command that would make more than this many LLM calls
+# prints the count and requires --yes.
+LLM_CALL_GATE = 25
+
+
+def _cost_gate(estimated_calls: int, *, yes: bool) -> None:
+    """Stop before a surprising number of LLM calls unless --yes was passed.
+
+    Raises typer.Exit(USAGE) when the gate trips without --yes.
+    """
+    if estimated_calls <= LLM_CALL_GATE or yes:
+        return
+    _err.print(
+        f"[yellow]This will make ~{estimated_calls} LLM calls.[/yellow] "
+        f"Re-run with [bold]--yes[/bold] to proceed (or add --no-llm / --dry-run)."
+    )
+    raise typer.Exit(Exit.USAGE)
+
+
 # Named scan presets (design doc §3.6) — one code path, different filter params.
 # Only the two *simple* screens (horizon + direction over service.scan) are
 # folded in here. The two that grew their own calibration / MIN_CATEGORIES
@@ -186,19 +205,31 @@ def analyze(
     symbols: Annotated[list[str], typer.Argument(help="One or more ticker symbols.")],
     period: Annotated[str, typer.Option(help="yfinance period string.")] = DEFAULT_PERIOD,
     no_llm: Annotated[bool, typer.Option("--no-llm", help="Skip LLM synthesis (free).")] = False,
+    llm: Annotated[
+        bool, typer.Option("--llm", help="Opt a batch INTO LLM synthesis (costs money).")
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Proceed past the LLM-call cost gate.")
+    ] = False,
+    estimate: Annotated[
+        bool, typer.Option("--estimate", help="Print the LLM-call count and exit without calling.")
+    ] = False,
     as_json: Annotated[bool, typer.Option("--json", help="Emit JSON to stdout only.")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Run the full L1–L5 pipeline for one or more symbols.
 
-    One symbol → single ``SignalOutput``. Several symbols → a batch: partial
-    success exits 6, and ``--no-llm`` is forced on for a batch (cost safety,
-    §3.4).
+    One symbol → single ``SignalOutput``. Several symbols → a batch: rule-based
+    by default (free); pass ``--llm`` to synthesize, which is gated at 25 calls
+    unless ``--yes``. Partial success exits 6.
     """
     _configure_logging(quiet, verbose)
 
     if len(symbols) == 1:
+        if estimate:
+            _out.print("1 LLM call (0 with --no-llm)")
+            raise typer.Exit(Exit.OK)
         result = _run(service.analyze(symbols[0], period, no_llm=no_llm))
         if as_json:
             _print_json(result)
@@ -206,10 +237,16 @@ def analyze(
             _render_signal(result)
         raise typer.Exit(Exit.OK)
 
-    # Batch path — force no_llm regardless of the flag.
-    if not no_llm:
-        _err.print("[yellow]note:[/yellow] batch analyze is rule-based (--no-llm forced)")
-    batch = _run(service.analyze_many(symbols, period, no_llm=True))
+    # Batch: rule-based unless --llm. --no-llm always wins.
+    batch_no_llm = no_llm or not llm
+    estimated = 0 if batch_no_llm else len(set(s.upper() for s in symbols))
+    if estimate:
+        _out.print(f"{estimated} LLM calls for {len(set(s.upper() for s in symbols))} symbols")
+        raise typer.Exit(Exit.OK)
+    if batch_no_llm and not no_llm and not llm:
+        _err.print("[yellow]note:[/yellow] batch analyze is rule-based — pass --llm to synthesize")
+    _cost_gate(estimated, yes=yes)
+    batch = _run(service.analyze_many(symbols, period, no_llm=batch_no_llm))
 
     if as_json:
         _print_json(
@@ -413,6 +450,16 @@ def scan(
     direction: Annotated[
         str | None, typer.Option("--direction", help="bullish | bearish — gate one side only.")
     ] = None,
+    estimate: Annotated[
+        bool,
+        typer.Option(
+            "--estimate",
+            help="Dry-run to report the gated count (= LLM calls a real run makes), then exit.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Proceed past the LLM-call cost gate.")
+    ] = False,
     max_concurrent: Annotated[int, typer.Option("--max-concurrent")] = 8,
     as_json: Annotated[bool, typer.Option("--json", help="Emit JSON to stdout only.")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q")] = False,
@@ -421,8 +468,9 @@ def scan(
     """Run the production scan over a universe and persist publishable signals.
 
     Same code path the GitHub Actions workflow runs. ``--dry-run`` gates and
-    logs without any LLM call or DB write. Exit 6 if some symbols failed but
-    not all.
+    logs without any LLM call or DB write. ``--estimate`` measures the gated
+    count with a dry run and exits. A real run that would make more than 25
+    LLM calls needs ``--yes``. Exit 6 if some symbols failed but not all.
     """
     _configure_logging(quiet, verbose)
 
@@ -465,6 +513,41 @@ def scan(
         except ValueError:
             _err.print("[red]error:[/red] --shard must be INDEX/TOTAL, e.g. 0/4")
             raise typer.Exit(Exit.USAGE) from None
+
+    def _dry_estimate() -> Any:
+        return _run(
+            service.scan(
+                symbols or None,
+                seed=seed,
+                period=period,
+                dry_run=True,
+                trigger=trigger,  # type: ignore[arg-type]
+                shard=shard_tuple,
+                max_concurrent=max_concurrent,
+                direction=direction,  # type: ignore[arg-type]
+            )
+        )
+
+    # --estimate: report the gated count (= LLM calls a real run makes) and exit.
+    if estimate:
+        est = _dry_estimate()
+        if as_json:
+            _print_json(
+                {"symbols_total": est.symbols_total, "estimated_llm_calls": est.symbols_published}
+            )
+        else:
+            _out.print(
+                f"{est.symbols_published} of {est.symbols_total} symbols would clear the "
+                f"gate → ~{est.symbols_published} LLM calls on a real run"
+            )
+        raise typer.Exit(Exit.OK)
+
+    # A real (non-dry) run synthesizes every gated symbol. Measure first with a
+    # dry pass and gate on --yes if that's more than 25 calls — this is the
+    # §3.4 "print the count, require --yes" rule applied before any spend.
+    if not dry_run and not yes:
+        est = _dry_estimate()
+        _cost_gate(est.symbols_published, yes=yes)
 
     bar = _err.status("scanning…") if not as_json else None
 
