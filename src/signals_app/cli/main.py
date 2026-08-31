@@ -484,6 +484,33 @@ def serve(
 
 
 # ---------------------------------------------------------------------------
+# mcp — the MCP server (design doc §4.6)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def mcp(
+    http: Annotated[
+        bool, typer.Option("--http", help="Serve over streamable HTTP instead of stdio.")
+    ] = False,
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 3333,
+) -> None:
+    """Run the MCP server — lets Claude query the engine directly.
+
+    Default transport is stdio (Claude Desktop / Claude Code). ``--http`` runs
+    streamable HTTP for remote / shared use. Read-only by default; write tools
+    require ``SIGNALS_MCP_ALLOW_WRITES=1``.
+    """
+    from signals_app.mcp.server import run as run_mcp
+
+    _err.print(
+        f"starting signals MCP server ({'http ' + host + ':' + str(port) if http else 'stdio'})"
+    )
+    run_mcp("streamable-http" if http else "stdio", host=host, port=port)
+
+
+# ---------------------------------------------------------------------------
 # Rich renderers (human output)
 # ---------------------------------------------------------------------------
 
