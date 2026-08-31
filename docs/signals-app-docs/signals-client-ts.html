@@ -1,0 +1,523 @@
+<title>signals-client-ts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground: #f7f8f5;
+    --raised: #ffffff;
+    --ink: #1a1c19;
+    --ink-soft: #4a4e48;
+    --ink-faint: #797d76;
+    --accent: #2f8560;
+    --accent-quiet: #cfe3d8;
+    --accent-line: #7fbfa2;
+    --wire: #dfe1db;
+    --wire-soft: #ecede9;
+    --warn: #b26a1f;
+    --warn-bg: #f6ecdd;
+    --code-bg: #f1f3ef;
+    --code-ink: #24291f;
+
+    --measure: 68ch;
+    --step-0: 1rem;
+    --step-1: 1.18rem;
+    --step-2: 1.5rem;
+    --step-3: 2rem;
+    --step-4: 2.7rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1115;
+      --raised: #161920;
+      --ink: #e8eae6;
+      --ink-soft: #a9ada6;
+      --ink-faint: #71766e;
+      --accent: #57b98a;
+      --accent-quiet: #1e3830;
+      --accent-line: #2f6b52;
+      --wire: #272b32;
+      --wire-soft: #1c2026;
+      --warn: #d9964a;
+      --warn-bg: #2a2114;
+      --code-bg: #12151b;
+      --code-ink: #d5d8d1;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0f1115;
+    --raised: #161920;
+    --ink: #e8eae6;
+    --ink-soft: #a9ada6;
+    --ink-faint: #71766e;
+    --accent: #57b98a;
+    --accent-quiet: #1e3830;
+    --accent-line: #2f6b52;
+    --wire: #272b32;
+    --wire-soft: #1c2026;
+    --warn: #d9964a;
+    --warn-bg: #2a2114;
+    --code-bg: #12151b;
+    --code-ink: #d5d8d1;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: calc(var(--measure) + 8rem);
+    margin: 0 auto;
+    padding: clamp(2.5rem, 6vw, 5rem) clamp(1.25rem, 5vw, 4rem) 6rem;
+  }
+
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.4rem; margin-bottom: 2.6rem; }
+  .kicker {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.9rem;
+  }
+  h1 {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(var(--step-3), 6vw, var(--step-4));
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 0.7rem;
+  }
+  .standfirst {
+    max-width: var(--measure);
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  section { max-width: var(--measure); margin: 3.2rem 0 0; }
+  section > * { max-width: var(--measure); }
+
+  h2 {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: var(--step-2);
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+    margin: 0 0 0.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--wire);
+  }
+  h2 .num {
+    color: var(--accent);
+    font-size: 0.75em;
+    margin-right: 0.6em;
+  }
+  h3 {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: var(--step-1);
+    margin: 2rem 0 0.3rem;
+  }
+
+  p { margin: 0.9rem 0; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  strong { font-weight: 600; }
+
+  .lede { font-size: var(--step-1); color: var(--ink-soft); }
+
+  ul, ol { margin: 0.9rem 0; padding-left: 1.4rem; }
+  li { margin: 0.35rem 0; }
+  li::marker { color: var(--ink-faint); }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    padding: 0.12em 0.38em;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-left: 3px solid var(--accent-line);
+    padding: 1.1rem 1.3rem;
+    margin: 1.2rem 0;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .tok-com { color: var(--ink-faint); font-style: italic; }
+  .tok-str { color: var(--accent); }
+  .tok-kw  { color: var(--warn); }
+
+  .filelabel {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 1.6rem 0 -0.6rem;
+  }
+
+  .callout {
+    background: var(--warn-bg);
+    border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
+    border-radius: 5px;
+    padding: 1rem 1.2rem;
+    margin: 1.4rem 0;
+    font-size: 0.95rem;
+  }
+  .callout .tag {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--warn);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  .scroller { overflow-x: auto; margin: 1.3rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+    font-family: "Newsreader", Georgia, serif;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--wire);
+    vertical-align: top;
+  }
+  th {
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 2px solid var(--wire);
+  }
+  td code { font-size: 0.82em; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .pill {
+    display: inline-block;
+    font-family: "Space Mono", ui-monospace, monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.15em 0.55em;
+    border-radius: 3px;
+    background: var(--accent-quiet);
+    color: color-mix(in oklab, var(--accent) 80%, var(--ink));
+  }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+
+  .verdict {
+    border: 1px solid var(--wire);
+    border-left: 3px solid var(--accent);
+    background: var(--raised);
+    border-radius: 5px;
+    padding: 1.3rem 1.5rem;
+    margin: 1.6rem 0;
+  }
+  .verdict h3 { margin-top: 0; }
+
+  footer {
+    max-width: var(--measure);
+    margin-top: 4rem;
+    padding-top: 1.4rem;
+    border-top: 2px solid var(--ink);
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+    font-family: "Space Mono", ui-monospace, monospace;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="kicker">signals-app · integration note</p>
+    <h1>signals-client-ts</h1>
+    <p class="standfirst">
+      What a standalone TypeScript client for the signals engine would be, why
+      the portal and the Schwab app both want one, and exactly what code it
+      would replace on each side.
+    </p>
+  </header>
+
+  <section>
+    <p class="lede">
+      The signals engine already speaks HTTP. <code>signals serve</code> boots a
+      FastAPI app with four routes; every one of them returns the same typed
+      <code>SignalOutput</code> the CLI prints and the MCP server hands to Claude.
+      Nothing new needs building on the engine side.
+    </p>
+    <p>
+      What is missing is the <em>other</em> end. Right now, for the portal or the
+      Schwab app to ask &ldquo;what&rsquo;s the signal on NVDA?&rdquo;, someone
+      writes a <code>fetch</code> call, hand-types the response shape into an
+      interface, guesses at the error cases, and repeats all of that in the
+      second app. <strong>signals-client-ts is that glue, written once.</strong>
+    </p>
+
+    <div class="callout">
+      <span class="tag">Scope — read this first</span>
+      The signals API is deliberately <strong>local / CI / agent only</strong>
+      (design doc §1.3, §6). This client talks to a <code>signals serve</code>
+      running on the developer&rsquo;s machine or in a CI job &mdash; it is
+      <em>not</em> a client for a public internet service, because there
+      isn&rsquo;t one. Each app points at
+      <code>SIGNALS_API_URL=http://localhost:8000</code> in development.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§1</span>What the package contains</h2>
+    <p>
+      One small, dependency-free module. No React, no framework coupling &mdash;
+      just <code>fetch</code> and types, so it drops into a Next.js route
+      handler, a server action, a script, or a test with equal ease.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Export</th><th>Kind</th><th>What it is</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>createSignalsClient(opts)</code></td>
+            <td><span class="pill">fn</span></td>
+            <td>Factory. Takes <code>{ baseUrl, fetch?, timeoutMs? }</code>, returns a client object. <code>baseUrl</code> defaults to <code>process.env.SIGNALS_API_URL</code>.</td>
+          </tr>
+          <tr>
+            <td><code>client.analyze(symbol, opts?)</code></td>
+            <td><span class="pill">fn</span></td>
+            <td>→ <code>Promise&lt;SignalOutput&gt;</code>. Wraps <code>GET /signals/{symbol}</code>. <code>opts</code>: <code>{ period?, noLlm? }</code>.</td>
+          </tr>
+          <tr>
+            <td><code>client.backtest(symbol, opts?)</code></td>
+            <td><span class="pill">fn</span></td>
+            <td>→ <code>Promise&lt;BacktestResult&gt;</code>. Wraps <code>GET /backtest/{symbol}</code>. <code>opts</code>: <code>{ period?, horizonDays? }</code>.</td>
+          </tr>
+          <tr>
+            <td><code>client.history(symbol, opts?)</code></td>
+            <td><span class="pill">fn</span></td>
+            <td>→ <code>Promise&lt;RunRecord[]&gt;</code>. Wraps <code>GET /history/{symbol}</code>. Rows already match the browser <code>HistoryEntry</code> shape.</td>
+          </tr>
+          <tr>
+            <td><code>client.health()</code></td>
+            <td><span class="pill">fn</span></td>
+            <td>→ <code>Promise&lt;{ status: "ok" }&gt;</code>. Liveness probe for a dev-environment banner.</td>
+          </tr>
+          <tr>
+            <td><code>SignalOutput</code>, <code>Signal</code>, <code>Evidence</code>, <code>BacktestResult</code>, <code>RunRecord</code></td>
+            <td><span class="pill">type</span></td>
+            <td>Hand-kept in sync with <code>src/signals_app/schemas/signal_output.py</code>. One source of truth, checked in CI (see §4).</td>
+          </tr>
+          <tr>
+            <td><code>SignalsError</code>, <code>SymbolNotFoundError</code>, <code>InsufficientDataError</code>, <code>UpstreamUnavailableError</code></td>
+            <td><span class="pill warn">type</span></td>
+            <td>Thrown, not returned. Mirror the service&rsquo;s domain exceptions and the route&rsquo;s status codes (404 / 400 / 503).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§2</span>How a call flows</h2>
+    <p>
+      The client is a translation layer, nothing more. A call goes through four
+      steps, each one a thing the two apps would otherwise duplicate:
+    </p>
+    <ol>
+      <li><strong>Build the URL.</strong> <code>analyze("nvda", { period: "6mo", noLlm: true })</code> becomes <code>GET {baseUrl}/signals/NVDA?period=6mo&amp;no_llm=true</code>. Symbol is upper-cased; params are only appended when set.</li>
+      <li><strong>Fetch with a timeout.</strong> An <code>AbortController</code> caps the request at <code>timeoutMs</code> (default 15s) so a hung <code>signals serve</code> surfaces as an error, not a frozen request handler.</li>
+      <li><strong>Map the status.</strong> <code>404 → SymbolNotFoundError</code>, <code>400 → InsufficientDataError</code> (or a plain <code>SignalsError</code> for a bad period), <code>503 → UpstreamUnavailableError</code>, anything else <code>→ SignalsError</code> with the response body attached.</li>
+      <li><strong>Return the typed body.</strong> On <code>200</code>, <code>response.json()</code> is returned as <code>SignalOutput</code> &mdash; no cast at the call site, no re-declared interface.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">§3</span>Usage — the same three examples on both apps</h2>
+
+    <h3>A. Portal — a route handler that returns a signal card&rsquo;s data</h3>
+    <p class="filelabel">nuwrrrld-portal/src/app/api/signal/[symbol]/route.ts</p>
+    <pre><code><span class="tok-kw">import</span> { createSignalsClient, SymbolNotFoundError, UpstreamUnavailableError } <span class="tok-kw">from</span> <span class="tok-str">"@nuwrrrld/signals-client"</span>;
+<span class="tok-kw">import</span> { NextResponse } <span class="tok-kw">from</span> <span class="tok-str">"next/server"</span>;
+
+<span class="tok-kw">const</span> signals = createSignalsClient(); <span class="tok-com">// baseUrl from SIGNALS_API_URL</span>
+
+<span class="tok-kw">export async function</span> GET(_req: Request, { params }: { params: { symbol: <span class="tok-kw">string</span> } }) {
+  <span class="tok-kw">try</span> {
+    <span class="tok-kw">const</span> out = <span class="tok-kw">await</span> signals.analyze(params.symbol, { period: <span class="tok-str">"3mo"</span> });
+    <span class="tok-com">// out is SignalOutput — out.signal.direction, out.signal.confidence,</span>
+    <span class="tok-com">// out.data_quality_score, out.code_version are all typed.</span>
+    <span class="tok-kw">return</span> NextResponse.json(out);
+  } <span class="tok-kw">catch</span> (err) {
+    <span class="tok-kw">if</span> (err <span class="tok-kw">instanceof</span> SymbolNotFoundError) <span class="tok-kw">return</span> NextResponse.json({ error: <span class="tok-str">"unknown symbol"</span> }, { status: <span class="tok-kw">404</span> });
+    <span class="tok-kw">if</span> (err <span class="tok-kw">instanceof</span> UpstreamUnavailableError) <span class="tok-kw">return</span> NextResponse.json({ error: <span class="tok-str">"signals engine unavailable"</span> }, { status: <span class="tok-kw">503</span> });
+    <span class="tok-kw">throw</span> err;
+  }
+}</code></pre>
+
+    <h3>B. Schwab app — enrich a positions table with a backtest hit-rate</h3>
+    <p class="filelabel">schwab-nu1/src/lib/enrich-positions.ts</p>
+    <pre><code><span class="tok-kw">import</span> { createSignalsClient } <span class="tok-kw">from</span> <span class="tok-str">"@nuwrrrld/signals-client"</span>;
+
+<span class="tok-kw">const</span> signals = createSignalsClient({ timeoutMs: <span class="tok-kw">30_000</span> }); <span class="tok-com">// backtests are slower</span>
+
+<span class="tok-kw">export async function</span> enrich(positions: { symbol: <span class="tok-kw">string</span> }[]) {
+  <span class="tok-kw">const</span> rows = <span class="tok-kw">await</span> Promise.allSettled(
+    positions.map(<span class="tok-kw">async</span> (p) => {
+      <span class="tok-kw">const</span> bt = <span class="tok-kw">await</span> signals.backtest(p.symbol, { horizonDays: <span class="tok-kw">20</span> });
+      <span class="tok-kw">const</span> strong = bt.by_strength.find((b) => b.key === <span class="tok-str">"STRONG BULLISH"</span>);
+      <span class="tok-kw">return</span> { symbol: p.symbol, hitRate: strong?.hit_rate ?? <span class="tok-kw">null</span>, n: strong?.total ?? <span class="tok-kw">0</span> };
+    }),
+  );
+  <span class="tok-com">// one bad symbol never sinks the batch — Promise.allSettled + typed result</span>
+  <span class="tok-kw">return</span> rows.map((r) => (r.status === <span class="tok-str">"fulfilled"</span> ? r.value : <span class="tok-kw">null</span>)).filter(Boolean);
+}</code></pre>
+
+    <h3>C. Either app — a dev-only health banner</h3>
+    <pre><code><span class="tok-kw">const</span> signals = createSignalsClient();
+
+<span class="tok-kw">export async function</span> signalsReachable(): Promise&lt;<span class="tok-kw">boolean</span>&gt; {
+  <span class="tok-kw">try</span> { <span class="tok-kw">await</span> signals.health(); <span class="tok-kw">return</span> <span class="tok-kw">true</span>; }
+  <span class="tok-kw">catch</span> { <span class="tok-kw">return</span> <span class="tok-kw">false</span>; } <span class="tok-com">// show "run `signals serve` to enable signal cards"</span>
+}</code></pre>
+
+    <h3>The shape the examples rely on</h3>
+    <p>This is a real <code>analyze("AAPL", { noLlm: true })</code> response &mdash; the typed surface the client hands back:</p>
+    <pre><code>{
+  <span class="tok-str">"ticker"</span>: <span class="tok-str">"AAPL"</span>,
+  <span class="tok-str">"signal"</span>: {
+    <span class="tok-str">"direction"</span>: <span class="tok-str">"buy"</span>,          <span class="tok-com">// strong_buy | buy | hold | sell | strong_sell</span>
+    <span class="tok-str">"confidence"</span>: <span class="tok-kw">0.55</span>,          <span class="tok-com">// 0..1, never exactly 0 or 1</span>
+    <span class="tok-str">"timeframe"</span>: <span class="tok-str">"3M"</span>,
+    <span class="tok-str">"evidence"</span>: { <span class="tok-str">"items"</span>: [ { <span class="tok-str">"source"</span>: <span class="tok-str">"rule_based"</span>, <span class="tok-str">"weight"</span>: <span class="tok-kw">1.0</span>, <span class="tok-str">"summary"</span>: <span class="tok-str">"…"</span>, <span class="tok-str">"is_counter"</span>: <span class="tok-kw">false</span> } ] },
+    <span class="tok-str">"ai_degraded"</span>: <span class="tok-kw">true</span>,          <span class="tok-com">// LLM skipped / failed → rule-based fallback</span>
+    <span class="tok-str">"prompt_version"</span>: <span class="tok-str">"fallback_v1"</span>
+  },
+  <span class="tok-str">"matrix"</span>: <span class="tok-kw">null</span>,
+  <span class="tok-str">"feature_unavailable"</span>: [],
+  <span class="tok-str">"schema_version"</span>: <span class="tok-str">"1.0"</span>,
+  <span class="tok-str">"code_version"</span>: <span class="tok-str">"signals-app@1.1.0"</span>,   <span class="tok-com">// provenance — which engine build produced this</span>
+  <span class="tok-str">"data_quality_score"</span>: <span class="tok-kw">0.7</span>,           <span class="tok-com">// &lt; 0.7 ⇒ stale / gappy input; show a freshness badge</span>
+  <span class="tok-str">"data_quality_reasons"</span>: [<span class="tok-str">"stale_last_bar:71.0h&gt;26.0h"</span>]
+}</code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">§4</span>Keeping the types honest</h2>
+    <p>
+      A hand-written TS mirror of a Python schema drifts. The client would ship
+      one guard against that:
+    </p>
+    <ul>
+      <li>
+        A CI check in <code>signals-app</code> that fetches <code>GET /openapi.json</code>
+        from a booted <code>signals serve</code> and diffs the generated types
+        against the checked-in <code>types.ts</code>. A mismatch fails the build,
+        with the diff in the log.
+      </li>
+      <li>
+        A <code>schema_version</code> field is on every payload. The client can
+        assert it matches the version it was built against and warn loudly on a
+        mismatch at runtime, not just in CI.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">§5</span>The three places it could live</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Setup cost</th><th>Drift risk</th><th>Best when</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>In <code>signals-app</code></strong><br><code>clients/typescript/</code></td>
+            <td>Low. Portal &amp; Schwab add it as a <code>file:</code> or git dependency.</td>
+            <td><strong>Lowest.</strong> Types version with the API in the same commit; the §4 CI check is right there.</td>
+            <td>You want one source of truth and don&rsquo;t mind the two apps depending on a subdir of the engine repo.</td>
+          </tr>
+          <tr>
+            <td><strong>Copied into each app</strong><br><code>src/lib/signals-client.ts</code></td>
+            <td>Zero cross-repo setup.</td>
+            <td><strong>Highest.</strong> Two copies, no shared CI, silently diverge on the next schema change.</td>
+            <td>Only for a quick spike you expect to delete.</td>
+          </tr>
+          <tr>
+            <td><strong>Standalone repo</strong><br><code>~/code/signals-client-ts</code></td>
+            <td>Highest. New repo, its own release/publish flow, version bumps to coordinate.</td>
+            <td>Low <em>if</em> the CI check runs against a pinned <code>signals-app</code> version.</td>
+            <td>The client grows its own surface (caching, retries, a React hook) and earns independent ownership.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="verdict">
+      <h3>Recommendation</h3>
+      <p>
+        Start <strong>in <code>signals-app</code> at <code>clients/typescript/</code></strong>.
+        It has the lowest drift risk &mdash; the whole reason the client exists
+        is to stop the portal and the Schwab app from each re-deriving the schema
+        &mdash; and it needs no new repo or publish pipeline. Promote it to a
+        standalone repo later <em>if</em> it grows a real surface of its own
+        (retry policy, response cache, a <code>useSignal()</code> hook). Never
+        copy it into both apps: that recreates the exact duplication this is
+        meant to remove.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§6</span>What each app does to adopt it</h2>
+    <ol>
+      <li>Add the dependency &mdash; <code>"@nuwrrrld/signals-client": "file:../signals-app/clients/typescript"</code> (or a git URL).</li>
+      <li>Set <code>SIGNALS_API_URL=http://localhost:8000</code> in <code>.env.local</code>; document it in <code>.env.example</code>.</li>
+      <li>Add one line to the dev instructions: <em>&ldquo;signal features need <code>signals serve</code> running in the <code>signals-app</code> checkout.&rdquo;</em></li>
+      <li>In CI where signal features are exercised, add a step that <code>pip install -e</code>s <code>signals-app</code> and runs <code>signals serve &amp;</code> before the app&rsquo;s tests.</li>
+    </ol>
+    <p>
+      No app code changes beyond importing <code>createSignalsClient</code> where
+      a signal is needed &mdash; and deleting whatever ad-hoc <code>fetch</code>
+      + interface currently stands in for it.
+    </p>
+  </section>
+
+  <footer>
+    signals-app · docs/signals-app-docs/signals-client-ts.html<br>
+    companion to signals-as-api-cli-mcp.md · engine build steps 1&ndash;5 shipped
+  </footer>
+
+</div>
