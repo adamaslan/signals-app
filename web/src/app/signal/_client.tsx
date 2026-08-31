@@ -160,6 +160,9 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
         createdAt={data.created_at}
         dataQualityScore={data.data_quality_score}
         dataQualityReasons={data.data_quality_reasons}
+        noLlm={feature_unavailable.includes("llm_synthesis")}
+        codeVersion={data.code_version}
+        divergencePattern={matrix?.divergence_pattern ?? null}
       />
 
       {matrix && (

@@ -28,6 +28,7 @@ import { VALID_PERIODS } from "@/lib/types";
 import { UniverseTable } from "./UniverseTable";
 import { UniverseHeatmap } from "./UniverseHeatmap";
 import { UniverseDriftView } from "./UniverseDriftView";
+import { UniverseBacktestPanel } from "./UniverseBacktestPanel";
 
 function download(name: string, content: string, type: string) {
   const blob = new Blob([content], { type });
@@ -431,6 +432,16 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
             prevRunId={prevRun.id}
             nextRunId={latestRun.id}
           />
+        </div>
+      )}
+
+      {/* Backtest */}
+      {universe.tickers.length > 0 && (
+        <div className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
+          <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
+            Backtest
+          </h2>
+          <UniverseBacktestPanel universeId={universeId} />
         </div>
       )}
 
