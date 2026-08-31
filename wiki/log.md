@@ -2,6 +2,21 @@
 
 Append-only. Format: `## [YYYY-MM-DD] type | description`
 
+## [2026-08-28] ingest | branch feat/local-universes — Local Universes (build steps 1–4)
+
+Ingested the local-universe feature build (`feat/local-universes`, 2 commits):
+Dexie v2 (`universes`/`universeRuns`/`universeBacktests` + `createDb()` guard
+now keys off `indexedDB` not `window`), `web/src/lib/universe.ts` helper
+library, `/universe/` UI (list + editor + sortable table + heatmap + drift
+view), and the §5 "must"-tier presentation fixes (`FreshnessBadge`,
+`DataQualityMeter`, `EngineHealthStrip`; `bar_ts`/`confluence_score`/
+`created_at` added to `SIGNAL_ROW_COLUMNS`). Vitest wired up (30 unit tests),
+3 new e2e. Steps 5–9 of the design doc (Supabase views, `universe_hit_rates`
+RPC backtest, cross-device sync, alerts/timeline/lineage) not built.
+
+Pages touched: new `concepts/local-universes.md`; updated
+`architecture/frontend.md` (v2 tables + guard change), `index.md`.
+
 ## [2026-07-06] update | Hardened ops/known-issues.md
 
 Made every dev-issue entry more robust: added **Symptom / Root cause /

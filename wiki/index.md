@@ -18,6 +18,7 @@
 - [LLM Synthesis](concepts/llm-synthesis.md) — OpenRouter → Gemini → rule-based fallback chain
 - [Signal Schema](concepts/signal-schema.md) — the Pydantic contract (`Signal`, `Evidence`, validators)
 - [Signal Rendering](concepts/signal-rendering.md) — how `SignalCard`/`ConfluenceBar` visualize a signal
+- [Local Universes](concepts/local-universes.md) — device-local ticker baskets: Dexie v2 tables, `runUniverse` batched read, coverage, drift, freshness/data-quality/engine-health badges
 
 ## Entities
 

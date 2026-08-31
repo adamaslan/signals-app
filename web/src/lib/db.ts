@@ -94,6 +94,111 @@ export interface AlertRule {
   lastFiredAt: number | null;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+ * Local Universes (v2) — a named, user-owned basket of tickers that can be
+ * tracked over time and backtested. See
+ * docs/signals-app-docs/local-universe-save-track-backtest.md. All three
+ * tables are device-local; only *reading signals* touches Supabase.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** A named, user-owned basket of tickers. The core new object. */
+export interface Universe {
+  id?: number;
+  /** Unique per device (case-insensitive), enforced in the helper. */
+  name: string;
+  /** Thesis for the whole basket. */
+  note: string;
+  /** Uppercased, de-duped on write. */
+  tickers: string[];
+  defaultPeriod: string;
+  defaultNoLlm: boolean;
+  createdAt: number;
+  updatedAt: number;
+  /** Bumped on every membership change, so a run records what it ran against. */
+  revision: number;
+  /** Cached coverage check — which tickers the scanner actually has. */
+  coverage: {
+    checkedAt: number;
+    covered: string[];
+    /** Known to `symbols` but `active = false`. */
+    inactive: string[];
+    /** Not in `symbols` at all — will always render blank. */
+    uncovered: string[];
+  } | null;
+}
+
+/** One batch refresh of a whole universe. */
+export interface UniverseRun {
+  id?: number;
+  universeId: number;
+  /** Membership snapshot at run time. */
+  universeRevision: number;
+  period: string;
+  startedAt: number;
+  finishedAt: number | null;
+  status: "running" | "complete" | "partial" | "failed";
+  /** Denormalised for one-read rendering. */
+  results: UniverseRunResult[];
+  summary: UniverseRunSummary | null;
+}
+
+export interface UniverseRunSummary {
+  counted: number;
+  bullish: number;
+  bearish: number;
+  neutral: number;
+  failed: number;
+  uncovered: number;
+  avgConfidence: number | null;
+  avgDataQuality: number | null;
+  /** Mean cross-timeframe alignment across the basket. */
+  avgAlignment: number | null;
+}
+
+export interface UniverseRunResult {
+  ticker: string;
+  signal: SignalDirection | null;
+  confidence: number | null;
+  confluenceScore: number | null;
+  dataQuality: number | null;
+  alignmentScore: number | null;
+  divergencePattern: string | null;
+  aiDegraded: boolean;
+  /** The bar this signal describes — NOT when we fetched it. */
+  barTs: number | null;
+  codeVersion: string | null;
+  /** null = fine; "uncovered" = scanner has no row; else an error message. */
+  error: string | null;
+}
+
+/** A cached universe-level backtest. Expensive to compute, so we keep it. */
+export interface UniverseBacktest {
+  id?: number;
+  universeId: number;
+  universeRevision: number;
+  horizonDays: number;
+  ranAt: number;
+  byStrength: HitRateBucketDTO[];
+  byCategory: HitRateBucketDTO[];
+  /** Per-ticker contribution, so the UI can show who carried the number. */
+  byTicker: HitRateBucketDTO[];
+  tickersScored: number;
+  tickersRequested: number;
+  hitsTotal: number;
+  signalsTotal: number;
+  /** Baseline: unconditional up-rate over the same bars. */
+  baselineUpRate: number | null;
+}
+
+export interface HitRateBucketDTO {
+  key: string;
+  hits: number;
+  total: number;
+  hitRate: number;
+  /** Wilson 95% lower bound — the honest number. */
+  hitRateLower: number;
+}
+
 export const PROFILE_ID = "me";
 
 class SignalsDB extends Dexie {
@@ -102,6 +207,9 @@ class SignalsDB extends Dexie {
   watchlist!: Table<WatchItem, string>;
   savedConfigs!: Table<SavedConfig, number>;
   alerts!: Table<AlertRule, number>;
+  universes!: Table<Universe, number>;
+  universeRuns!: Table<UniverseRun, number>;
+  universeBacktests!: Table<UniverseBacktest, number>;
 
   constructor() {
     super("signals_app");
@@ -112,12 +220,32 @@ class SignalsDB extends Dexie {
       savedConfigs: "++id, name, createdAt",
       alerts: "++id, ticker, enabled, createdAt",
     });
+    // v2: add the three local-universe tables. New tables only — Dexie
+    // creates them with no upgrade() callback (only populated-table
+    // *reshapes* need one). The compound index on universeBacktests is the
+    // cache key — check it before recomputing.
+    this.version(2).stores({
+      profile: "id",
+      history: "++id, ticker, ts, signal",
+      watchlist: "ticker, addedAt, lastSignal",
+      savedConfigs: "++id, name, createdAt",
+      alerts: "++id, ticker, enabled, createdAt",
+      universes: "++id, name, updatedAt",
+      universeRuns: "++id, universeId, startedAt, status",
+      universeBacktests:
+        "++id, universeId, ranAt, [universeId+universeRevision+horizonDays]",
+    });
   }
 }
 
-/** Guard so this module is import-safe during SSR (no IndexedDB on server). */
+/**
+ * Guard so this module is import-safe during SSR (no IndexedDB on the
+ * server). We key off `indexedDB` availability rather than `window` so that
+ * a test runner which polyfills `indexedDB` (fake-indexeddb) gets a real,
+ * queryable store.
+ */
 function createDb(): SignalsDB | null {
-  if (typeof window === "undefined") return null;
+  if (typeof indexedDB === "undefined") return null;
   return new SignalsDB();
 }
 
@@ -298,7 +426,7 @@ export async function deleteConfig(id: number): Promise<void> {
  * ──────────────────────────────────────────────────────────────────────── */
 
 /** Rank used to compare "X or stronger toward the same side". */
-const DIRECTION_RANK: Record<SignalDirection, number> = {
+export const DIRECTION_RANK: Record<SignalDirection, number> = {
   strong_sell: -2,
   sell: -1,
   hold: 0,
@@ -372,12 +500,24 @@ async function evaluateAlerts(
 /** Dump the entire local DB as a JSON-serialisable object for export. */
 export async function exportAll(): Promise<Record<string, unknown>> {
   if (!db) return {};
-  const [profile, history, watchlist, savedConfigs, alerts] = await Promise.all([
+  const [
+    profile,
+    history,
+    watchlist,
+    savedConfigs,
+    alerts,
+    universes,
+    universeRuns,
+    universeBacktests,
+  ] = await Promise.all([
     db.profile.toArray(),
     db.history.toArray(),
     db.watchlist.toArray(),
     db.savedConfigs.toArray(),
     db.alerts.toArray(),
+    db.universes.toArray(),
+    db.universeRuns.toArray(),
+    db.universeBacktests.toArray(),
   ]);
   return {
     exportedAt: new Date().toISOString(),
@@ -386,6 +526,9 @@ export async function exportAll(): Promise<Record<string, unknown>> {
     watchlist,
     savedConfigs,
     alerts,
+    universes,
+    universeRuns,
+    universeBacktests,
   };
 }
 
@@ -398,5 +541,8 @@ export async function wipeAll(): Promise<void> {
     db.watchlist.clear(),
     db.savedConfigs.clear(),
     db.alerts.clear(),
+    db.universes.clear(),
+    db.universeRuns.clear(),
+    db.universeBacktests.clear(),
   ]);
 }

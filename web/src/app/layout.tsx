@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SpaRedirect } from "@/components/SpaRedirect";
+import { EngineHealthStrip } from "@/components/EngineHealthStrip";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <SpaRedirect />
         </Suspense>
+        <EngineHealthStrip />
         <header className="border-b border-white/5 px-6 py-3 flex items-center gap-3">
           <Link href="/" className="text-xl font-bold tracking-tight text-white">
             📈 Signals
@@ -33,8 +35,14 @@ export default function RootLayout({
             AI-powered market analysis
           </span>
           <Link
-            href="/settings"
+            href="/universe/"
             className="ml-auto text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            🗂 Universes
+          </Link>
+          <Link
+            href="/settings"
+            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
             ⚙ Settings
           </Link>

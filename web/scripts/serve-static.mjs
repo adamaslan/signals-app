@@ -30,6 +30,20 @@ const server = http.createServer(async (req, res) => {
   // Try to serve the requested file
   const filePath = path.join(OUT_DIR, pathname);
 
+  // GitHub Pages serves <dir>/index.html for a directory request; serve-handler
+  // with cleanUrls:false would render a directory listing instead. Rewrite
+  // "/universe/" (and "/universe") to "/universe/index.html" when that file
+  // exists, matching production.
+  if (
+    fs.existsSync(filePath) &&
+    fs.statSync(filePath).isDirectory() &&
+    fs.existsSync(path.join(filePath, 'index.html'))
+  ) {
+    req.url = path.posix.join(pathname, 'index.html');
+    await serveHandler(req, res, { public: OUT_DIR, cleanUrls: false, etag: false });
+    return;
+  }
+
   // Check if it's a directory or doesn't exist
   if (!fs.existsSync(filePath)) {
     // Rewrite to index.html for SPA (unless it's a known asset)
