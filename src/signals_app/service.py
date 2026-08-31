@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 import pandas as pd
 
@@ -65,6 +66,9 @@ __all__ = [
     "UniverseBacktestResult",
     "DetectorInfo",
     "HealthReport",
+    "ScanProgress",
+    "ScanResult",
+    "ScanSymbolOutcome",
     # functions
     "analyze",
     "analyze_many",
@@ -73,6 +77,7 @@ __all__ = [
     "history",
     "detectors",
     "health",
+    "scan",
 ]
 
 # The minimum bar count the single-symbol pipeline needs before it will run —
@@ -191,6 +196,51 @@ class DetectorInfo:
     category: str
     description: str
     calibrated_hit_rate: float | None
+
+
+@dataclass(frozen=True)
+class ScanProgress:
+    """One tick of scan progress, passed to a ``scan(progress=...)`` callback."""
+
+    done: int
+    total: int
+    ticker: str
+    ok: bool
+    published: bool
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ScanSymbolOutcome:
+    """The final state of one scanned symbol."""
+
+    ticker: str
+    ok: bool
+    published: bool
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ScanResult:
+    """Aggregate outcome of a universe scan.
+
+    ``published`` is deliberately the small number — most ticker-days should
+    fail the publication gate; that is what makes the engine selective.
+    """
+
+    symbols_total: int
+    symbols_ok: int
+    symbols_failed: int
+    symbols_published: int
+    dry_run: bool
+    trigger: str
+    elapsed_seconds: float
+    outcomes: list[ScanSymbolOutcome] = field(default_factory=list)
+
+    @property
+    def partial(self) -> bool:
+        """True when some symbols failed but not all — the exit-6 case."""
+        return 0 < self.symbols_failed < self.symbols_total
 
 
 @dataclass(frozen=True)
@@ -696,4 +746,127 @@ async def health() -> HealthReport:
         supabase_configured=supabase_configured,
         code_version=SIGNALS_APP_CODE_VERSION,
         detail=detail,
+    )
+
+
+# ---------------------------------------------------------------------------
+# scan — the production universe scan (design doc §2.1, build step 4)
+# ---------------------------------------------------------------------------
+
+
+async def scan(
+    symbols: Sequence[str] | None = None,
+    *,
+    seed: Path | str | None = None,
+    period: str = DEFAULT_PERIOD,
+    dry_run: bool = False,
+    trigger: Literal["cron", "manual", "backfill"] = "manual",
+    shard: tuple[int, int] | None = None,
+    max_concurrent: int = 8,
+    compute_matrix: bool = False,
+    direction: Literal["bullish", "bearish"] | None = None,
+    progress: Callable[[ScanProgress], None] | None = None,
+) -> ScanResult:
+    """Run the production scan over a universe and persist publishable signals.
+
+    Wraps ``signals_app.scanner.scan_universe`` — the same code the GitHub
+    Actions workflow runs via ``scripts/scan_universe.py`` — adding symbol
+    resolution (direct list + ``seed`` CSV + ``shard``) and a typed result.
+    The heavy work runs in a worker thread so this stays a normal coroutine.
+
+    Args:
+        symbols: Tickers to scan. Combined with ``seed`` if both are given.
+        seed: Path to a CSV with a ``ticker`` column.
+        period: yfinance period string; validated.
+        dry_run: Gate + log only — no LLM calls, no writes. This is the
+            ``--dry-run`` measurement ``docs/universe-scan-findings.md`` relies
+            on.
+        trigger: Recorded on the ``engine_runs`` row.
+        shard: ``(index, total)`` — scan only every ``total``-th symbol from
+            index, from the sorted list (what Actions does across 4 shards).
+        max_concurrent: Bounded fetch concurrency.
+        compute_matrix: Also build the 5-timeframe matrix for gated symbols.
+        direction: Gate one side of the confluence band only.
+        progress: Called with a :class:`ScanProgress` as each symbol finishes.
+
+    Returns:
+        A :class:`ScanResult`.
+
+    Raises:
+        InvalidPeriod: The period is not supported.
+        SymbolNotFound: No symbols were resolved from ``symbols`` + ``seed``.
+        UpstreamUnavailable: Supabase writer construction failed for a live run.
+    """
+    period = _normalize_period(period)
+
+    from signals_app import scanner
+
+    resolved: list[str] = [_normalize_symbol(s) for s in (symbols or [])]
+    if seed is not None:
+        resolved.extend(scanner.load_symbols_from_csv(str(seed)))
+    resolved = sorted(set(resolved))
+    if not resolved:
+        raise SymbolNotFound("no symbols resolved — pass symbols and/or a seed CSV")
+
+    if shard is not None:
+        index, total = shard
+        resolved = scanner.apply_shard(resolved, index, total)
+
+    writer = None
+    if not dry_run:
+        try:
+            from signals_app.db.supabase import SupabaseWriter
+
+            writer = SupabaseWriter()
+        except Exception as exc:  # noqa: BLE001 — a live scan with no writer is an upstream problem
+            logger.error("service.scan: could not construct SupabaseWriter: %s", exc)
+            raise UpstreamUnavailable(f"Supabase writer unavailable: {exc}") from exc
+
+    def _on_symbol(done: int, total: int, result: object) -> None:
+        if progress is None:
+            return
+        progress(
+            ScanProgress(
+                done=done,
+                total=total,
+                ticker=result.ticker,  # type: ignore[attr-defined]
+                ok=result.ok,  # type: ignore[attr-defined]
+                published=result.published,  # type: ignore[attr-defined]
+                reason=result.reason,  # type: ignore[attr-defined]
+            )
+        )
+
+    started = asyncio.get_event_loop().time()
+    try:
+        results = await asyncio.to_thread(
+            scanner.scan_universe,
+            resolved,
+            period=period,
+            writer=writer,
+            trigger=trigger,
+            dry_run=dry_run,
+            max_concurrent=max_concurrent,
+            compute_matrix=compute_matrix,
+            direction=direction,
+            progress=_on_symbol,
+        )
+    finally:
+        if writer is not None:
+            writer.close()
+    elapsed = asyncio.get_event_loop().time() - started
+
+    ok = sum(1 for r in results if r.ok)
+    published = sum(1 for r in results if r.published)
+    return ScanResult(
+        symbols_total=len(results),
+        symbols_ok=ok,
+        symbols_failed=len(results) - ok,
+        symbols_published=published,
+        dry_run=dry_run,
+        trigger=trigger,
+        elapsed_seconds=round(elapsed, 2),
+        outcomes=[
+            ScanSymbolOutcome(ticker=r.ticker, ok=r.ok, published=r.published, reason=r.reason)
+            for r in results
+        ],
     )

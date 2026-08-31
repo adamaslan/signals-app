@@ -192,3 +192,83 @@ async def test_health_reports_yfinance_unreachable_without_raising(
     assert report.yfinance_ok is False
     assert report.ok is False
     assert "unreachable" in report.detail["yfinance"]
+
+
+# ---------------------------------------------------------------------------
+# scan — the production universe scan (step 4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def stub_scan(monkeypatch: pytest.MonkeyPatch):
+    """Replace scanner.scan_universe with a synthetic one that honors `progress`."""
+
+    def install(published: set[str], failed: set[str]) -> list:
+        calls: list[dict] = []
+        from signals_app import scanner
+
+        def _fake(symbols: list[str], **kw: object) -> list:
+            calls.append({"symbols": list(symbols), **kw})
+            results = []
+            prog = kw.get("progress")
+            for i, t in enumerate(symbols, 1):
+                r = scanner.SymbolResult(
+                    ticker=t,
+                    ok=t not in failed,
+                    published=t in published,
+                    reason=None if t not in failed else "boom",
+                )
+                results.append(r)
+                if callable(prog):
+                    prog(i, len(symbols), r)
+            return results
+
+        monkeypatch.setattr("signals_app.scanner.scan_universe", _fake)
+        return calls
+
+    return install
+
+
+async def test_scan_dry_run_never_constructs_a_writer(stub_scan, monkeypatch) -> None:
+    def _no_writer(*_a: object, **_k: object) -> object:
+        raise AssertionError("SupabaseWriter must not be constructed for a dry run")
+
+    monkeypatch.setattr("signals_app.db.supabase.SupabaseWriter", _no_writer, raising=False)
+    stub_scan(published={"AAPL"}, failed=set())
+    result = await service.scan(["AAPL", "MSFT"], dry_run=True)
+    assert result.dry_run is True
+    assert result.symbols_total == 2
+    assert result.symbols_published == 1
+
+
+async def test_scan_reports_progress_per_symbol(stub_scan) -> None:
+    stub_scan(published={"AAPL"}, failed={"BADX"})
+    ticks: list[tuple[int, int, str]] = []
+    result = await service.scan(
+        ["AAPL", "MSFT", "BADX"],
+        dry_run=True,
+        progress=lambda p: ticks.append((p.done, p.total, p.ticker)),
+    )
+    assert [t[0] for t in ticks] == [1, 2, 3]
+    assert all(t[1] == 3 for t in ticks)
+    assert result.partial is True  # 1 of 3 failed
+    assert result.symbols_failed == 1
+
+
+async def test_scan_invalid_period_raises() -> None:
+    with pytest.raises(InvalidPeriod):
+        await service.scan(["AAPL"], period="bogus", dry_run=True)
+
+
+async def test_scan_no_symbols_raises_symbol_not_found() -> None:
+    with pytest.raises(SymbolNotFound):
+        await service.scan([], dry_run=True)
+
+
+async def test_scan_applies_shard_before_scanning(stub_scan) -> None:
+    calls = stub_scan(published=set(), failed=set())
+    await service.scan(
+        ["A", "B", "C", "D", "E", "F"], dry_run=True, shard=(0, 2)
+    )
+    # sorted + every-2nd-from-0 → A, C, E
+    assert calls[0]["symbols"] == ["A", "C", "E"]

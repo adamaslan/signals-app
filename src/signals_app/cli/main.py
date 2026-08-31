@@ -360,6 +360,113 @@ def health(
 
 
 # ---------------------------------------------------------------------------
+# scan — the production universe scan (design doc §3.2, build step 4)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def scan(
+    symbols: Annotated[list[str] | None, typer.Argument(help="Tickers to scan.")] = None,
+    seed: Annotated[
+        str | None, typer.Option("--seed", help="CSV file with a `ticker` column.")
+    ] = None,
+    period: Annotated[str, typer.Option(help="yfinance period string.")] = DEFAULT_PERIOD,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Gate + log only — no LLM calls, no writes.")
+    ] = False,
+    trigger: Annotated[
+        str, typer.Option("--trigger", help="cron | manual | backfill.")
+    ] = "manual",
+    shard: Annotated[
+        str | None, typer.Option("--shard", metavar="INDEX/TOTAL", help="e.g. 0/4.")
+    ] = None,
+    matrix: Annotated[
+        bool, typer.Option("--matrix", help="Also build the 5-timeframe matrix for gated symbols.")
+    ] = False,
+    direction: Annotated[
+        str | None, typer.Option("--direction", help="bullish | bearish — gate one side only.")
+    ] = None,
+    max_concurrent: Annotated[int, typer.Option("--max-concurrent")] = 8,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit JSON to stdout only.")] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """Run the production scan over a universe and persist publishable signals.
+
+    Same code path the GitHub Actions workflow runs. ``--dry-run`` gates and
+    logs without any LLM call or DB write. Exit 6 if some symbols failed but
+    not all.
+    """
+    _configure_logging(quiet, verbose)
+
+    if trigger not in ("cron", "manual", "backfill"):
+        _err.print("[red]error:[/red] --trigger must be cron | manual | backfill")
+        raise typer.Exit(Exit.USAGE)
+    if direction is not None and direction not in ("bullish", "bearish"):
+        _err.print("[red]error:[/red] --direction must be bullish | bearish")
+        raise typer.Exit(Exit.USAGE)
+
+    shard_tuple: tuple[int, int] | None = None
+    if shard is not None:
+        try:
+            idx, tot = (int(x) for x in shard.split("/"))
+            shard_tuple = (idx, tot)
+        except ValueError:
+            _err.print("[red]error:[/red] --shard must be INDEX/TOTAL, e.g. 0/4")
+            raise typer.Exit(Exit.USAGE) from None
+
+    bar = _err.status("scanning…") if not as_json else None
+
+    def _progress(p: Any) -> None:
+        if bar is not None:
+            bar.update(f"scanning… {p.done}/{p.total}  {p.ticker}")
+
+    if bar is not None:
+        bar.start()
+    try:
+        result = _run(
+            service.scan(
+                symbols or None,
+                seed=seed,
+                period=period,
+                dry_run=dry_run,
+                trigger=trigger,  # type: ignore[arg-type]
+                shard=shard_tuple,
+                max_concurrent=max_concurrent,
+                compute_matrix=matrix,
+                direction=direction,  # type: ignore[arg-type]
+                progress=_progress,
+            )
+        )
+    finally:
+        if bar is not None:
+            bar.stop()
+
+    if as_json:
+        _print_json(result)
+    else:
+        _out.print(
+            f"scanned {result.symbols_total} — "
+            f"[green]{result.symbols_published} published[/green], "
+            f"{result.symbols_ok} ok, "
+            f"[red]{result.symbols_failed} failed[/red]  "
+            f"({result.elapsed_seconds}s{', dry-run' if result.dry_run else ''})"
+        )
+        pub = [o.ticker for o in result.outcomes if o.published]
+        if pub:
+            _out.print("  published: " + ", ".join(pub))
+        bad = [(o.ticker, o.reason) for o in result.outcomes if not o.ok]
+        if bad:
+            _err.print("  failed: " + ", ".join(f"{t} ({r})" for t, r in bad))
+
+    if result.partial:
+        raise typer.Exit(Exit.PARTIAL)
+    if result.symbols_failed and result.symbols_failed == result.symbols_total:
+        raise typer.Exit(Exit.UPSTREAM_UNAVAILABLE)
+    raise typer.Exit(Exit.OK)
+
+
+# ---------------------------------------------------------------------------
 # serve — what `signals-analyze` used to do
 # ---------------------------------------------------------------------------
 
