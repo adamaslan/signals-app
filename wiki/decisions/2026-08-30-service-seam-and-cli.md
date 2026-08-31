@@ -75,8 +75,26 @@ This is what stops the "two assemblies of the same layers" drift
 (`scan_universe.py` vs the API path) from recurring — that script becomes an
 adapter in step 4.
 
-## Not done here (steps 4–7)
+## Steps 4–7 (same PR, later commits)
 
-`service.scan()` + `signals scan` (with `scan_universe.py` → thin shim), the
-read-only MCP server, `signals universe *`, and the `--estimate` / `--yes`
-cost-gate hardening pass.
+- **4 — scan seam.** The scan pipeline moved out of `scripts/scan_universe.py`
+  into `src/signals_app/scanner.py`; that script is now `main()` + argparse
+  only, re-exporting the names its tests use. `service.scan()` wraps
+  `scanner.scan_universe` via `asyncio.to_thread`, adds a `ScanProgress`
+  callback, returns a typed `ScanResult`. `signals scan` subcommand. The
+  Actions workflow runs the script unchanged.
+- **5 — MCP server.** `src/signals_app/mcp/server.py` — 9 read-only tools, 3
+  resources, 2 prompts, each a `service` call + a provenance/disclaimer
+  wrapper (COMPLIANCE.md §6 verbatim). Write tools gated behind
+  `SIGNALS_MCP_ALLOW_WRITES=1`. `signals mcp` (stdio / `--http`). `.mcp.json`
+  checked in. Compatible with MCP SDK 1.x (`FastMCP`) and 2.x (`MCPServer`).
+- **6 — universes + presets.** `src/signals_app/universes.py` — local ticker
+  baskets as CSV in `~/.signals/universes/` plus the browser exchange JSON.
+  `signals universe {list,create,show,delete,run,backtest,export,import}`.
+  `signals scan --universe NAME` and `--preset {bullish-2wk,best1}`. Only the
+  two simple screens are presets; `scan_21_day_ds.py` / `scan_optimal_monthly.py`
+  grew their own calibration and stay in `scripts/` with a deprecation header.
+- **7 — cost gate.** `_cost_gate()` blocks a >25 LLM-call command without
+  `--yes`; `--estimate` on `analyze` / `scan` prints the count and exits.
+  `tests/test_cli_contract.py` pins the exit-code contract and `--json`
+  purity against the real binary.
