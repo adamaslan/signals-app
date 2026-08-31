@@ -26,11 +26,18 @@ from signals_app import service
 
 logger = logging.getLogger(__name__)
 
-# --- MCP SDK: 2.x renamed FastMCP → MCPServer. Support both. -----------------
-try:  # 2.x
-    from mcp.server.mcpserver import MCPServer as _Server
-except ModuleNotFoundError:  # 1.x
-    from mcp.server.fastmcp import FastMCP as _Server  # type: ignore[no-redef]
+# --- MCP SDK: 2.x renamed FastMCP → MCPServer; 1.x has FastMCP. Optional dep:
+# importing this module must not hard-fail when `mcp` isn't installed — the
+# `signals mcp` command errors at call time instead (see build_server).
+_Server: Any = None
+_MCP_IMPORT_ERROR: str | None = None
+try:
+    try:  # 2.x
+        from mcp.server.mcpserver import MCPServer as _Server
+    except ModuleNotFoundError:  # 1.x
+        from mcp.server.fastmcp import FastMCP as _Server
+except ImportError as exc:  # `mcp` not installed at all
+    _MCP_IMPORT_ERROR = str(exc)
 
 
 # COMPLIANCE.md §6 short-form — the source of truth for this wording. Do not
@@ -76,7 +83,16 @@ def _with_provenance(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_server() -> Any:
-    """Construct and return the configured MCP server instance."""
+    """Construct and return the configured MCP server instance.
+
+    Raises:
+        RuntimeError: The ``mcp`` package is not installed (``pip install mcp``).
+    """
+    if _Server is None:
+        raise RuntimeError(
+            f"the 'mcp' package is required for the signals MCP server "
+            f"({_MCP_IMPORT_ERROR}). Install it: pip install 'mcp>=1.2'"
+        )
     mcp = _Server(
         "signals",
         instructions=(

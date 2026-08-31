@@ -22,3 +22,4 @@ dependencies:
   - pip:
     - google-generativeai
     - asyncpg
+    - mcp>=1.2

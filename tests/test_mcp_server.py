@@ -18,7 +18,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from signals_app.data.fetcher import OHLCVResult
+pytest.importorskip("mcp", reason="the 'mcp' package is an optional dependency")
+
+from signals_app.data.fetcher import OHLCVResult  # noqa: E402
 
 
 def _make_ohlcv(n: int = 260) -> pd.DataFrame:
