@@ -51,3 +51,6 @@ supabase/.temp/
 .idea/
 *.swp
 *.swo
+
+# Local SQLite DB created by `signals` CLI / the API in local mode
+signals_local.db
