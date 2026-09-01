@@ -18,6 +18,7 @@ from signals_app.config import (
     DATA_QUALITY_MAX_NAN_RATIO,
     DATA_QUALITY_STALE_HOURS,
     MIN_BARS_BY_PERIOD,
+    MIN_DATA_POINTS_200MA,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,11 @@ class DataQualityResult:
 def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
     """Score an OHLCV DataFrame's quality on a 0.0-1.0 scale.
 
-    Deducts for: too few bars for the requested period, a NaN ratio above
-    threshold in OHLCV columns, and a stale last bar. Deductions are additive
-    and independent — multiple problems compound, floored at 0.0.
+    Deducts for: too few bars for the requested period, too few bars to warm
+    up the 200-period indicators the detection layer computes (regardless of
+    period — see MIN_DATA_POINTS_200MA), a NaN ratio above threshold in OHLCV
+    columns, and a stale last bar. Deductions are additive and independent —
+    multiple problems compound, floored at 0.0.
 
     Args:
         df: Raw OHLCV DataFrame with DatetimeIndex, oldest-first.
@@ -59,6 +62,19 @@ def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
     if len(df) < min_bars:
         score -= 0.4
         reasons.append(f"insufficient_bars:{len(df)}<{min_bars}")
+
+    # Independent of the period-based check above: the detection layer always
+    # computes 200-period SMAs, MA-distance, and golden/death-cross signals,
+    # so a window shorter than that leaves those indicators NaN (see
+    # signals_app.indicators.compute) even when the period-based check above
+    # passes (e.g. a 60-bar "3mo" window is a fine 3mo but cannot support a
+    # 200SMA). Flag it as its own reason so the gate can see *why* long-window
+    # signals are absent rather than reporting a misleadingly perfect score.
+    if len(df) < MIN_DATA_POINTS_200MA:
+        score -= 0.2
+        reasons.append(
+            f"indicator_warmup_short:{len(df)}<{MIN_DATA_POINTS_200MA}"
+        )
 
     missing_cols = [c for c in _OHLCV_COLUMNS if c not in df.columns]
     if missing_cols:

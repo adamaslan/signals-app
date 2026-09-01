@@ -60,9 +60,18 @@ def _validate_ohlcv(df: pd.DataFrame) -> None:
 
 
 def _smas_series(close: pd.Series) -> dict[str, pd.Series]:
+    """Compute SMAs, one column per period in ``MA_PERIODS_EXTENDED``.
+
+    Uses ``min_periods=period`` (pandas' default for a fixed window) so an
+    SMA with insufficient history is ``NaN`` rather than silently averaging
+    over fewer bars than its period name promises. A "200SMA" computed from
+    63 bars is not a 200SMA — it is a 63-bar mean mislabeled, and detectors
+    downstream (e.g. ``MADistanceExpandedDetector``) already treat NaN inputs
+    as "no signal" via ``_sf()``, so this fix requires no detector changes.
+    """
     cols: dict[str, pd.Series] = {}
     for period in MA_PERIODS_EXTENDED:
-        cols[f"SMA_{period}"] = close.rolling(window=period, min_periods=1).mean()
+        cols[f"SMA_{period}"] = close.rolling(window=period).mean()
     return cols
 
 
@@ -189,7 +198,8 @@ def _obv_cmf_series(high: pd.Series, low: pd.Series, close: pd.Series, volume: p
 
 
 def _volume_ma_series(volume: pd.Series) -> dict[str, pd.Series]:
-    return {f"Volume_MA_{p}": volume.rolling(window=p, min_periods=1).mean() for p in VOLUME_MA_PERIODS}
+    """Compute volume MAs — NaN until each window is fully warmed (see _smas_series)."""
+    return {f"Volume_MA_{p}": volume.rolling(window=p).mean() for p in VOLUME_MA_PERIODS}
 
 
 def _hl_lookback_series(high: pd.Series, low: pd.Series, n_bars: int) -> dict[str, pd.Series]:

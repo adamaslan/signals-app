@@ -136,6 +136,36 @@ class TestComputeIndicators:
         with pytest.raises(ValueError, match="missing required OHLCV columns"):
             compute_indicators(bad_df)
 
+    def test_long_sma_nan_when_history_too_short(self) -> None:
+        """A period-N SMA computed on fewer than N bars must be NaN, not an
+        average over whatever bars happen to exist.
+
+        Regression for the 2026-09-01 universe scan: with 63 bars, SMA_100
+        and SMA_200 both silently collapsed to the 63-bar mean (min_periods=1),
+        so ">10% ABOVE 100SMA" and ">10% ABOVE 200SMA" fired with the exact
+        same reported distance — a 200-day average that never existed drove
+        published SELL calls (A, ABT) past the confluence gate.
+        """
+        np.random.seed(42)
+        short_df = _make_ohlcv(63, "up")
+        result = compute_indicators(short_df)
+
+        assert result["SMA_200"].isna().all(), "SMA_200 must be NaN over 63 bars"
+        assert result["SMA_100"].isna().all(), "SMA_100 must be NaN over 63 bars"
+        # A period the window *can* satisfy should still compute normally.
+        assert result["SMA_50"].notna().any()
+
+    def test_short_and_long_sma_are_not_numerically_identical(self) -> None:
+        """SMA_100 and SMA_200 must diverge once both have partial warmup —
+        guards against any reintroduction of a shared min_periods=1 collapse."""
+        np.random.seed(42)
+        df = _make_ohlcv(250, "up")
+        result = compute_indicators(df)
+
+        sma_100 = result["SMA_100"].iloc[-1]
+        sma_200 = result["SMA_200"].iloc[-1]
+        assert sma_100 != pytest.approx(sma_200)
+
 
 # ---------------------------------------------------------------------------
 # Detection tests
@@ -174,6 +204,21 @@ class TestDetection:
         df = compute_indicators(df_small)
         result = detect_all_signals(df)
         assert isinstance(result, SignalList)
+
+    def test_no_100_or_200_ma_signals_on_63_bars(self) -> None:
+        """End-to-end regression: 63 bars (a "3mo" scan) must never produce a
+        100SMA or 200SMA signal — those indicators are NaN over that window
+        and MADistanceExpandedDetector/MovingAverageSignalDetector already
+        skip NaN inputs via _sf(); this pins that neither detector regresses
+        to emitting a signal keyed to an SMA that was never actually computed."""
+        np.random.seed(42)
+        short_df = _make_ohlcv(63, "up")
+        df = compute_indicators(short_df)
+        result = detect_all_signals(df)
+
+        offending = [s for s in result if "100SMA" in s.signal or "200SMA" in s.signal
+                     or "SMA_100" in s.signal or "SMA_200" in s.signal]
+        assert offending == [], f"Fabricated long-MA signals on short history: {offending}"
 
     def test_default_detectors_count(self) -> None:
         detectors = get_default_detectors()
