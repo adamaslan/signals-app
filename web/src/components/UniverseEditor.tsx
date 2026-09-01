@@ -81,7 +81,7 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   useEffect(() => {
     let active = true;
     fetchMyCoverageRequests()
-      .then((m) => active && setRequested(new Set(m.keys())))
+      .then((m) => active && setRequested((prev) => new Set([...prev, ...m.keys()])))
       .catch(() => {});
     return () => {
       active = false;

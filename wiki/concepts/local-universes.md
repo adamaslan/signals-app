@@ -16,7 +16,7 @@ Deferred: server-side filter/sort (#11), counter-evidence equal-weight
 (#3), confluence internals (#7), saved views (#12), universe alerts (#13),
 lineage drill-down (#20).
 
-### Backend (steps 5–8, migrations 20260831000001–4)
+## Backend (steps 5–8, migrations 20260831000001–4)
 
 | Migration | What |
 |---|---|
@@ -44,9 +44,10 @@ compute over rows already fetched:
   against `signals` (chunked at 200 tickers), keeping the newest row per
   ticker client-side. Not a fan-out of N requests.
 - **Coverage** (`refreshCoverage`) is one `.in()` query against `symbols`.
-- **Backtest** will be a `security definer` RPC over `detector_hits ⋈
-  forward_returns` — not built yet; `backtestUniverse()` throws
-  "not deployed" until then.
+- **Backtest** — `backtestUniverse()` calls the `security definer` RPC (added
+  in migration 20260831000002) over `detector_hits ⋈ forward_returns`; throws
+  `ApiError(501)` with an actionable message if the RPC migration hasn't been
+  applied yet.
 
 ## The three Dexie tables (db.ts v2)
 

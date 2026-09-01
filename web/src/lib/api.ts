@@ -199,7 +199,7 @@ export async function fetchUniverseSignals(
         .select(UNIVERSE_SIGNAL_COLUMNS)
         .in("ticker", batch)
         .eq("period", period)
-        .order("bar_ts", { ascending: false });
+        .order("bar_ts", { ascending: false, nullsFirst: false });
       if (rawRes.error) throw new ApiError(500, rawRes.error.message);
       rows = (rawRes.data ?? []) as unknown as UniverseSignalRow[];
     }

@@ -19,6 +19,7 @@ interface CloudUniverse {
   note: string;
   tickers: string[];
   default_period: string;
+  default_no_llm: boolean;
   revision: number;
   created_at: string;
   updated_at: string;
@@ -103,7 +104,7 @@ async function mergeUniverses(userId: string): Promise<void> {
     supabase
       .from("universes")
       .select(
-        "id,name,note,tickers,default_period,revision,created_at,updated_at",
+        "id,name,note,tickers,default_period,default_no_llm,revision,created_at,updated_at",
       )
       .eq("user_id", userId),
   ]);
@@ -116,12 +117,14 @@ async function mergeUniverses(userId: string): Promise<void> {
   // Push local-only universes up.
   for (const u of localList) {
     if (cloudByKey.has(key(u.name))) continue;
+    const normalizedName = u.name.trim().toLowerCase();
     await supabase.from("universes").insert({
       user_id: userId,
-      name: u.name,
+      name: normalizedName,
       note: u.note,
       tickers: u.tickers,
       default_period: u.defaultPeriod,
+      default_no_llm: u.defaultNoLlm,
       revision: u.revision,
     });
   }
@@ -135,7 +138,7 @@ async function mergeUniverses(userId: string): Promise<void> {
         note: c.note,
         tickers: c.tickers,
         defaultPeriod: c.default_period,
-        defaultNoLlm: false,
+        defaultNoLlm: c.default_no_llm,
         createdAt: new Date(c.created_at).getTime(),
         updatedAt: new Date(c.updated_at).getTime(),
         revision: c.revision,
@@ -148,7 +151,8 @@ async function mergeUniverses(userId: string): Promise<void> {
       if (
         c.revision !== local.revision ||
         c.tickers.join(",") !== local.tickers.join(",") ||
-        c.note !== local.note
+        c.note !== local.note ||
+        c.default_period !== local.defaultPeriod
       ) {
         await db.universes.update(local.id!, {
           note: c.note,
@@ -171,7 +175,7 @@ async function mergeUniverses(userId: string): Promise<void> {
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", userId)
-        .eq("name", c.name);
+        .eq("name", key(c.name));
     }
   }
 }
@@ -189,10 +193,11 @@ export async function syncUniverseUp(
   >,
 ): Promise<void> {
   if (!supabaseConfigured || !supabase) return;
+  const normalizedName = u.name.trim().toLowerCase();
   await supabase.from("universes").upsert(
     {
       user_id: userId,
-      name: u.name,
+      name: normalizedName,
       note: u.note,
       tickers: u.tickers,
       default_period: u.defaultPeriod,

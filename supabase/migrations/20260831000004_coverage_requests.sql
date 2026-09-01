@@ -20,7 +20,9 @@ create index on coverage_requests (status, requested_at);
 
 alter table coverage_requests enable row level security;
 
-create policy "insert own coverage requests" on coverage_requests for insert to authenticated with check (auth.uid() = user_id);
+create policy "insert own coverage requests" on coverage_requests for insert to authenticated with check (auth.uid() = user_id and status = 'pending' and resolved_at is null);
+
+create policy "update own coverage requests" on coverage_requests for update to authenticated using (auth.uid() = user_id) with check (status = 'pending' and resolved_at is null);
 
 create policy "read own coverage requests" on coverage_requests for select to authenticated using (auth.uid() = user_id);
 

@@ -745,12 +745,14 @@ export async function backtestUniverse(
     baselineUpRate: meta.baselineUpRate,
   };
 
-  // Replace any stale row for this exact key, then insert.
-  await db.universeBacktests
-    .where("[universeId+universeRevision+horizonDays]")
-    .equals([id, u.revision, horizonDays])
-    .delete();
-  const btId = await db.universeBacktests.add(record);
+  // Replace any stale row for this exact key in a single transaction.
+  const btId = await db.transaction("rw", db.universeBacktests, async () => {
+    await db.universeBacktests
+      .where("[universeId+universeRevision+horizonDays]")
+      .equals([id, u.revision, horizonDays])
+      .delete();
+    return db.universeBacktests.add(record);
+  });
   return { ...record, id: btId };
 }
 

@@ -15,6 +15,7 @@ export interface CalibrationBucket {
 /** Module-level cache. */
 let cache: CalibrationBucket[] | null = null;
 let inflight: Promise<CalibrationBucket[]> | null = null;
+let cacheGeneration = 0;
 
 /**
  * Load calibration buckets from Supabase, with caching.
@@ -30,6 +31,7 @@ export async function loadCalibration(): Promise<CalibrationBucket[]> {
     return inflight;
   }
 
+  const requestGeneration = cacheGeneration;
   inflight = (async () => {
     try {
       if (!supabaseConfigured || !supabase) {
@@ -66,12 +68,16 @@ export async function loadCalibration(): Promise<CalibrationBucket[]> {
         codeVersion: row.code_version,
       }));
 
-      cache = rows;
+      if (requestGeneration === cacheGeneration) {
+        cache = rows;
+      }
       return rows;
     } catch {
       return [];
     } finally {
-      inflight = null;
+      if (requestGeneration === cacheGeneration) {
+        inflight = null;
+      }
     }
   })();
 
@@ -80,6 +86,7 @@ export async function loadCalibration(): Promise<CalibrationBucket[]> {
 
 /** Clear the in-memory calibration cache. */
 export function clearCalibrationCache(): void {
+  cacheGeneration += 1;
   cache = null;
   inflight = null;
 }
