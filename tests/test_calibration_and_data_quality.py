@@ -118,11 +118,28 @@ def test_load_corrupt_file_returns_none(tmp_path):
 
 
 def test_score_data_quality_perfect_fresh_data_scores_one():
-    df = _make_ohlcv(n=60, last_date=date.today())
-    result = score_data_quality(df, period="3mo")
+    # 200+ bars clears both the period floor and the 200-period indicator
+    # warmup, so this is the only bar count that should score a clean 1.0.
+    df = _make_ohlcv(n=200, last_date=date.today())
+    result = score_data_quality(df, period="1y")
 
     assert result.score == 1.0
     assert result.reasons == []
+
+
+def test_score_data_quality_flags_indicator_warmup_short():
+    # 60 bars is a perfectly valid "3mo" window (clears MIN_BARS_BY_PERIOD),
+    # but compute_indicators still computes 200-period SMAs / MA-distance /
+    # golden-cross over it — those come back NaN, so data quality must say
+    # so rather than reporting a misleadingly perfect score (the actual bug
+    # behind the 2026-09-01 universe scan: A and ABT published SELL calls
+    # built on a "200SMA" that was really a 63-bar mean).
+    df = _make_ohlcv(n=60, last_date=date.today())
+    result = score_data_quality(df, period="3mo")
+
+    assert result.score == 0.8
+    assert any("indicator_warmup_short:60<200" in r for r in result.reasons)
+    assert not any("insufficient_bars" in r for r in result.reasons)
 
 
 def test_score_data_quality_flags_insufficient_bars():
@@ -178,10 +195,12 @@ def test_score_data_quality_flags_future_timestamp():
 def test_score_data_quality_handles_pure_date_index_without_crashing():
     # Pure datetime.date index (no time-of-day) — common for daily bars from
     # some data sources. Must not raise AttributeError on missing .tzinfo.
-    df = _make_ohlcv(n=60, last_date=date.today())
+    # n=200 clears the indicator-warmup floor too, isolating this test to
+    # the pure-date-index behavior it's actually about.
+    df = _make_ohlcv(n=200, last_date=date.today())
     df.index = pd.Index([d.date() for d in df.index])
 
-    result = score_data_quality(df, period="3mo")
+    result = score_data_quality(df, period="1y")
 
     assert result.score == 1.0
     assert "unparsable_last_bar_timestamp" not in " ".join(result.reasons)

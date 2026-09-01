@@ -20,6 +20,7 @@ import yfinance as yf
 from signals_app.config import (
     DEFAULT_PERIOD,
     MAX_RETRY_ATTEMPTS,
+    MIN_DATA_POINTS_200MA,
     RETRY_BACKOFF_SECONDS,
     VALID_PERIODS,
     Settings,
@@ -44,6 +45,18 @@ PERIOD_TO_INTERVAL: Final[dict[str, str]] = {
     "10y": "1mo",
     "ytd": "1d",
     "max": "1mo",
+}
+
+# Periods short enough that `compute_indicators` (200-period SMAs, MA-cross,
+# MA-distance) would otherwise run on too little history to warm up — mapped
+# to a *daily-interval* period known to clear MIN_DATA_POINTS_200MA (~252
+# trading days in "1y"). Only daily-interval periods are widened: intraday
+# periods (15m/1h/4h) use finer intervals where yfinance limits how far back
+# history is available at all, so widening those the same way either fails
+# outright or fetches a wildly disproportionate amount of intraday data for a
+# warmup that daily bars already solve more cheaply.
+_WARMUP_PERIOD_OVERRIDE: Final[dict[str, str]] = {
+    "1d": "1y", "5d": "1y", "1mo": "1y", "3mo": "1y", "6mo": "1y",
 }
 
 # In-memory cache: (symbol, period) → (df, expires_at)
@@ -242,6 +255,16 @@ class DataFetcher:
 
         Checks the cache first. Falls back to yfinance if not cached.
 
+        For daily-interval periods shorter than what
+        `MIN_DATA_POINTS_200MA` needs (e.g. the default "3mo" ≈ 63 bars),
+        transparently fetches a longer daily window instead (see
+        `_WARMUP_PERIOD_OVERRIDE`) so `compute_indicators`'s 200-period SMAs,
+        MA-cross, and MA-distance signals have the history to be real rather
+        than silently truncated averages. The returned `OHLCVResult.period`
+        and cache key remain the originally *requested* period — callers see
+        no interface change, just a `df` long enough to support the
+        indicators they're about to compute on it.
+
         Args:
             symbol: Ticker symbol (e.g., "AAPL").
             period: Period string. Must be in VALID_PERIODS.
@@ -269,11 +292,18 @@ class DataFetcher:
                 bar_count=len(cached_df),
             )
 
-        df = _fetch_from_yfinance(symbol, period)
+        fetch_period = _WARMUP_PERIOD_OVERRIDE.get(period, period)
+        df = _fetch_from_yfinance(symbol, fetch_period)
+        if fetch_period != period and len(df) < MIN_DATA_POINTS_200MA:
+            logger.warning(
+                "warmup_fetch_still_short: %s requested=%s fetched_as=%s bars=%d < %d",
+                symbol, period, fetch_period, len(df), MIN_DATA_POINTS_200MA,
+            )
         _mem_cache_set(symbol, period, df)
 
         logger.info(
-            "data_fetched: %s period=%s bars=%d", symbol, period, len(df)
+            "data_fetched: %s period=%s fetch_period=%s bars=%d",
+            symbol, period, fetch_period, len(df),
         )
         return OHLCVResult(
             symbol=symbol,
