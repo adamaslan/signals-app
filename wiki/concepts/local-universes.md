@@ -7,9 +7,31 @@ single-ticker path; a universe is the "run and read this whole basket as a
 batch" object.
 
 Design doc: `homebase/docs/signals-app-docs/local-universe-save-track-backtest.md`.
-Introduced on branch `feat/local-universes` (2026-08-28), build steps 1–4
-of that doc. Steps 5–9 (Supabase views, the `universe_hit_rates` RPC
-backtest, cross-device sync, alerts/timeline/lineage) are not built.
+Build steps 1–4 shipped on `feat/local-universes` (2026-08-28, PR #20).
+Steps 5–9 shipped on `feat/local-universes-5-9` (2026-08-31): the
+`latest_signals` view, `detector_outcomes` + `universe_hit_rates` /
+`universe_backtest_meta` RPCs, calibration + provenance surfacing,
+cross-device `universes` sync, the run timeline, and coverage requests.
+Deferred: server-side filter/sort (#11), counter-evidence equal-weight
+(#3), confluence internals (#7), saved views (#12), universe alerts (#13),
+lineage drill-down (#20).
+
+## Backend (steps 5–8, migrations 20260831000001–4)
+
+| Migration | What |
+|---|---|
+| `latest_signals` view | `distinct on (ticker, period) *` from `signals`, `security_invoker = on` so it inherits the `public read` RLS. `fetchUniverseSignals` reads it (one indexed query, no client Map de-dup) and falls back to the raw table if absent. |
+| `detector_outcomes` view + `universe_hit_rates(text[], int, text)` + `universe_backtest_meta(text[], int)` | Aggregate-only keyhole into `detector_hits ⋈ forward_returns` (which stay unexposed). `security definer`, 500-ticker cap, buckets by strength/category/ticker/detector; meta returns `tickers_scored` / `hits_total` / `signals_total` / unconditional `baseline_up_rate`. `backtestUniverse` is now RPC-backed and caches by `[universeId+revision+horizonDays]`. |
+| `universes` sync table | Cloud mirror for signed-in cross-device sync. Owner-only RLS, `authenticated` only, **no** `symbols` FK on `tickers` (uncovered tickers must be storable). |
+| `coverage_requests` table | Insert-own + read-own demand queue — a signed-in user queues an uncovered ticker; the operator reads `pending` rows. |
+
+`lib/stats.ts` (new) holds `wilsonLowerBound` / `wilsonUpperBound` /
+`toHitRateBucket` (`thin` when n < 30); `universe.ts` re-exports the Wilson
+fns and keeps `toBucketDTO` as a deprecated shim.
+
+`sync.ts` gained `mergeUniverses` (union on sign-in, higher `revision` wins
+its tickers/note/period, tie → cloud), `syncUniverseUp` / `syncUniverseDelete`
+fire-and-forget mirrors, and `wipeCloudData` now also clears `universes`.
 
 ## Why it's a Supabase read, never a new endpoint
 
@@ -22,9 +44,10 @@ compute over rows already fetched:
   against `signals` (chunked at 200 tickers), keeping the newest row per
   ticker client-side. Not a fan-out of N requests.
 - **Coverage** (`refreshCoverage`) is one `.in()` query against `symbols`.
-- **Backtest** will be a `security definer` RPC over `detector_hits ⋈
-  forward_returns` — not built yet; `backtestUniverse()` throws
-  "not deployed" until then.
+- **Backtest** — `backtestUniverse()` calls the `security definer` RPC (added
+  in migration 20260831000002) over `detector_hits ⋈ forward_returns`; throws
+  `ApiError(501)` with an actionable message if the RPC migration hasn't been
+  applied yet.
 
 ## The three Dexie tables (db.ts v2)
 
@@ -89,6 +112,23 @@ Every function is SSR-safe (`if (!db) return …`), mirroring `db.ts`.
   `UniverseHeatmap` (colour = direction, opacity = confidence, corner dot =
   degraded/low-quality) · `UniverseDriftView` (7 drift classes +
   revision-mismatch banner).
+- `UniverseBacktestPanel` — hit-rate bars with Wilson 95% bands + point
+  tick, raw n per bucket, thin buckets (n < 30) greyed, a white baseline
+  line, strength/category/ticker toggle. Wired into the editor.
+- `UniverseTimeline` — dependency-free stacked-area SVG (bull/neutral/bear
+  across runs) with dashed purple markers at `revision` changes.
+- Coverage-request links per uncovered ticker in the editor
+  (`requestCoverage` / `fetchMyCoverageRequests` in `api.ts`).
+
+### Signal-card surfacing (step 7, shipped)
+
+- `ProvenanceChips` — `AI` / `Rule-based only` / `AI degraded` chip, named
+  divergence chip (skips `aligned_*`), engine `code_version` chip.
+- `CalibrationHint` + `lib/calibration.ts` — session-cached read of the
+  public `calibration` table; shows "this bucket has hit 61% of the time
+  (n=1,204)" next to the confidence line, "thin sample" when n < 30.
+- Both mount in `SignalCard`; `signal/_client` passes `noLlm` /
+  `codeVersion` / `divergencePattern`.
 
 ## Related presentation fixes shipped in the same branch
 

@@ -3,9 +3,12 @@
 import { useState } from "react";
 import type { Signal } from "@/lib/types";
 import { SIGNAL_COLORS, SIGNAL_LABELS } from "@/lib/types";
+import type { DivergencePattern } from "@/lib/types";
 import { EvidenceList } from "./EvidenceList";
 import { FreshnessBadge } from "./FreshnessBadge";
 import { DataQualityMeter, isLowDataQuality } from "./DataQualityMeter";
+import { ProvenanceChips } from "./ProvenanceChips";
+import { CalibrationHint } from "./CalibrationHint";
 
 interface SignalCardProps {
   ticker: string;
@@ -18,6 +21,12 @@ interface SignalCardProps {
   /** 0–1 data-quality score — drives the meter and card demotion (item #2). */
   dataQualityScore?: number | null;
   dataQualityReasons?: string[];
+  /** true when the scan ran rule-based (feature_unavailable has llm_synthesis). */
+  noLlm?: boolean;
+  /** Detector engine version — provenance chip (#8). */
+  codeVersion?: string | null;
+  /** Cross-timeframe divergence pattern — named chip (#5). */
+  divergencePattern?: DivergencePattern | null;
 }
 
 /**
@@ -33,6 +42,9 @@ export function SignalCard({
   createdAt,
   dataQualityScore = null,
   dataQualityReasons = [],
+  noLlm = false,
+  codeVersion = null,
+  divergencePattern = null,
 }: SignalCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -82,6 +94,13 @@ export function SignalCard({
         {SIGNAL_LABELS[signal.direction]}
       </p>
 
+      <ProvenanceChips
+        aiDegraded={signal.ai_degraded}
+        noLlm={noLlm}
+        codeVersion={codeVersion}
+        divergencePattern={divergencePattern}
+      />
+
       {(dataQualityScore != null || dataQualityReasons.length > 0) && (
         <DataQualityMeter
           score={dataQualityScore}
@@ -106,9 +125,10 @@ export function SignalCard({
         </div>
       </div>
 
-      {/* Timeframe + prompt version meta */}
+      {/* Timeframe + prompt version meta + calibration */}
       <p className="text-xs text-gray-500">
         {signal.timeframe} · {signal.prompt_version}
+        <CalibrationHint direction={signal.direction} />
       </p>
 
       {/* Expand evidence toggle */}
