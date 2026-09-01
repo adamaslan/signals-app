@@ -11,7 +11,18 @@
  * completely unaffected: every function here is a no-op without a session.
  */
 import { supabase, supabaseConfigured } from "./supabase";
-import { db, getProfile, updateProfile, type Profile } from "./db";
+import { db, getProfile, updateProfile, type Profile, type Universe } from "./db";
+
+interface CloudUniverse {
+  id: string;
+  name: string;
+  note: string;
+  tickers: string[];
+  default_period: string;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
 
 interface CloudProfile {
   id: string;
@@ -68,6 +79,141 @@ export async function syncOnSignIn(userId: string): Promise<void> {
   }
 
   await mergeWatchlist(userId);
+  await mergeUniverses(userId);
+}
+
+/**
+ * Merge device-local `universes` with the cloud `universes` table on
+ * sign-in. Mirrors mergeWatchlist's union-and-never-delete stance, with a
+ * revision-based tiebreak per the design doc §6.2:
+ *
+ * - name present only on one side  → copy it to the other
+ * - name on both sides             → the higher `revision` wins its
+ *   tickers/note/period; on a tie, cloud wins (consistent with
+ *   syncOnSignIn's "cloud wins" merge)
+ *
+ * Runs and backtest caches are deliberately NOT synced — derived,
+ * device-specific, and large.
+ */
+async function mergeUniverses(userId: string): Promise<void> {
+  if (!supabaseConfigured || !supabase || !db) return;
+
+  const [localList, cloudResult] = await Promise.all([
+    db.universes.toArray(),
+    supabase
+      .from("universes")
+      .select(
+        "id,name,note,tickers,default_period,revision,created_at,updated_at",
+      )
+      .eq("user_id", userId),
+  ]);
+  const cloudList = (cloudResult.data ?? []) as CloudUniverse[];
+
+  const key = (n: string) => n.trim().toLowerCase();
+  const localByKey = new Map(localList.map((u) => [key(u.name), u]));
+  const cloudByKey = new Map(cloudList.map((u) => [key(u.name), u]));
+
+  // Push local-only universes up.
+  for (const u of localList) {
+    if (cloudByKey.has(key(u.name))) continue;
+    await supabase.from("universes").insert({
+      user_id: userId,
+      name: u.name,
+      note: u.note,
+      tickers: u.tickers,
+      default_period: u.defaultPeriod,
+      revision: u.revision,
+    });
+  }
+
+  // Pull cloud-only universes down, and reconcile ones on both sides.
+  for (const c of cloudList) {
+    const local = localByKey.get(key(c.name));
+    if (!local) {
+      await db.universes.add({
+        name: c.name,
+        note: c.note,
+        tickers: c.tickers,
+        defaultPeriod: c.default_period,
+        defaultNoLlm: false,
+        createdAt: new Date(c.created_at).getTime(),
+        updatedAt: new Date(c.updated_at).getTime(),
+        revision: c.revision,
+        coverage: null,
+      });
+      continue;
+    }
+    // Both sides have it — the higher revision wins; tie → cloud.
+    if (c.revision >= local.revision) {
+      if (
+        c.revision !== local.revision ||
+        c.tickers.join(",") !== local.tickers.join(",") ||
+        c.note !== local.note
+      ) {
+        await db.universes.update(local.id!, {
+          note: c.note,
+          tickers: c.tickers,
+          defaultPeriod: c.default_period,
+          revision: c.revision,
+          updatedAt: Date.now(),
+          coverage: null,
+        });
+      }
+    } else {
+      // Local is ahead — push it up.
+      await supabase
+        .from("universes")
+        .update({
+          note: local.note,
+          tickers: local.tickers,
+          default_period: local.defaultPeriod,
+          revision: local.revision,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .eq("name", c.name);
+    }
+  }
+}
+
+/**
+ * Mirror a local universe create/update to Supabase, if signed in.
+ * Fire-and-forget, same pattern as syncWatchlistAdd. Call after any
+ * universe.ts mutation while a session exists.
+ */
+export async function syncUniverseUp(
+  userId: string,
+  u: Pick<
+    Universe,
+    "name" | "note" | "tickers" | "defaultPeriod" | "revision"
+  >,
+): Promise<void> {
+  if (!supabaseConfigured || !supabase) return;
+  await supabase.from("universes").upsert(
+    {
+      user_id: userId,
+      name: u.name,
+      note: u.note,
+      tickers: u.tickers,
+      default_period: u.defaultPeriod,
+      revision: u.revision,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,name" },
+  );
+}
+
+/** Mirror a local universe deletion to Supabase, if signed in. */
+export async function syncUniverseDelete(
+  userId: string,
+  name: string,
+): Promise<void> {
+  if (!supabaseConfigured || !supabase) return;
+  await supabase
+    .from("universes")
+    .delete()
+    .eq("user_id", userId)
+    .eq("name", name);
 }
 
 /**
@@ -158,6 +304,7 @@ export async function wipeCloudData(userId: string): Promise<void> {
   if (!supabaseConfigured || !supabase) return;
   await Promise.all([
     supabase.from("watchlist").delete().eq("user_id", userId),
+    supabase.from("universes").delete().eq("user_id", userId),
     supabase.from("profiles").delete().eq("id", userId),
   ]);
 }

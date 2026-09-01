@@ -25,10 +25,12 @@ import {
   watchlistFromUniverse,
 } from "@/lib/universe";
 import { VALID_PERIODS } from "@/lib/types";
+import { requestCoverage, fetchMyCoverageRequests } from "@/lib/api";
 import { UniverseTable } from "./UniverseTable";
 import { UniverseHeatmap } from "./UniverseHeatmap";
 import { UniverseDriftView } from "./UniverseDriftView";
 import { UniverseBacktestPanel } from "./UniverseBacktestPanel";
+import { UniverseTimeline } from "./UniverseTimeline";
 
 function download(name: string, content: string, type: string) {
   const blob = new Blob([content], { type });
@@ -70,10 +72,30 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   const [view, setView] = useState<"table" | "heatmap">("heatmap");
   const [err, setErr] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [requested, setRequested] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (universe) setNameDraft(universe.name);
   }, [universe?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let active = true;
+    fetchMyCoverageRequests()
+      .then((m) => active && setRequested(new Set(m.keys())))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleRequestCoverage(ticker: string) {
+    try {
+      await requestCoverage(ticker);
+      setRequested((s) => new Set(s).add(ticker));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "request failed");
+    }
+  }
 
   const latestRun = runs[0];
   const prevRun = runs[1];
@@ -276,10 +298,30 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
               </p>
             )}
             {cov.uncovered.length > 0 && (
-              <p className="text-red-400">
-                ❌ {cov.uncovered.join(", ")} — not in the scan universe, will
-                always be blank
-              </p>
+              <div className="text-red-400 space-y-1">
+                <p>
+                  ❌ not in the scan universe, will always be blank:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {cov.uncovered.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1">
+                      <span className="font-semibold">{t}</span>
+                      {requested.has(t) ? (
+                        <span className="text-gray-500 text-[10px]">
+                          requested ✓
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleRequestCoverage(t)}
+                          className="text-[10px] text-blue-400 hover:text-blue-300 underline"
+                        >
+                          request coverage
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -432,6 +474,16 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
             prevRunId={prevRun.id}
             nextRunId={latestRun.id}
           />
+        </div>
+      )}
+
+      {/* Timeline */}
+      {runs.length > 1 && (
+        <div className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
+          <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
+            Trajectory
+          </h2>
+          <UniverseTimeline runs={runs} />
         </div>
       )}
 

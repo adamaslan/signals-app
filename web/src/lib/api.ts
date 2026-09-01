@@ -452,6 +452,69 @@ export async function fetchEngineHealth(): Promise<EngineHealth | null> {
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+ * Coverage requests (§5 item #15) — queue an uncovered ticker for the
+ * operator to add to the scan universe. Insert-own + read-own; requires a
+ * signed-in session (RLS is `auth.uid() = user_id`).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export interface CoverageRequest {
+  ticker: string;
+  note: string;
+  status: string;
+  requestedAt: string;
+}
+
+/** All coverage requests the current user has filed, keyed by ticker. */
+export async function fetchMyCoverageRequests(): Promise<
+  Map<string, CoverageRequest>
+> {
+  const out = new Map<string, CoverageRequest>();
+  if (!supabaseConfigured || !supabase) return out;
+  const { data, error } = await supabase
+    .from("coverage_requests")
+    .select("ticker,note,status,requested_at");
+  if (error || !data) return out;
+  for (const r of data as Array<{
+    ticker: string;
+    note: string;
+    status: string;
+    requested_at: string;
+  }>) {
+    out.set(r.ticker, {
+      ticker: r.ticker,
+      note: r.note,
+      status: r.status,
+      requestedAt: r.requested_at,
+    });
+  }
+  return out;
+}
+
+/**
+ * Queue a ticker for scan coverage. Idempotent via the (user_id, ticker)
+ * unique constraint — a repeat call is a no-op upsert.
+ *
+ * @throws ApiError(401) when not signed in.
+ */
+export async function requestCoverage(
+  ticker: string,
+  note = "",
+): Promise<void> {
+  if (!supabaseConfigured || !supabase) {
+    throw new ApiError(503, "Supabase is not configured");
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) {
+    throw new ApiError(401, "Sign in to request coverage for a ticker");
+  }
+  const { error } = await supabase.from("coverage_requests").upsert(
+    { user_id: auth.user.id, ticker: ticker.toUpperCase(), note },
+    { onConflict: "user_id,ticker" },
+  );
+  if (error) throw new ApiError(500, error.message);
+}
+
 /**
  * Check whether Supabase is reachable and configured.
  *
