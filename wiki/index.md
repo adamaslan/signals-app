@@ -30,6 +30,7 @@
 - [2026-06-20 — Initial Scaffold](decisions/2026-06-20-scaffold.md)
 - [2026-06-28 — SQLite Persistence (Neon-Ready)](decisions/2026-06-28-sqlite-persistence.md)
 - [2026-06-28 — GitHub Pages Deploy](decisions/2026-06-28-github-pages-deploy.md)
+- [2026-08-30 — `service.py` seam + `signals` CLI](decisions/2026-08-30-service-seam-and-cli.md)
 
 ## Ops
 

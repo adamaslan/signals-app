@@ -20,17 +20,29 @@ dependencies = [
     "asyncpg",
     "aiosqlite",
     "sqlalchemy",
+    "typer>=0.12",
+    "rich",
+    "mcp>=1.2",
 ]
 
 [project.scripts]
-signals-analyze = "signals_app.api.main:cli_entry"
+# The real CLI. `signals analyze SYMBOL`, `signals backtest`, `signals serve`, …
+signals = "signals_app.cli.main:app"
+# Deprecated: kept for one release cycle. Warns and forwards to `signals serve`
+# (it never ran an analysis despite the name — see docs/signals-app-docs/).
+signals-analyze = "signals_app.cli.main:_deprecated_analyze_shim"
 
+# `backtests` is a top-level package (repo-root, not under src/). It has to be
+# installed too, or the `signals` console script — which runs with no repo root
+# on sys.path — can't import backtests.engine (used by signals_app.service).
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["signals_app*", "backtests*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src", "."]
 
 [tool.ruff]
 line-length = 100

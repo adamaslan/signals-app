@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "signals": {
+      "command": "signals",
+      "args": ["mcp"],
+      "env": { "SIGNALS_ENV_FILE": "${workspaceFolder}/.env" }
+    }
+  }
+}

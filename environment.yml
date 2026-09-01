@@ -16,7 +16,10 @@ dependencies:
   - python-dotenv
   - aiosqlite
   - sqlalchemy
+  - typer
+  - rich
   - pip
   - pip:
     - google-generativeai
     - asyncpg
+    - mcp>=1.2
