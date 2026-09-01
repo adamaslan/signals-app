@@ -2,6 +2,25 @@
 
 Append-only. Format: `## [YYYY-MM-DD] type | description`
 
+## [2026-08-31] ingest | branch feat/local-universes-5-9 — Local Universes steps 5–9
+
+Ingested the steps 5–9 build (4 commits) on top of the merged PR #20. Four
+additive Supabase migrations (`latest_signals` view; `detector_outcomes` +
+`universe_hit_rates` / `universe_backtest_meta` security-definer RPCs;
+`universes` cloud sync table; `coverage_requests` queue). `lib/stats.ts`
+(Wilson lower+upper, thin<30). `backtestUniverse` is now RPC-backed and
+cached. New UI: `UniverseBacktestPanel`, `UniverseTimeline`,
+`ProvenanceChips`, `CalibrationHint` (+ `lib/calibration.ts`), coverage-
+request links. `sync.ts` gained `mergeUniverses` + `syncUniverseUp/Delete`.
+40 unit tests (26 universe + 9 stats + 5 freshness) + 11 e2e green.
+
+Deferred: server-side filter/sort (#11), counter-evidence equal-weight (#3),
+confluence internals (#7), saved views (#12), universe alerts (#13),
+lineage drill-down (#20).
+
+Pages touched: updated `concepts/local-universes.md` (steps 5–9 sections),
+this log.
+
 ## [2026-08-28] ingest | branch feat/local-universes — Local Universes (build steps 1–4)
 
 Ingested the local-universe feature build (`feat/local-universes`, 2 commits):
