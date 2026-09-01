@@ -414,24 +414,32 @@ async def analyze(
     unavailable: list[str] = []
     if signal_list.degraded:
         unavailable.append("detection_degraded")
-    if not no_llm and not settings.llm_enabled:
-        unavailable.append("llm_synthesis")
-
-    try:
-        primary_signal = synthesize_single(
-            ticker=symbol,
-            timeframe=timeframe_label,
-            features=features,
-            settings=settings,
-        )
-    except Exception as exc:  # noqa: BLE001 — degrade, never fail the whole analysis
-        logger.error("service.analyze: synthesis failed for %s: %s", symbol, exc, exc_info=True)
+    if no_llm:
         from signals_app.synthesis.mtf_llm import _fallback_signal
 
         fallback_dict = _fallback_signal(timeframe_label, features)
         fallback_dict["timeframe"] = timeframe_label
         primary_signal = Signal.model_validate(fallback_dict)
-        unavailable.append("synthesis_error")
+        unavailable.append("synthesis_skipped")
+    else:
+        if not settings.llm_enabled:
+            unavailable.append("llm_synthesis")
+
+        try:
+            primary_signal = synthesize_single(
+                ticker=symbol,
+                timeframe=timeframe_label,
+                features=features,
+                settings=settings,
+            )
+        except Exception as exc:  # noqa: BLE001 — degrade, never fail the whole analysis
+            logger.error("service.analyze: synthesis failed for %s: %s", symbol, exc, exc_info=True)
+            from signals_app.synthesis.mtf_llm import _fallback_signal
+
+            fallback_dict = _fallback_signal(timeframe_label, features)
+            fallback_dict["timeframe"] = timeframe_label
+            primary_signal = Signal.model_validate(fallback_dict)
+            unavailable.append("synthesis_error")
 
     # Persist (fire-and-forget — a DB failure must not fail the request path).
     # init_db() is idempotent; the API path already calls it in its lifespan,

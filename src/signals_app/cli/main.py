@@ -264,6 +264,12 @@ def analyze(
     if batch.failed and batch.ok:
         raise typer.Exit(Exit.PARTIAL)
     if batch.failed and not batch.ok:
+        # All symbols failed — check if they're all the same error type
+        error_types = {f.error_type for f in batch.failed}
+        if error_types == {"SymbolNotFound"}:
+            raise typer.Exit(Exit.SYMBOL_NOT_FOUND)
+        if error_types == {"InsufficientData"}:
+            raise typer.Exit(Exit.INSUFFICIENT_DATA)
         raise typer.Exit(Exit.UPSTREAM_UNAVAILABLE)
     raise typer.Exit(Exit.OK)
 
@@ -288,6 +294,10 @@ def backtest(
     totals), not a mean of per-symbol rates.
     """
     _configure_logging(quiet, verbose)
+
+    if not (1 <= horizon <= 60):
+        _out.print(f"Error: horizon must be between 1 and 60, got {horizon}")
+        raise typer.Exit(Exit.USAGE)
 
     if len(symbols) == 1:
         result = _run(service.backtest(symbols[0], period, horizon))
@@ -655,7 +665,8 @@ def _render_signal(out: Any) -> None:
     table = Table(title=f"{out.ticker} — {sig.timeframe.value}")
     table.add_column("field")
     table.add_column("value")
-    table.add_row("direction", sig.direction.value)
+    direction_str = sig.direction.value if sig.direction else "—"
+    table.add_row("direction", direction_str)
     table.add_row("confidence", f"{sig.confidence:.3f}")
     table.add_row("ai_degraded", "yes" if sig.ai_degraded else "no")
     table.add_row("prompt_version", sig.prompt_version)
@@ -687,9 +698,10 @@ def _render_batch(batch: Any) -> None:
     for col in ("symbol", "direction", "confidence", "status"):
         table.add_column(col)
     for out in batch.ok:
+        direction_str = out.signal.direction.value if out.signal.direction else "—"
         table.add_row(
             out.ticker,
-            out.signal.direction.value,
+            direction_str,
             f"{out.signal.confidence:.3f}",
             "ok",
         )
