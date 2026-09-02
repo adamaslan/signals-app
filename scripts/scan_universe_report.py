@@ -747,7 +747,7 @@ def main() -> None:
     def _emit(fmt: str, text: str, ext: str) -> None:
         if out_dir is not None:
             path = out_dir / f"universe-scan_{stamp}.{ext}"
-            path.write_text(text)
+            path.write_text(text, encoding="utf-8")
             logger.info("wrote %s", path)
         else:
             sys.stdout.write(text + ("\n" if not text.endswith("\n") else ""))
