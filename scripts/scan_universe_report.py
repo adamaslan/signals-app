@@ -300,7 +300,7 @@ class UniverseReport:
     confidence_distribution: dict[str, int]
     gate_reason_distribution: dict[str, int]
 
-    #: category -> {"symbols_firing": n, "total_hits": n, "bull_hits": n, "bear_hits": n, "fire_rate": pct}
+    #: category -> {"symbols_firing": n, "total_hits": n, "bull_hits": n, "bear_hits": n, "fire_rate_pct": pct}
     category_stats: dict[str, dict[str, float]]
 
     strongest_bullish: list[dict]
@@ -422,61 +422,6 @@ def render_markdown(u: UniverseReport) -> str:
         c = confs[i] if i < len(confs) else ("", "")
         L.append(f"| {b[0]} | {b[1]} | | {a[0]} | {a[1]} | | {c[0]} | {c[1]} |")
     L.append("")
-
-    if u.gate_reason_distribution:
-        L.append("## Why symbols were gated")
-        L.append("")
-        L.append("| Reason | Count |")
-        L.append("|---|---:|")
-        for reason, n in sorted(
-            u.gate_reason_distribution.items(), key=lambda kv: -kv[1]
-        ):
-            L.append(f"| {reason} | {n} |")
-        L.append("")
-
-    L.append("## Category firing across the universe")
-    L.append("")
-    L.append(
-        "How often each signal category fired at all, and which way it leaned. "
-        "`fire_rate` is the share of successfully-scanned symbols on which the "
-        "category produced ≥ 1 signal."
-    )
-    L.append("")
-    L.append("| Category | Symbols firing | Fire rate | Total hits | Bull | Bear |")
-    L.append("|---|---:|---:|---:|---:|---:|")
-    for cat, st in sorted(
-        u.category_stats.items(), key=lambda kv: -kv[1]["symbols_firing"]
-    ):
-        L.append(
-            f"| {cat} | {int(st['symbols_firing'])} | {st['fire_rate_pct']}% | "
-            f"{int(st['total_hits'])} | {int(st['bull_hits'])} | "
-            f"{int(st['bear_hits'])} |"
-        )
-    L.append("")
-
-    if u.strongest_bullish:
-        L.append("## Strongest bullish confluence")
-        L.append("")
-        L.append("| Ticker | Confluence | Bias | Action | Signals |")
-        L.append("|---|---:|---|---|---:|")
-        for r in u.strongest_bullish:
-            L.append(
-                f"| {r['ticker']} | {r['confluence']:+.3f} | {r['bias']} | "
-                f"{r['action']} | {r['signals']} |"
-            )
-        L.append("")
-    if u.strongest_bearish:
-        L.append("## Strongest bearish confluence")
-        L.append("")
-        L.append("| Ticker | Confluence | Bias | Action | Signals |")
-        L.append("|---|---:|---|---|---:|")
-        for r in u.strongest_bearish:
-            L.append(
-                f"| {r['ticker']} | {r['confluence']:+.3f} | {r['bias']} | "
-                f"{r['action']} | {r['signals']} |"
-            )
-        L.append("")
-
     if u.published_symbols:
         L.append("## Published (cleared the gate)")
         L.append("")
@@ -642,52 +587,6 @@ def render_html(u: UniverseReport) -> str:
             f"<td>{_esc(c[0])}</td><td class=n>{_esc(c[1])}</td></tr>"
         )
     P.append("</table>")
-
-    if u.gate_reason_distribution:
-        P.append("<h2>Why symbols were gated</h2><table>")
-        P.append("<tr><th>Reason</th><th class=n>Count</th></tr>")
-        for reason, n in sorted(u.gate_reason_distribution.items(),
-                                key=lambda kv: -kv[1]):
-            P.append(f"<tr><td>{_esc(reason)}</td><td class=n>{n}</td></tr>")
-        P.append("</table>")
-
-    P.append("<h2>Category firing across the universe</h2><table>")
-    P.append("<tr><th>Category</th><th class=n>Symbols firing</th>"
-             "<th class=n>Fire rate</th><th class=n>Total hits</th>"
-             "<th class=n>Bull</th><th class=n>Bear</th><th></th></tr>")
-    max_rate = max((st["fire_rate_pct"] for st in u.category_stats.values()),
-                   default=1) or 1
-    for cat, st in sorted(u.category_stats.items(),
-                          key=lambda kv: -kv[1]["symbols_firing"]):
-        w = int(120 * st["fire_rate_pct"] / max_rate)
-        P.append(
-            f"<tr><td>{_esc(cat)}</td>"
-            f"<td class=n>{int(st['symbols_firing'])}</td>"
-            f"<td class=n>{st['fire_rate_pct']}%</td>"
-            f"<td class=n>{int(st['total_hits'])}</td>"
-            f"<td class=n>{int(st['bull_hits'])}</td>"
-            f"<td class=n>{int(st['bear_hits'])}</td>"
-            f"<td><span class=bar style='width:{w}px'></span></td></tr>"
-        )
-    P.append("</table>")
-
-    for title, rows, cls in (
-        ("Strongest bullish confluence", u.strongest_bullish, "pos"),
-        ("Strongest bearish confluence", u.strongest_bearish, "neg"),
-    ):
-        if not rows:
-            continue
-        P.append(f"<h2>{title}</h2><table>")
-        P.append("<tr><th>Ticker</th><th class=n>Confluence</th><th>Bias</th>"
-                 "<th>Action</th><th class=n>Signals</th></tr>")
-        for r in rows:
-            P.append(
-                f"<tr><td>{_esc(r['ticker'])}</td>"
-                f"<td class='n {cls}'>{r['confluence']:+.3f}</td>"
-                f"<td>{_esc(r['bias'])}</td><td>{_esc(r['action'])}</td>"
-                f"<td class=n>{r['signals']}</td></tr>"
-            )
-        P.append("</table>")
 
     if u.published_symbols:
         P.append("<h2>Published (cleared the gate)</h2><p>")
