@@ -77,7 +77,15 @@ MA_DIST_THRESHOLDS: Final[tuple[float, ...]] = (5.0, 10.0, 15.0, 20.0)
 VOLUME_MA_PERIODS: Final[tuple[int, ...]] = (5, 10, 20, 50)
 
 # ---------------------------------------------------------------------------
-# S/R proximity thresholds
+# S/R pivot-detection windows and proximity thresholds
 # ---------------------------------------------------------------------------
 
+# Bars required on each side to confirm a swing pivot — narrower windows
+# catch short-term pivots, wider windows only the more significant ones.
+SR_PIVOT_WINDOWS: Final[tuple[int, ...]] = (2, 3, 5, 10)
+
 SR_PROXIMITIES: Final[tuple[float, ...]] = (0.005, 0.01, 0.02)
+
+# Cap on how many nearest support/resistance levels fire a signal per
+# (window, proximity) combination — bounds the combinatorial signal count.
+SR_MAX_LEVELS_PER_SIDE: Final[int] = 5

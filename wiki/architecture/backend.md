@@ -66,7 +66,7 @@ Two independent stores, intentionally not shared:
 
 ## Robustness patterns worth knowing
 
-- **Per-detector isolation**: each of the 18 detectors runs in its own
+- **Per-detector isolation**: each of the 19 detectors runs in its own
   single-worker thread pool with a wall-clock timeout
   (`_run_detector_with_timeout` in `detection/base.py`). `SIGALRM` was
   rejected because it's process-wide and unsafe across concurrent async

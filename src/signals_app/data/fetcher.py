@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Final
 
 import pandas as pd
 import yfinance as yf

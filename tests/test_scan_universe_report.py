@@ -27,7 +27,6 @@ from scripts.scan_universe_report import (  # noqa: E402
 )
 from signals_app.config import (  # noqa: E402
     PUBLISH_MIN_CONFLUENCE_SCORE,
-    PUBLISH_MIN_DATA_QUALITY,
     PUBLISH_MIN_SIGNALS,
 )
 

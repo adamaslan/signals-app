@@ -77,7 +77,7 @@ Verified: no `playwright.config.ts`, no `e2e/` dir, `playwright` appears 0 times
 Verified: `grep -r 'data-testid' web/src` → **0 hits**. Text/role selectors work for
 now but get brittle on data-driven cells.
 
-- [ ] `TickerSearch`, `SignalCard`, `SignalMatrixRow`, `ConfluenceBar`,
+- [x] `TickerSearch`, `SignalCard`, `SignalMatrixRow`, `ConfluenceBar`,
       `AuthPanel`, `WatchlistButton`
 
 ### 6. Fix the 2 time-of-day-flaky tests
@@ -86,9 +86,12 @@ now but get brittle on data-driven cells.
 the fixture trips `DATA_QUALITY_STALE_HOURS = 26.0` and the test fails depending on
 clock time.
 
-- [ ] Freeze time in the fixture (inject an explicit `datetime`, or `freezegun`)
-- [ ] **Do not** widen `DATA_QUALITY_STALE_HOURS` — that weakens a real production
-      gate to satisfy a test
+- [x] Freeze time in the fixture — `score_data_quality()` now takes an optional
+      `now: datetime | None` param (defaults to `datetime.now(UTC)` in
+      production); the tests pass a fixed `_NOW`/`_TODAY` instead of reading
+      the wall clock. No new dependency (`freezegun`) needed.
+- [x] **Did not** widen `DATA_QUALITY_STALE_HOURS` — the production gate is
+      unchanged, only the test's time source is
 
 ---
 
@@ -113,7 +116,11 @@ infra work is where a real regression hides.
 | 2 | `UP041` timeout-error-alias | ✅ |
 | 1 | `F841` unused-variable | manual |
 
-- [ ] `ruff check --fix src scripts tests` — clears 42 in one commit
+- [x] `ruff check --fix src scripts tests` — safe fixes only (`F401`, `I001`,
+      `UP017`, `UP037`, `UP041`, plus a couple of incidental `UP032`/`F541`
+      picked up by the same pass). Findings have grown since this table was
+      measured (more files landed since 2026-08-20) — re-measure before
+      trusting the counts above.
 - [ ] Then one commit per remaining rule category
 - [ ] `E402` needs care: some may be deliberate (post-`load_dotenv()` imports)
 - [ ] `UP042` touches the `SignalStrength` / `SignalCategory` str-enums in `config.py` — behavior-sensitive, review individually
@@ -132,8 +139,10 @@ infra work is where a real regression hides.
 | 2 | `attr-defined` |
 | 1 | `no-untyped-def` |
 
-- [ ] Add `pandas-stubs` to `environment.yml` → kills ~14 findings
-- [ ] `unused-ignore` (4) — delete stale `# type: ignore` comments, free win
+- [x] Add `pandas-stubs` to `environment.yml` → kills the pandas share of `import-untyped`
+- [x] `unused-ignore` (4) — deleted the stale `# type: ignore` comments in
+      `db/ops.py`, `indicators/divergence.py` (×2), `synthesis/mtf_llm.py`,
+      `scanner.py`
 - [ ] `type-arg` (6) — e.g. bare `dict` at `src/signals_app/api/routes.py:250`
 - [ ] `operator` (9) — the real work; likely pandas/None arithmetic
 - [ ] Flip the mypy step in `ci.yml` from advisory → **blocking**
@@ -151,22 +160,31 @@ infra work is where a real regression hides.
 ~555 signals/bar vs. `signals-app`'s ~166/ticker ceiling. Per that doc's
 comparison table, the gap is two separate things — do them as separate PRs:
 
-- [ ] **Add a `SUPPORT_RESISTANCE` detector.** This is the single biggest gap:
-      4 pivot-detection windows × 4 proximity levels × up to 5 support + 5
-      resistance levels — ~3,249 of 8,604 observed signals (38%) in the
-      reference run, and the only one of the doc's 9 parameter-grid categories
-      `signals-app` doesn't cover yet.
-      - Reuse `indicators/pivots.py` (`precompute_pivots`, `get_nearest_levels`)
+- [x] **Add a `SUPPORT_RESISTANCE` detector.** This is the single biggest gap:
+      ~3,249 of 8,604 observed signals (38%) in the reference run, and the
+      only one of the doc's 9 parameter-grid categories `signals-app` didn't
+      cover.
+      - Reuses `indicators/pivots.py` (`precompute_pivots`, `get_nearest_levels`)
         rather than reimplementing pivot detection — same O(1)-lookup design
         `boll-4-april-500.py` independently converged on.
-      - New `detection/support_resistance.py`, registered in
-        `orchestrator.py:get_default_detectors()` (18 → 19 detectors).
+      - New `detection/support_resistance.py::SupportResistanceDetector`,
+        registered in `orchestrator.py:get_default_detectors()` (18 → 19
+        detectors).
       - Signal pattern: `NEAR SUPPORT (w={w}, prox={p}%)` /
         `NEAR RESISTANCE (w={w}, prox={p}%)`, category `SUPPORT_RESISTANCE`,
-        strength BULLISH/BEARISH — see boll4-500b.md's S/R section for the
-        exact fire conditions and threshold grid (`SR_PROXIMITIES` already
-        exists in `indicators/grids.py:83`, unused until this lands).
-      - Update `docs/app-overview.md`'s per-ticker signal ceiling once merged.
+        strength BULLISH/BEARISH.
+      - Grid actually used: 4 pivot windows (`SR_PIVOT_WINDOWS` = 2/3/5/10,
+        new) × 3 proximities (`SR_PROXIMITIES` — already existed in
+        `indicators/grids.py`, 3 values not 4, unused until now) × up to 5
+        nearest support + 5 nearest resistance levels per combo
+        (`SR_MAX_LEVELS_PER_SIDE`, new) = 120 max additional firings/ticker.
+        Didn't have access to boll4-500b.md (lives in the separate `homebase`
+        repo) to confirm its exact fire conditions/grid, so this uses the
+        grid that was actually in this repo rather than guessing at a 4th
+        proximity value.
+      - Tests: `tests/test_support_resistance.py` (pivot helpers +
+        detector, deterministic triangle-wave fixture).
+      - `docs/app-overview.md`'s per-ticker signal ceiling updated: 166 → 286.
 - [ ] **(Separately, lower priority) historical bar-by-bar scanning.**
       `signals-app`'s detectors currently read `df.iloc[-1]` only (latest bar).
       `boll-4-april-500.py`'s `detect_signals()` loops

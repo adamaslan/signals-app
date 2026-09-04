@@ -219,7 +219,7 @@ def build_matrix_for_symbol(ticker: str, settings: Any) -> dict[str, Any] | None
     finally:
         loop.close()
 
-    return matrix.model_dump(mode="json")  # type: ignore[no-any-return]
+    return matrix.model_dump(mode="json")
 
 
 def scan_one_symbol(

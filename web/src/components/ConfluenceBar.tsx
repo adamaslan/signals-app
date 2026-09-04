@@ -24,7 +24,7 @@ export function ConfluenceBar({
     alignmentScore > 0.7 ? "#00C853" : alignmentScore < 0.4 ? "#D50000" : "#FFD740";
 
   return (
-    <div className="space-y-4">
+    <div data-testid="confluence-bar" className="space-y-4">
       {/* Bull / Bear / Neutral breakdown */}
       <div className="space-y-2">
         <div className="flex justify-between text-xs text-gray-500 font-medium">

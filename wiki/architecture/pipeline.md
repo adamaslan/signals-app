@@ -33,7 +33,7 @@ detector consumes which columns.
 
 `detect_all_signals(df)` in
 [`detection/orchestrator.py`](../../src/signals_app/detection/orchestrator.py)
-runs all 18 detectors from `get_default_detectors()`. Each detector runs in
+runs all 19 detectors from `get_default_detectors()`. Each detector runs in
 its own `ThreadPoolExecutor(max_workers=1)` with a
 `DETECTOR_TIMEOUT_MS` (500ms) budget — one slow/failing detector cannot crash
 or block the others. If `failure_count >= MAX_DETECTOR_FAILURES` (4), the

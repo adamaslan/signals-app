@@ -15,11 +15,11 @@ import asyncio
 import json
 import logging
 import time
+from datetime import UTC
 from typing import Any, Final
 
 from signals_app.config import (
     DIVERGENCE_INTERPRETATIONS,
-    GEMINI_MODEL,
     GEMINI_TIMEOUT_SECONDS,
     LLM_PROMPT_VERSION,
     OPENROUTER_BASE_URL,
@@ -30,12 +30,7 @@ from signals_app.config import (
 )
 from signals_app.schemas.signal_output import (
     DivergencePattern,
-    Evidence,
-    EvidenceItem,
-    EvidenceSource,
     Signal,
-    SignalDirection,
-    Timeframe,
     TimeframeMatrix,
     alignment_score,
     classify_divergence,
@@ -216,7 +211,7 @@ async def _call_openrouter(
 
         return json.loads(text)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("_call_openrouter: timeout after %.1fs", OPENROUTER_TIMEOUT_SECONDS)
         return None
     except json.JSONDecodeError as exc:
@@ -274,7 +269,7 @@ async def _call_gemini(
         return None
 
     try:
-        import google.generativeai as genai  # type: ignore[import-untyped]
+        import google.generativeai as genai
 
         genai.configure(api_key=settings.gemini_api_key)
         model = genai.GenerativeModel(settings.gemini_model)
@@ -292,7 +287,7 @@ async def _call_gemini(
 
         return json.loads(text)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("_call_gemini: timeout after %.1fs", GEMINI_TIMEOUT_SECONDS)
         return None
     except json.JSONDecodeError as exc:
@@ -395,7 +390,7 @@ async def build_timeframe_matrix(
     Returns:
         TimeframeMatrix with signals, alignment score, and divergence pattern.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     if settings is None:
         settings = get_settings()
@@ -439,7 +434,7 @@ async def build_timeframe_matrix(
         alignment_score=align,
         divergence_pattern=div_pattern,
         divergence_interpretation=div_interp,
-        computed_at=datetime.now(timezone.utc).isoformat(),
+        computed_at=datetime.now(UTC).isoformat(),
     )
 
 

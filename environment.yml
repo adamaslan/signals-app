@@ -23,3 +23,4 @@ dependencies:
     - google-generativeai
     - asyncpg
     - mcp>=1.2
+    - pandas-stubs

@@ -16,8 +16,8 @@ import pytest
 from signals_app.detection.base import MutableSignal, SignalList
 from signals_app.detection.orchestrator import detect_all_signals, get_default_detectors
 from signals_app.indicators.compute import compute_indicators
-from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
 from signals_app.schemas.signal_output import (
+    DivergencePattern,
     Evidence,
     EvidenceItem,
     EvidenceSource,
@@ -26,9 +26,8 @@ from signals_app.schemas.signal_output import (
     Timeframe,
     alignment_score,
     classify_divergence,
-    DivergencePattern,
 )
-
+from signals_app.scoring.confluence import ConfluenceRanker
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -177,7 +176,7 @@ class TestDetection:
 
     def test_default_detectors_count(self) -> None:
         detectors = get_default_detectors()
-        assert len(detectors) == 18, f"Expected 18 detectors, got {len(detectors)}"
+        assert len(detectors) == 19, f"Expected 19 detectors, got {len(detectors)}"
 
     def test_not_degraded_on_good_data(self, df_up: pd.DataFrame) -> None:
         df = compute_indicators(df_up)

@@ -34,7 +34,7 @@ export function SignalMatrixRow({ matrix }: SignalMatrixRowProps) {
     activeTimeframe ? (matrix.signals[activeTimeframe] ?? null) : null;
 
   return (
-    <div className="space-y-3">
+    <div data-testid="signal-matrix-row" data-ticker={matrix.ticker} className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {/* Ticker label */}
         <span className="text-white text-sm font-bold w-12 shrink-0">

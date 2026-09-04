@@ -60,6 +60,8 @@ export function SignalCard({
 
   return (
     <div
+      data-testid="signal-card"
+      data-ticker={ticker}
       className="rounded-xl p-5 space-y-3 transition-all"
       style={{
         backgroundColor: "#1a1a2e",

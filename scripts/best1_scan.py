@@ -29,11 +29,11 @@ _project_root = _script_dir.parent
 sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root))
 
+from scripts.scan_universe import passes_publication_gate  # noqa: E402
 from signals_app.config import DEFAULT_PERIOD, get_settings  # noqa: E402
 from signals_app.data.fetcher import DataFetcher  # noqa: E402
 from signals_app.db.supabase import (  # noqa: E402
     EngineRun,
-    SignalRecord,
     SignalWriter,
     SupabaseWriter,
     confluence_result_to_signal_record,
@@ -43,7 +43,6 @@ from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.indicators.data_quality import score_data_quality  # noqa: E402
 from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase  # noqa: E402
 from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
-from scripts.scan_universe import passes_publication_gate  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

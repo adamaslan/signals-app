@@ -16,8 +16,6 @@ from typing import Any, Protocol
 import pandas as pd
 from pydantic import BaseModel
 
-from signals_app.config import SignalCategory, SignalStrength
-
 logger = logging.getLogger(__name__)
 
 

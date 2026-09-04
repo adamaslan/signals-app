@@ -37,10 +37,17 @@ narrative version and orchestration details.
 | `VolumeDivergenceDetector` | VOLUME | `VOLUME SPIKE >1.5x/2x/3x (MA{n})`, VOLUME BULLISH/BEARISH DIVERGENCE (10b) | Swept across `VOLUME_MA_PERIODS`; 10-bar price-vs-volume divergence |
 | `OBVCMFDetector` | OBV_CMF | OBV BULLISH/BEARISH DIVERGENCE, OBV BULL/BEAR CROSS EMA, CMF STRONG BUYING/SELLING, CMF CROSSED POSITIVE/NEGATIVE | 20-bar OBV vs price divergence; OBV vs its 20-EMA; CMF vs ±0.1 and zero-line |
 
+## Support/Resistance — `src/signals_app/detection/support_resistance.py`
+
+| Class | Category | Signal names emitted | Trigger |
+|---|---|---|---|
+| `SupportResistanceDetector` | SUPPORT_RESISTANCE | `NEAR SUPPORT (w={window}, prox={p}%)`, `NEAR RESISTANCE (w={window}, prox={p}%)` | Close within a proximity threshold (`SR_PROXIMITIES`) of a swing pivot level, recomputed at each of `SR_PIVOT_WINDOWS` (2/3/5/10-bar confirmation width); up to 5 nearest levels per side per (window, proximity) combo |
+
 ## Orchestrator
 
 `get_default_detectors()` in
 [`detection/orchestrator.py`](../../src/signals_app/detection/orchestrator.py)
-returns all 18 in this fixed order (trend, then momentum, then volume).
+returns all 19 in this fixed order (trend, then momentum, then volume, then
+support/resistance).
 `detect_all_signals()` runs them with per-detector timeout isolation — see
 [concepts/signal-detectors.md](../concepts/signal-detectors.md#orchestration--robustness).

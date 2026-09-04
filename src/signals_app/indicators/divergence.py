@@ -11,7 +11,6 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -164,7 +163,7 @@ def _detect_rsi_divergence(
                             best_strength = strength
 
     bars_since = 0 if best_div != "none" else 999
-    return best_div, round(best_strength, 3), bars_since  # type: ignore[return-value]
+    return best_div, round(best_strength, 3), bars_since
 
 
 def compute_rsi_feature(
@@ -422,7 +421,7 @@ def compute_macd_state(
         cross_type=cross_type,  # type: ignore[arg-type]
         histogram_direction=_classify_histogram_direction(hist),  # type: ignore[arg-type]
         histogram_acceleration=_classify_acceleration(hist),  # type: ignore[arg-type]
-        zero_line_position="above" if macd_val >= 0 else "below",  # type: ignore[arg-type]
+        zero_line_position="above" if macd_val >= 0 else "below",
         zero_line_cross_days=zero_cross_days,
         divergence="none",
     )

@@ -90,7 +90,7 @@ async def record_run(
         run_id = run.id
         await session.commit()
         logger.info("db: recorded run id=%s ticker=%s direction=%s", run_id, ticker, direction)
-        return run_id  # type: ignore[return-value]
+        return run_id
 
 
 async def get_ticker_history(

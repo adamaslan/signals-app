@@ -14,7 +14,6 @@ from typing import Any, Final
 
 import pandas as pd
 
-from signals_app.config import TIMEFRAME_CACHE_TTL_SECONDS
 from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
 from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult

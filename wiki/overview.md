@@ -1,7 +1,7 @@
 # signals-app — Overview
 
 **What it is**: a financial signal detection and LLM-synthesis app for equities.
-Given a ticker and a time period, it runs ~18 independent technical-analysis
+Given a ticker and a time period, it runs ~19 independent technical-analysis
 detectors over OHLCV data, aggregates them into a weighted confluence score,
 then (optionally) asks an LLM to turn that into a structured directional call
 with confidence and cited evidence.

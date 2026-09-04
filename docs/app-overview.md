@@ -3,7 +3,7 @@
 **Written:** 2026-08-20 · **State:** all 11 planned phases shipped (PRs #7–#17)
 
 A technical-analysis signal engine. It scans a 954-ticker universe on a schedule,
-runs 18 independent detectors over each ticker, scores their agreement, **rejects
+runs 19 independent detectors over each ticker, scores their agreement, **rejects
 most of them**, and only then pays an LLM to write up the survivors. Results land
 in Supabase and are served by a static Next.js dashboard on GitHub Pages.
 
@@ -37,9 +37,9 @@ boundaries, and the workflow layout follows from that ordering.
 |---|---|
 | **Universe** | 954 tickers — equities, ETFs, leveraged/inverse, a little crypto |
 | **Cadence** | Weekdays 21:25 UTC (after US close); calibration Saturdays 06:00 UTC |
-| **Detectors** | 18, across trend / momentum / volume / price-action |
-| **Total potential signals per ticker** | up to 166 distinct signal firings in one scan pass — 18 detectors, several sweeping parameter grids (e.g. `BBExpansionDetector` alone covers 4 BB periods × 4 std-devs × 3 checks = 48) |
-| **Total potential signals per scan** | up to 158,364 — 166 × 954 tickers (theoretical ceiling; most detectors fire far fewer per ticker on any given day) |
+| **Detectors** | 19, across trend / momentum / volume / price-action / support-resistance |
+| **Total potential signals per ticker** | up to 286 distinct signal firings in one scan pass — 19 detectors, several sweeping parameter grids (e.g. `BBExpansionDetector` alone covers 4 BB periods × 4 std-devs × 3 checks = 48; `SupportResistanceDetector` covers 4 pivot windows × 3 proximities × up to 5 support + 5 resistance levels = 120) |
+| **Total potential signals per scan** | up to 272,844 — 286 × 954 tickers (theoretical ceiling; most detectors fire far fewer per ticker on any given day) |
 | **Publication rate** | ~42 % of scanned tickers ([measured](universe-scan-findings.md)) |
 | **LLM** | OpenRouter (`google/gemini-2.0-flash-001`), Gemini fallback, or none |
 | **Storage** | Supabase Postgres, 8 tables, RLS on user data |
@@ -61,7 +61,7 @@ L2  indicators     indicators/compute.py   RSI, MACD, ADX, ATR, Bollinger,
      ↓                                     Ichimoku, Stochastic, OBV/CMF, pivots
      │             indicators/data_quality.py → score 0..1 (staleness, gaps)
      ↓
-L3  detect         detection/orchestrator.py  18 detectors, each isolated:
+L3  detect         detection/orchestrator.py  19 detectors, each isolated:
      ↓                                        one failure ⇒ degraded flag, not a crash
 L4  score          scoring/confluence.py   strength-weighted bull/bear vote
      ↓                                     → score, bias, action (BUY/SELL/HOLD)
@@ -138,8 +138,8 @@ src/signals_app/
   config.py          all constants + Settings; the single source of tunables
   data/fetcher.py    yfinance wrapper → OHLCV
   indicators/        compute, data_quality, divergence, grids, pivots
-  detection/         base (ABC) + trend, momentum, volume, historical
-                     orchestrator.py registers all 18 detectors
+  detection/         base (ABC) + trend, momentum, volume, historical, support_resistance
+                     orchestrator.py registers all 19 detectors
   scoring/           confluence (the vote), mtf (multi-timeframe),
                      calibration (hit-rate feedback), relative_strength
   synthesis/mtf_llm.py   OpenRouter/Gemini calls, circuit breaker, degraded mode
@@ -342,15 +342,23 @@ Open, in priority order (full detail in [TODO.md](TODO.md)):
 - **P0** — `OPENROUTER_API_KEY` is not set in either place; per-call token cost
   unmeasured; the staged live run hasn't happened. The call count *is* now known
   exactly: 403.
-- **P1** — no `data-testid` hooks (0 hits in `web/src`); 2 time-of-day-flaky
-  calibration tests that build fixtures from `date.today()` and trip the 26-hour
-  staleness gate.
-- **P2** — 121 ruff findings (42 auto-fixable) and 38 mypy findings (14 are just
-  missing pandas stubs), both advisory in CI. The point of the cleanup is
-  flipping them to blocking; fixing without flipping just lets them re-accumulate.
-- **P3** — whether to run `--matrix` at full-universe scale (now a priced
-  decision: ~2,000 calls); whether 4 shards is the right count, pending real
-  wall-time data.
+- **P1** — `data-testid` hooks added to the 6 flagged components; the
+  time-of-day-flaky calibration tests now inject a fixed reference `datetime`
+  instead of reading the wall clock, so they no longer depend on when the
+  suite happens to run.
+- **P2** — ruff/mypy still advisory in CI, not yet flipped to blocking. The
+  safe auto-fixable findings (unused imports, import sorting, `UP017`/`UP037`/
+  `UP041`, stale `# type: ignore` comments) are cleared and `pandas-stubs` is
+  in `environment.yml`; the manual categories (`E501`, `E402`, `UP042`,
+  `E741`, the remaining mypy `operator`/`type-arg`/`untyped-decorator`
+  findings) are still open. Flipping to blocking is still the point — fixing
+  without flipping just lets them re-accumulate.
+- **P3** — the `SUPPORT_RESISTANCE` detector (P3 #9a's biggest gap vs.
+  `boll-4-april-500.py`) is now shipped as `detection/support_resistance.py`,
+  registered as detector 19; historical bar-by-bar scanning (the lower-priority
+  half of #9a) is still open. Also open: whether to run `--matrix` at
+  full-universe scale (now a priced decision: ~2,000 calls); whether 4 shards
+  is the right count, pending real wall-time data.
 
 ---
 

@@ -1,7 +1,7 @@
 """Tests for the calibration persistence layer and data-quality scoring."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -14,9 +14,17 @@ from signals_app.scoring.calibration import (
     save_strength_hit_rates,
 )
 
+# Fixed reference instant for all data-quality tests. Using a real clock
+# (date.today() / datetime.now()) here made the stale/fresh assertions
+# depend on time-of-day and weekday: `_make_ohlcv(freq="B")` anchors the last
+# bar to the nearest business day, so the true gap to "now" varied with when
+# the suite happened to run and could cross the 26h staleness threshold.
+_NOW = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
+_TODAY = _NOW.date()
+
 
 def _make_ohlcv(n: int = 60, last_date: date | None = None) -> pd.DataFrame:
-    dates = pd.date_range(end=last_date or date.today(), periods=n, freq="B")
+    dates = pd.date_range(end=last_date or _TODAY, periods=n, freq="B")
     close = np.linspace(100, 110, n)
     return pd.DataFrame(
         {
@@ -118,34 +126,34 @@ def test_load_corrupt_file_returns_none(tmp_path):
 
 
 def test_score_data_quality_perfect_fresh_data_scores_one():
-    df = _make_ohlcv(n=60, last_date=date.today())
-    result = score_data_quality(df, period="3mo")
+    df = _make_ohlcv(n=60, last_date=_TODAY)
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score == 1.0
     assert result.reasons == []
 
 
 def test_score_data_quality_flags_insufficient_bars():
-    df = _make_ohlcv(n=5, last_date=date.today())
-    result = score_data_quality(df, period="1y")  # needs 200 bars
+    df = _make_ohlcv(n=5, last_date=_TODAY)
+    result = score_data_quality(df, period="1y", now=_NOW)  # needs 200 bars
 
     assert result.score < 1.0
     assert any("insufficient_bars" in r for r in result.reasons)
 
 
 def test_score_data_quality_flags_stale_data():
-    df = _make_ohlcv(n=60, last_date=date.today() - timedelta(days=10))
-    result = score_data_quality(df, period="3mo")
+    df = _make_ohlcv(n=60, last_date=_TODAY - timedelta(days=10))
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score < 1.0
     assert any("stale_last_bar" in r for r in result.reasons)
 
 
 def test_score_data_quality_flags_high_nan_ratio():
-    df = _make_ohlcv(n=60, last_date=date.today())
+    df = _make_ohlcv(n=60, last_date=_TODAY)
     df.loc[df.index[:10], "Close"] = float("nan")
 
-    result = score_data_quality(df, period="3mo")
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score < 1.0
     assert any("nan_ratio" in r for r in result.reasons)
@@ -153,23 +161,23 @@ def test_score_data_quality_flags_high_nan_ratio():
 
 def test_score_data_quality_empty_dataframe_scores_zero():
     df = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
-    result = score_data_quality(df, period="3mo")
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score == 0.0
     assert result.reasons == ["empty_dataframe"]
 
 
 def test_score_data_quality_flags_missing_columns():
-    df = _make_ohlcv(n=60, last_date=date.today()).drop(columns=["Volume"])
-    result = score_data_quality(df, period="3mo")
+    df = _make_ohlcv(n=60, last_date=_TODAY).drop(columns=["Volume"])
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score < 1.0
     assert any("missing_columns:Volume" in r for r in result.reasons)
 
 
 def test_score_data_quality_flags_future_timestamp():
-    df = _make_ohlcv(n=60, last_date=date.today() + timedelta(days=5))
-    result = score_data_quality(df, period="3mo")
+    df = _make_ohlcv(n=60, last_date=_TODAY + timedelta(days=5))
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score < 1.0
     assert any("future_last_bar" in r for r in result.reasons)
@@ -178,10 +186,10 @@ def test_score_data_quality_flags_future_timestamp():
 def test_score_data_quality_handles_pure_date_index_without_crashing():
     # Pure datetime.date index (no time-of-day) — common for daily bars from
     # some data sources. Must not raise AttributeError on missing .tzinfo.
-    df = _make_ohlcv(n=60, last_date=date.today())
+    df = _make_ohlcv(n=60, last_date=_TODAY)
     df.index = pd.Index([d.date() for d in df.index])
 
-    result = score_data_quality(df, period="3mo")
+    result = score_data_quality(df, period="3mo", now=_NOW)
 
     assert result.score == 1.0
     assert "unparsable_last_bar_timestamp" not in " ".join(result.reasons)

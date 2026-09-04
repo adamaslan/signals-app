@@ -12,7 +12,7 @@
 
 ## Concepts
 
-- [Signal Detectors](concepts/signal-detectors.md) — the 18 detectors, orchestration, timeout isolation
+- [Signal Detectors](concepts/signal-detectors.md) — the 19 detectors, orchestration, timeout isolation
 - [Confluence Scoring](concepts/confluence-scoring.md) — how bull/bear votes become a score/bias/action
 - [Multi-Timeframe](concepts/multi-timeframe.md) — weighted composite score + LLM alignment/divergence
 - [LLM Synthesis](concepts/llm-synthesis.md) — OpenRouter → Gemini → rule-based fallback chain

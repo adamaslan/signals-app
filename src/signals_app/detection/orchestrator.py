@@ -27,6 +27,7 @@ from signals_app.detection.momentum import (
     StochasticCrossDetector,
     StochasticSignalDetector,
 )
+from signals_app.detection.support_resistance import SupportResistanceDetector
 from signals_app.detection.trend import (
     BBExpansionDetector,
     BollingerBandSignalDetector,
@@ -38,13 +39,17 @@ from signals_app.detection.trend import (
     PriceActionSignalDetector,
     TrendSignalDetector,
 )
-from signals_app.detection.volume import OBVCMFDetector, VolumeDivergenceDetector, VolumeSignalDetector
+from signals_app.detection.volume import (
+    OBVCMFDetector,
+    VolumeDivergenceDetector,
+    VolumeSignalDetector,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def get_default_detectors() -> list[SignalDetector]:
-    """Build and return the default list of all 18 signal detectors.
+    """Build and return the default list of all 19 signal detectors.
 
     Returns:
         List of SignalDetector instances covering all signal categories.
@@ -71,6 +76,8 @@ def get_default_detectors() -> list[SignalDetector]:
         VolumeSignalDetector(),
         VolumeDivergenceDetector(),
         OBVCMFDetector(),
+        # Support/resistance
+        SupportResistanceDetector(),
     ]
 
 

@@ -1,6 +1,6 @@
 # Signal Detectors
 
-18 detector classes across 3 categories, all implementing the
+19 detector classes across 4 categories, all implementing the
 `SignalDetector` Protocol ([`detection/base.py`](../../src/signals_app/detection/base.py)):
 
 ```python
@@ -20,7 +20,7 @@ Full per-detector breakdown: [entities/detector-catalog.md](../entities/detector
 
 `get_default_detectors()` in
 [`detection/orchestrator.py`](../../src/signals_app/detection/orchestrator.py)
-returns the fixed list of 18. `detect_all_signals(df)` runs each one via
+returns the fixed list of 19. `detect_all_signals(df)` runs each one via
 `_run_detector_with_timeout()`, which wraps `detector.detect(df)` in a
 `ThreadPoolExecutor(max_workers=1)` and calls `future.result(timeout=...)`.
 
@@ -95,6 +95,19 @@ Source: [`detection/volume.py`](../../src/signals_app/detection/volume.py).
   (accumulation/distribution), OBV crossing its own 20-period EMA, and
   Chaikin Money Flow (CMF) strong buying/selling (`|CMF| > 0.1`) plus
   zero-line crosses.
+
+## Category 4 — Support/Resistance (1 detector)
+
+Source: [`detection/support_resistance.py`](../../src/signals_app/detection/support_resistance.py).
+
+- `SupportResistanceDetector` — swing pivot levels from
+  `indicators/pivots.py` (`precompute_pivots`, `get_nearest_levels`),
+  recomputed at 4 confirmation widths (`SR_PIVOT_WINDOWS` = 2/3/5/10 bars on
+  each side). For each window, checks the current close against 3 proximity
+  thresholds (`SR_PROXIMITIES`), firing `NEAR SUPPORT (w=…, prox=…)` /
+  `NEAR RESISTANCE (w=…, prox=…)` for up to the 5 nearest levels on each
+  side per combination (`SR_MAX_LEVELS_PER_SIDE`) — bullish near support,
+  bearish near resistance.
 
 ## Downstream
 

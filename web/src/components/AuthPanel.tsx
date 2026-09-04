@@ -30,7 +30,7 @@ export function AuthPanel() {
 
   if (!supabaseConfigured) {
     return (
-      <section className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4">
+      <section data-testid="auth-panel" className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4">
         <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-2">
           Account
         </h2>
@@ -43,7 +43,7 @@ export function AuthPanel() {
 
   if (!ready) {
     return (
-      <section className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4">
+      <section data-testid="auth-panel" className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4">
         <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-2">
           Account
         </h2>
@@ -54,7 +54,7 @@ export function AuthPanel() {
 
   if (user) {
     return (
-      <section className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
+      <section data-testid="auth-panel" className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
         <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
           Account
         </h2>
@@ -89,7 +89,7 @@ export function AuthPanel() {
   }
 
   return (
-    <section className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
+    <section data-testid="auth-panel" className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
       <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
         Account
       </h2>
@@ -105,6 +105,7 @@ export function AuthPanel() {
       ) : (
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
+            data-testid="auth-panel-email"
             type="email"
             required
             placeholder="you@example.com"
@@ -113,6 +114,7 @@ export function AuthPanel() {
             className="flex-1 rounded-lg bg-[#12121f] border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-white/30"
           />
           <button
+            data-testid="auth-panel-submit"
             type="submit"
             disabled={sending}
             className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm px-4 py-2 transition-colors whitespace-nowrap"

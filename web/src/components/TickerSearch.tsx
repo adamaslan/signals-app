@@ -82,9 +82,10 @@ export function TickerSearch() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-5">
+    <div data-testid="ticker-search" className="w-full max-w-md space-y-5">
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
+          data-testid="ticker-search-input"
           type="text"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
@@ -104,6 +105,7 @@ export function TickerSearch() {
 
         <div className="flex gap-2">
           <button
+            data-testid="ticker-search-submit"
             type="submit"
             disabled={!symbol.trim()}
             className="flex-1 rounded-xl bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 transition-colors"
