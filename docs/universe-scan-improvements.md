@@ -76,9 +76,14 @@ plus rolling H/L windows up to 252. The pipeline asks for indicators it never
 fetched the data to support.
 
 **Fix:** fetch `max(requested_period, longest_indicator_window + buffer)`, compute
-indicators over the full history, then trim to the requested window for display
-and scoring. This is the real fix; P0.1 alone would just turn the fabricated
-signals into missing ones.
+indicators over the full history. This is the real fix; P0.1 alone would just
+turn the fabricated signals into missing ones.
+
+> **Shipped behavior differs from this proposal:** the fetch widens as
+> described, but nothing trims back to the requested window afterward — see
+> "Status" below. Indicators and scoring run against the full widened
+> history; only the reported `period`/cache key stay at the originally
+> requested value.
 
 ### P0.3 Data quality scores 1.0 while indicators are unsatisfiable
 
@@ -117,9 +122,13 @@ never reports *confidence in its own inputs*.
 
 ## P2 — Scan functionality
 
-- [ ] **Default period is too short for the indicator set.** `DEFAULT_PERIOD = "3mo"`
-  (`config.py:39`) cannot satisfy indicators the same config declares need 200
-  bars. Either raise the default or gate the long-window indicators off by period.
+- [ ] **User-facing period label undersells the data behind it.** `DEFAULT_PERIOD = "3mo"`
+  (`config.py:39`) is still what's reported and cached, even though daily `3mo`
+  requests are now transparently widened to `1y` before indicators are computed
+  (see "Status" below) — the 200-bar shortfall itself is fixed for daily periods.
+  What remains: the report still labels the run `period 3mo`, which reads as if
+  only 63 bars were used. Intraday periods are not widened and keep the original
+  shortfall.
 - [ ] **12 symbols of a 954-row universe** — the run scanned an alphabetical
   head (`A`…`ADBE`), not a sample. Confirm this was an intentional `--limit`, and
   make the report state the selection rule; an alphabetical prefix is not
