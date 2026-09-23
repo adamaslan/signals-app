@@ -6,7 +6,7 @@
  * batched read, and view the newest run as a table or heatmap plus a drift
  * comparison against the previous run.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Universe, type UniverseRun } from "@/lib/db";
@@ -20,6 +20,8 @@ import {
   importTickersFromText,
   refreshCoverage,
   runUniverse,
+  listUniverseRuns,
+  sweepStuckRuns,
   exportUniverse,
   exportUniverseCsv,
   watchlistFromUniverse,
@@ -37,6 +39,7 @@ import { UniverseHeatmap } from "./UniverseHeatmap";
 import { UniverseDriftView } from "./UniverseDriftView";
 import { UniverseBacktestPanel } from "./UniverseBacktestPanel";
 import { UniverseTimeline } from "./UniverseTimeline";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 function download(name: string, content: string, type: string) {
   const blob = new Blob([content], { type });
@@ -81,10 +84,31 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   const [err, setErr] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [lastReadMs, setLastReadMs] = useState<number | null>(null);
+
+  // The current run's abort controller, so an unmount mid-read cancels the
+  // in-flight Supabase chunk rather than leaving it to resolve into a
+  // component that's gone (F12).
+  const runControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => {
+      runControllerRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (universe) setNameDraft(universe.name);
   }, [universe?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A run interrupted by a hot reload / closed tab stays `status: "running"`
+  // forever otherwise — sweep once per mount (F12/"stuck running rows").
+  useEffect(() => {
+    sweepStuckRuns(universeId).catch(() => {});
+  }, [universeId]);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +119,52 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
       active = false;
     };
   }, []);
+
+  // Opening a universe that has never been run otherwise shows nothing but
+  // its ticker chips — table/heatmap/drift/timeline/backtest all render off
+  // `latestRun`, which only exists after a manual "Run basket" click. Fetch
+  // once automatically so the page never looks empty on first visit.
+  //
+  // React StrictMode (dev only) mounts this effect, cleans it up, then
+  // re-mounts it. `autoRanForId` is set only once the run is actually
+  // committed to (after the `listUniverseRuns` check, inside the "not
+  // cancelled" branch) — not before it — so the throwaway first mount's
+  // cleanup (`cancelled = true`) stops it before it marks anything, and the
+  // real second mount runs the check fresh and proceeds. Setting the ref
+  // eagerly (before the async gate) would make the second mount's effect
+  // return early while the first mount's run had already been cancelled,
+  // and the basket would never auto-run at all.
+  const autoRanForId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!universe || universe.tickers.length === 0) return;
+    if (autoRanForId.current === universeId) return;
+    let cancelled = false;
+    (async () => {
+      const existing = await listUniverseRuns(universeId, 1);
+      if (cancelled || existing.length > 0) return;
+      autoRanForId.current = universeId;
+      setAutoRunning(true);
+      const controller = new AbortController();
+      runControllerRef.current = controller;
+      try {
+        await runUniverse(universeId, {
+          period: universe.defaultPeriod,
+          signal: controller.signal,
+          onProgress: (done, total) => setProgress({ done, total }),
+        });
+      } catch (e) {
+        if (!cancelled) setErr(e instanceof Error ? e.message : "run failed");
+      } finally {
+        if (!cancelled) {
+          setAutoRunning(false);
+          setProgress(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [universe, universeId]);
 
   async function handleRequestCoverage(ticker: string) {
     try {
@@ -135,12 +205,22 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   async function handleRun() {
     setErr(null);
     setRunning(true);
+    setProgress(null);
+    const controller = new AbortController();
+    runControllerRef.current = controller;
+    const startedAt = performance.now();
     try {
-      await runUniverse(universeId, { period });
+      await runUniverse(universeId, {
+        period,
+        signal: controller.signal,
+        onProgress: (done, total) => setProgress({ done, total }),
+      });
+      setLastReadMs(Math.round(performance.now() - startedAt));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "run failed");
     } finally {
       setRunning(false);
+      setProgress(null);
     }
   }
 
@@ -429,10 +509,16 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           >
             {scanning ? "Scanning…" : `Run real scan (${period})`}
           </button>
-          {latestRun && (
+          {latestRun && !running && (
             <span className="text-xs text-gray-500">
               last run {new Date(latestRun.startedAt).toLocaleString()} ·{" "}
               {latestRun.status}
+              {lastReadMs != null && ` · ${lastReadMs}ms`}
+            </span>
+          )}
+          {(running || autoRunning) && progress && (
+            <span className="text-xs text-gray-500">
+              Reading {progress.done}/{progress.total}…
             </span>
           )}
         </div>
@@ -458,6 +544,24 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
       </div>
 
       {/* Latest run */}
+      {!latestRun && (
+        <div className="rounded-xl bg-[#1a1a2e] border border-white/5 p-6 text-center space-y-2">
+          {autoRunning ? (
+            <p className="text-gray-400 text-sm">
+              Fetching latest signals…
+              {progress && ` (${progress.done}/${progress.total})`}
+            </p>
+          ) : (
+            <>
+              <p className="text-gray-300 text-sm">No results yet for this basket.</p>
+              <p className="text-gray-600 text-xs">
+                Click <span className="text-white">Run basket</span> above to
+                pull the newest published signals.
+              </p>
+            </>
+          )}
+        </div>
+      )}
       {latestRun && (
         <div className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -514,17 +618,19 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
             </div>
           )}
 
-          {view === "heatmap" ? (
-            <UniverseHeatmap
-              results={latestRun.results}
-              period={latestRun.period}
-            />
-          ) : (
-            <UniverseTable
-              results={latestRun.results}
-              period={latestRun.period}
-            />
-          )}
+          <ErrorBoundary label={view === "heatmap" ? "Heatmap" : "Table"}>
+            {view === "heatmap" ? (
+              <UniverseHeatmap
+                results={latestRun.results}
+                period={latestRun.period}
+              />
+            ) : (
+              <UniverseTable
+                results={latestRun.results}
+                period={latestRun.period}
+              />
+            )}
+          </ErrorBoundary>
         </div>
       )}
 
@@ -534,10 +640,12 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
             Changed since previous run
           </h2>
-          <UniverseDriftView
-            prevRunId={prevRun.id}
-            nextRunId={latestRun.id}
-          />
+          <ErrorBoundary label="Drift view">
+            <UniverseDriftView
+              prevRunId={prevRun.id}
+              nextRunId={latestRun.id}
+            />
+          </ErrorBoundary>
         </div>
       )}
 
@@ -547,7 +655,9 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
             Trajectory
           </h2>
-          <UniverseTimeline runs={runs} />
+          <ErrorBoundary label="Timeline">
+            <UniverseTimeline runs={runs} />
+          </ErrorBoundary>
         </div>
       )}
 
@@ -557,7 +667,9 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
             Backtest
           </h2>
-          <UniverseBacktestPanel universeId={universeId} />
+          <ErrorBoundary label="Backtest panel">
+            <UniverseBacktestPanel universeId={universeId} />
+          </ErrorBoundary>
         </div>
       )}
 
@@ -581,6 +693,14 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
             ))}
           </ul>
         </div>
+      )}
+
+      {process.env.NODE_ENV === "development" && latestRun && (
+        <p className="text-[10px] text-gray-700">
+          dev: {latestRun.results.length} rows rendered
+          {lastReadMs != null && ` · last read ${lastReadMs}ms`} · {runs.length}{" "}
+          run(s) tracked
+        </p>
       )}
     </div>
   );

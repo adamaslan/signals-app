@@ -436,6 +436,10 @@ function summarise(results: UniverseRunResult[]): UniverseRunSummary {
 
 export interface RunUniverseOpts {
   period?: string;
+  /** Aborts the in-flight read (e.g. the editor unmounting mid-run). */
+  signal?: AbortSignal;
+  /** Chunk progress: `(done, total)` chunks read so far. */
+  onProgress?: (done: number, total: number) => void;
 }
 
 /**
@@ -467,7 +471,10 @@ export async function runUniverse(
   let results: UniverseRunResult[];
   let status: UniverseRun["status"];
   try {
-    const snapshots = await fetchUniverseSignals(u.tickers, period);
+    const snapshots = await fetchUniverseSignals(u.tickers, period, {
+      signal: opts.signal,
+      onProgress: opts.onProgress,
+    });
     results = u.tickers.map((ticker) => {
       const s = snapshots.get(ticker);
       if (!s) {
@@ -549,6 +556,33 @@ export async function getUniverseRun(
 ): Promise<UniverseRun | null> {
   if (!db) return null;
   return (await db.universeRuns.get(runId)) ?? null;
+}
+
+/** A run interrupted mid-flight (hot reload, closed tab) never transitions
+ * out of "running" on its own — nothing left alive to finish it. */
+const STUCK_RUN_MS = 5 * 60 * 1000;
+
+/**
+ * Mark any run for `universeId` that's been `status: "running"` for more
+ * than {@link STUCK_RUN_MS} as failed. Call once on editor mount; returns the
+ * number of runs swept, so the caller can log/report it if useful.
+ */
+export async function sweepStuckRuns(universeId: number): Promise<number> {
+  if (!db) return 0;
+  const cutoff = Date.now() - STUCK_RUN_MS;
+  const stuck = await db.universeRuns
+    .where("universeId")
+    .equals(universeId)
+    .filter((r) => r.status === "running" && r.startedAt < cutoff)
+    .toArray();
+  for (const r of stuck) {
+    if (r.id == null) continue;
+    await db.universeRuns.update(r.id, {
+      status: "failed",
+      finishedAt: Date.now(),
+    });
+  }
+  return stuck.length;
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -746,13 +780,20 @@ export async function backtestUniverse(
   };
 
   // Replace any stale row for this exact key in a single transaction.
-  const btId = await db.transaction("rw", db.universeBacktests, async () => {
-    await db.universeBacktests
-      .where("[universeId+universeRevision+horizonDays]")
-      .equals([id, u.revision, horizonDays])
-      .delete();
-    return db.universeBacktests.add(record);
-  });
+  // (Captured as a local: `db` is a nullable module-level binding, and TS
+  // doesn't carry the top-of-function narrowing into this closure.)
+  const database = db;
+  const btId = await database.transaction(
+    "rw",
+    database.universeBacktests,
+    async () => {
+      await database.universeBacktests
+        .where("[universeId+universeRevision+horizonDays]")
+        .equals([id, u.revision, horizonDays])
+        .delete();
+      return database.universeBacktests.add(record);
+    },
+  );
   return { ...record, id: btId };
 }
 
