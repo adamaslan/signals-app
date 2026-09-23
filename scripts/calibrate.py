@@ -39,6 +39,8 @@ from signals_app.scoring.calibration import derive_strength_hit_rates, save_stre
 
 logger = logging.getLogger(__name__)
 
+BENCHMARK_SYMBOL = "SPY"
+
 
 def run_calibration(
     symbols: list[str],
@@ -59,17 +61,21 @@ def run_calibration(
     """
     settings = get_settings()
     by_strength_lists = []
+    fetcher = DataFetcher(settings=settings)
+    benchmark_df = fetcher.fetch_daily_history(BENCHMARK_SYMBOL, period)
 
     for symbol in symbols:
         symbol = symbol.upper().strip()
         try:
-            df_raw = DataFetcher(settings=settings).fetch(symbol, period).df
+            df_raw = fetcher.fetch_daily_history(symbol, period)
             if len(df_raw) <= MIN_HISTORICAL_LOOKBACK + horizon_days:
                 logger.warning("calibrate: skipping %s — insufficient bars (%d)", symbol, len(df_raw))
                 continue
             df = compute_indicators(df_raw)
             bars = scan_historical(df)
-            result = score_historical_signals(df, bars, horizon_days=horizon_days)
+            result = score_historical_signals(
+                df, bars, horizon_days=horizon_days, benchmark_df=benchmark_df
+            )
             by_strength_lists.append(result["by_strength"])
             logger.info("calibrate: %s — scanned %d bars", symbol, len(bars))
         except Exception as exc:
@@ -91,7 +97,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("symbols", nargs="+", help="Ticker symbols to backtest")
-    parser.add_argument("--period", default="2y", help=f"yfinance period (default: 2y; app default: {DEFAULT_PERIOD})")
+    parser.add_argument("--period", default="10y", help=f"daily-bar history period (default: 10y; app default: {DEFAULT_PERIOD})")
     parser.add_argument("--horizon-days", type=int, default=BACKTEST_FORWARD_HORIZON_DAYS)
     parser.add_argument("--output", default=CALIBRATION_FILE)
     args = parser.parse_args()

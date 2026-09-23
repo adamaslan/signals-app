@@ -40,10 +40,46 @@ def _is_bearish(strength: str) -> bool:
     return "BEARISH" in strength
 
 
+def _benchmark_forward_return(
+    benchmark_close: pd.Series, start: pd.Timestamp, end: pd.Timestamp
+) -> float | None:
+    """Benchmark return between two dates (last close at or before each), or None."""
+    start_pos = benchmark_close.index.searchsorted(start, side="right") - 1
+    end_pos = benchmark_close.index.searchsorted(end, side="right") - 1
+    if start_pos < 0 or end_pos <= start_pos:
+        return None
+    b0 = float(benchmark_close.iloc[start_pos])
+    b1 = float(benchmark_close.iloc[end_pos])
+    if math.isnan(b0) or math.isnan(b1) or b0 == 0.0:
+        return None
+    return (b1 - b0) / b0
+
+
+def excess_target(
+    excess_return: float, realized_vol: float, horizon_days: int
+) -> float | None:
+    """Vol-scaled excess return: excess / (daily vol * sqrt(horizon)).
+
+    Stops high-beta names (TQQQ, TSLA) dominating a pooled target.
+
+    Args:
+        excess_return: Symbol forward return minus benchmark forward return.
+        realized_vol: Trailing daily-return standard deviation.
+        horizon_days: Forward horizon in bars.
+
+    Returns:
+        The scaled target, or None when the volatility is unusable.
+    """
+    if math.isnan(realized_vol) or realized_vol <= 0.0:
+        return None
+    return excess_return / (realized_vol * math.sqrt(horizon_days))
+
+
 def score_historical_signals(
     df: pd.DataFrame,
     bar_signals: list[BarSignals],
     horizon_days: int = BACKTEST_FORWARD_HORIZON_DAYS,
+    benchmark_df: pd.DataFrame | None = None,
 ) -> dict[str, list[HitRateBucket]]:
     """Score every historical signal against its realized forward return.
 
@@ -57,13 +93,21 @@ def score_historical_signals(
             (needed to look up prices beyond each bar's own snapshot).
         bar_signals: Output of detection.historical.scan_historical.
         horizon_days: How many bars ahead to measure the realized return.
+        benchmark_df: Optional benchmark (e.g. SPY) OHLCV frame. When given,
+            "by_category"/"by_strength" score a hit against *excess* return
+            (symbol minus benchmark), so market beta no longer earns credit;
+            bars with no benchmark coverage are skipped. Without it, the raw
+            sign of the forward return is used (legacy label).
 
     Returns:
-        Dict with "by_category" and "by_strength" hit-rate bucket lists.
+        Dict with "by_category" and "by_strength" hit-rate bucket lists, plus
+        "by_strength_raw" (always the legacy raw-sign label, for comparison).
     """
     index_pos = {ts: pos for pos, ts in enumerate(df.index)}
     by_category: dict[str, list[bool]] = {}
     by_strength: dict[str, list[bool]] = {}
+    by_strength_raw: dict[str, list[bool]] = {}
+    benchmark_close = benchmark_df["Close"] if benchmark_df is not None else None
 
     skipped_unresolved = 0
     for bar in bar_signals:
@@ -79,14 +123,27 @@ def score_historical_signals(
             continue
         forward_return = (forward_close - bar.close) / bar.close
 
+        label_return = forward_return
+        if benchmark_close is not None:
+            bench_return = _benchmark_forward_return(
+                benchmark_close, bar.date, df.index[pos + horizon_days]
+            )
+            if bench_return is None:
+                skipped_unresolved += 1
+                continue
+            label_return = forward_return - bench_return
+
         for sig in bar.signals:
             if _is_bullish(sig.strength):
-                hit = forward_return > 0
+                hit = label_return > 0
+                raw_hit = forward_return > 0
             elif _is_bearish(sig.strength):
-                hit = forward_return < 0
+                hit = label_return < 0
+                raw_hit = forward_return < 0
             else:
                 continue
 
+            by_strength_raw.setdefault(sig.strength, []).append(raw_hit)
             by_category.setdefault(sig.category, []).append(hit)
             by_strength.setdefault(sig.strength, []).append(hit)
 
@@ -102,6 +159,10 @@ def score_historical_signals(
         ],
         "by_strength": [
             HitRateBucket(key=k, hits=sum(v), total=len(v)) for k, v in sorted(by_strength.items())
+        ],
+        "by_strength_raw": [
+            HitRateBucket(key=k, hits=sum(v), total=len(v))
+            for k, v in sorted(by_strength_raw.items())
         ],
     }
 

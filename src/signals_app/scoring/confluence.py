@@ -34,9 +34,11 @@ _STRENGTH_BULL_WEIGHT: Final[dict[str, float]] = {
     SignalStrength.EXTREME_BULLISH.value: 3.0,
     SignalStrength.STRONG_BULLISH.value: 2.0,
     SignalStrength.BULLISH.value: 1.0,
-    SignalStrength.VERY_SIGNIFICANT.value: 1.5,
-    SignalStrength.SIGNIFICANT.value: 1.0,
-    SignalStrength.TRENDING.value: 1.0,
+    # Direction-less strengths carry no side: counting them as bullish made a
+    # capitulation volume spike or a "STRONG DOWNTREND" vote bullish.
+    SignalStrength.VERY_SIGNIFICANT.value: 0.0,
+    SignalStrength.SIGNIFICANT.value: 0.0,
+    SignalStrength.TRENDING.value: 0.0,
     SignalStrength.NEUTRAL.value: 0.0,
     SignalStrength.BEARISH.value: -1.0,
     SignalStrength.STRONG_BEARISH.value: -2.0,
@@ -56,6 +58,13 @@ _CATEGORY_BONUS: Final[dict[str, float]] = {
 # toward the measured backtest hit-rate when strength_hit_rates is supplied.
 _HIT_RATE_HIGH_THRESHOLD: Final[float] = 0.60
 _HIT_RATE_LOW_THRESHOLD: Final[float] = 0.50
+
+# Pseudo-count added to the score denominator so two agreeing votes no longer
+# saturate at exactly +/-1.0 (denominator used to count only fired votes).
+SCORE_PSEUDO_COUNT: Final[float] = 4.0
+
+# |score| required before a calibrated hit rate may promote a label to HIGH.
+_HIGH_MIN_ABS_SCORE: Final[float] = 0.55
 
 
 @dataclass
@@ -195,7 +204,7 @@ class ConfluenceRanker:
                 max_weight += 0.1  # neutral signals have minimal weight
 
         if max_weight > 0:
-            raw_score = (weighted_bull - weighted_bear) / max_weight
+            raw_score = (weighted_bull - weighted_bear) / (max_weight + SCORE_PSEUDO_COUNT)
         else:
             raw_score = 0.0
 
@@ -212,7 +221,7 @@ class ConfluenceRanker:
         # Confidence label — raw-score-threshold guess by default, optionally
         # calibrated against measured backtest hit-rates (see docstring).
         abs_score = abs(score)
-        if abs_score >= 0.55:
+        if abs_score >= _HIGH_MIN_ABS_SCORE:
             confidence_label = "HIGH"
         elif abs_score >= 0.25:
             confidence_label = "MEDIUM"
@@ -226,8 +235,11 @@ class ConfluenceRanker:
             ]
             if known_rates:
                 avg_hit_rate = sum(known_rates) / len(known_rates)
+                # A hit rate alone never promotes to HIGH: it is mostly market
+                # beta, so magnitude must also clear the HIGH bar.
                 if avg_hit_rate >= _HIT_RATE_HIGH_THRESHOLD:
-                    confidence_label = "HIGH"
+                    if abs_score >= _HIGH_MIN_ABS_SCORE:
+                        confidence_label = "HIGH"
                 elif avg_hit_rate < _HIT_RATE_LOW_THRESHOLD:
                     confidence_label = "LOW"
 
