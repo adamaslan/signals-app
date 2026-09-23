@@ -101,3 +101,20 @@ Source: [`detection/volume.py`](../../src/signals_app/detection/volume.py).
 Raw signals feed [concepts/confluence-scoring.md](confluence-scoring.md)
 (weighted bull/bear aggregation) and, per-timeframe, the composite scoring in
 [concepts/multi-timeframe.md](multi-timeframe.md).
+
+## Indicator warmup (200-period SMAs, MA-distance)
+
+`compute_indicators()` always computes SMA/volume-MA for periods up to 200
+(`indicators/grids.py`'s `MA_PERIODS_EXTENDED`/`VOLUME_MA_PERIODS`), and
+several detectors here key directly off them — `MovingAverageSignalDetector`
+(golden/death cross), `MADistanceExpandedDetector` (`>N% ABOVE/BELOW {p}SMA`).
+Those are only meaningful with ≥200 bars of history. `DataFetcher.fetch()`
+transparently widens short daily-interval requests (e.g. the default `"3mo"`
+≈63 bars → `"1y"` ≈252 bars) before calling yfinance so this floor is met
+without callers changing what period they ask for; `score_data_quality`
+independently flags `indicator_warmup_short:{n}<200` whenever a df still
+falls short. See PR #24 / `docs/universe-scan-improvements.md` — the
+regression this closes: with `min_periods=1` on the rolling window, an
+under-warmed SMA_200 silently averaged over whatever bars existed instead of
+returning `NaN`, so fabricated long-window signals drove real published
+SELL/BUY calls on the 2026-09-01 universe scan.

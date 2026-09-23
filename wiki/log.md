@@ -94,3 +94,15 @@ and the --estimate/--yes LLM cost gate. Also added docs/signals-app-docs/
 signals-client-ts.html — a portal+schwab integration explainer (not a wiki page).
 
 All in PR #21; steps 1–7 now shipped on branch feat/signals-service-cli.
+
+## [2026-09-01] ingest | PR #24 fabricated 100/200SMA signals on short-history scans | pages touched: 1
+
+Added a "Indicator warmup" section to concepts/signal-detectors.md: the
+2026-09-01 universe scan published SELL/BUY calls (A, AAPL, AAPU, ABBV, ABT)
+built on SMA_100/SMA_200 that had silently collapsed to a 63-bar mean
+(min_periods=1 on a "3mo" ≈63-bar fetch). Fixed by using pandas' default
+min_periods=window (NaN when unsatisfiable), widening DataFetcher's fetch for
+short daily periods to clear the 200-bar floor, and a new
+indicator_warmup_short data-quality deduction. Re-running the same 12 tickers
+post-fix: all 5 previously-published symbols dropped below the gate. Full
+analysis in docs/universe-scan-improvements.md.
