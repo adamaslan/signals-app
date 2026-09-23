@@ -18,6 +18,15 @@ function fmt(v: number | string | null | undefined): string | null {
  * Item #1 — freshness / staleness badge. Shows the age of the bar the signal
  * describes, so a 9-day-old "STRONG BUY" from a broken cron run can't look
  * identical to one computed 20 minutes ago.
+ *
+ * §B2 (docs/frontend-robustness-large-universe.md): the deep-dive page had
+ * no visible date context — bar and computed timestamps existed only in this
+ * badge's tooltip. Both now render as a top-of-page line so "what dates is
+ * this based on?" doesn't require a hover: `Bar Sep 19, 16:00 ET · computed
+ * Sep 22, 14:07 ET · Stale · 3d`. Per-timeframe window dates (what range 5Y
+ * or MAX actually covered) need a backend field (`bars`/`window_start`/
+ * `window_end`) that doesn't exist yet on `Signal` — left as a follow-up,
+ * not part of this phase.
  */
 export function FreshnessBadge({ barTs, createdAt }: FreshnessBadgeProps) {
   const info = classifyFreshness(barTs);
@@ -41,9 +50,11 @@ export function FreshnessBadge({ barTs, createdAt }: FreshnessBadgeProps) {
       <span className="font-semibold" style={{ color }}>
         {info.label}
       </span>
-      {computedLabel && (
+      {(barLabel || computedLabel) && (
         <span className="text-gray-500 text-[10px]">
-          computed {computedLabel}
+          {barLabel && `bar ${barLabel}`}
+          {barLabel && computedLabel && " · "}
+          {computedLabel && `computed ${computedLabel}`}
         </span>
       )}
     </span>

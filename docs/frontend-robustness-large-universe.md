@@ -12,19 +12,30 @@ Companion: docs/session-summary-2026-09-22-universe-scan-8-timeframes.md
 |---|---|---|---|---|
 | 1 | `fix/universe-dev-robustness` | [#26](https://github.com/adamaslan/signals-app/pull/26) | §C — F11, F12, progress, stuck-run sweep, error boundaries, dev perf footer | **Shipped** (PR open, targets `main`) — F11 ✅ F12 ✅ progress ✅ stuck-run sweep ✅ error boundaries ✅ perf footer ✅ |
 | 2 | `feat/universe-view-at-scale` | [#27](https://github.com/adamaslan/signals-app/pull/27) | A1 summary strip · A2 heatmap group/collapse/density · A3 filter/search/window | **Shipped** (PR open, stacked on #26 — base branch is `fix/universe-dev-robustness`, retarget to `main` after #26 merges) — A1 ✅ A2 ✅ A3 ✅ `universeView.ts` + 16 tests ✅ |
-| 3 | `feat/deep-dive-8-slot-matrix` | — | B1 fixed 8-slot matrix · B2 top date line | Not started |
+| 3 | `feat/deep-dive-8-slot-matrix` | [#28](https://github.com/adamaslan/signals-app/pull/28) | B1 fixed-slot matrix · B2 top date line | **Shipped** (PR open, stacked on #27 — base branch is `feat/universe-view-at-scale`, retarget to `main` after #26+#27 merge) — B1 ✅ B2 (top line) ✅ · B2 per-cell window context deliberately deferred (needs a new backend field, see PR body) |
 
 Merge order per §4: **3 (dev robustness) → 1 (universe view) → 2 (deep dive)**
 in this doc's own PR-split numbering — i.e. this progress table's **Phase 1
-is the doc's "PR 3"** and **Phase 2 is the doc's "PR 1"**, chosen to merge
-first/second in that order because PRs "1" and "3" both touch
-`UniverseEditor.tsx` and "3" changes the data flow "1" renders from. Phase 3
-above corresponds to the doc's PR "2".
+is the doc's "PR 3"**, **Phase 2 is the doc's "PR 1"**, and **Phase 3 is the
+doc's "PR 2"**, chosen to merge in that order because PRs "1" and "3" both
+touch `UniverseEditor.tsx` and "3" changes the data flow "1" renders from.
+The three branches are stacked in dependency order (1 → 2 → 3 in this
+table's numbering): each PR's base branch is the previous phase's branch,
+not `main`, so retarget each to `main` as the one below it merges.
 
-Running total against the §0 checklist (12 failure modes): **6/12 passing**
-once phases 1+2 merge (F11 F12 F1 F2 F3 F6 fixed; F8 remains — phase 3,
-which reaches the doc's stated 50% target on its own before phase 3 even
-lands — phase 3 pushes past it to F8 as well).
+Running total against the §0 checklist (12 failure modes) once all three
+PRs merge: **7/12 passing** — F11 F12 F1 F2 F3 F6 F8 fixed. This clears the
+doc's stated 50% (6/12) target with room; the remaining 5 (F4 F5 F7 F9 F10)
+are P1/P2 per §4 and out of scope for this 3-phase pass.
+
+One deliberate scope note: **`TIMEFRAMES` in this codebase currently has 6
+entries** (1D/5D/1M/3M/6M/1Y), not the 8 the doc's title describes — the
+5Y/MAX extension is separate, in-progress work sitting uncommitted on
+`feat/trigger-universe-scan` (see that branch's session-summary doc) and was
+intentionally left out of these three PRs to keep them backend-independent.
+Phase 3's B1 fix is written against `TIMEFRAMES.length` generically, so it
+becomes an 8-slot matrix automatically once that expansion lands and merges
+— no further frontend change needed.
 
 ---
 
