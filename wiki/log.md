@@ -106,3 +106,5 @@ short daily periods to clear the 200-bar floor, and a new
 indicator_warmup_short data-quality deduction. Re-running the same 12 tickers
 post-fix: all 5 previously-published symbols dropped below the gate. Full
 analysis in docs/universe-scan-improvements.md.
+
+## [2026-09-23] ingest | scoring 2x plan P2–P7 (family confluence, learned scorer, rank + p_outperform, EV gate, stacking, retrain + drift) | pages touched: 3

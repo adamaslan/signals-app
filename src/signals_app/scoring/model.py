@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import warnings
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterator
@@ -23,6 +24,12 @@ DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[3] / "calibration" / "scor
 DEFAULT_L2_C = 0.1
 DRIVER_COUNT = 3
 MIN_TRAIN_ROWS = 500
+DEFAULT_HORIZON_DAYS = 20
+DEFAULT_PUBLISH_DELTA = 0.03
+# Plan §4: HIGH needs a confident probability AND enough historical analogs.
+HIGH_P_THRESHOLD = 0.62
+MEDIUM_P_THRESHOLD = 0.56
+HIGH_MIN_ANALOGS = 40
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,14 @@ class LogisticScorer:
         if self.excess_map is None:
             return np.full(len(X), np.nan)
         return self.excess_map.predict(self.raw_proba(X))
+
+    def analog_support(self, raw_p: float) -> int:
+        """Historical samples behind the calibration block this raw probability falls in."""
+        return self.calibrator.support(raw_p) if self.calibrator else 0
+
+    def publish_delta(self) -> float:
+        """Minimum |p - 0.5| to publish, set at training time to hit the target publish rate."""
+        return float(self.metrics.get("publish_delta", DEFAULT_PUBLISH_DELTA))
 
     def drivers(self, x_row: np.ndarray, top: int = DRIVER_COUNT) -> list[dict[str, float | str]]:
         """Largest signed contributions to the logit for one row.
@@ -180,7 +195,8 @@ def fit_logistic(
     if len(np.unique(y)) < 2:
         raise ValueError("training labels contain a single class")
 
-    with np.errstate(all="ignore"):
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns are handled below
         mean = np.nanmean(X, axis=0)
         scale = np.nanstd(X, axis=0)
     mean = np.where(np.isfinite(mean), mean, 0.0)
@@ -246,3 +262,52 @@ def purged_walk_forward_splits(
         train_mask = (d <= train_cutoff) & usable
         test_mask = d.isin(test_dates) & usable
         yield np.flatnonzero(train_mask.to_numpy()), np.flatnonzero(test_mask.to_numpy())
+
+
+def load_scorer_from_supabase(horizon_days: int = DEFAULT_HORIZON_DAYS) -> LogisticScorer | None:
+    """The active scorer from the ``scorer_models`` table, or None.
+
+    Never raises: an unreachable or empty table means "no model", and the caller
+    falls back to the legacy confluence path.
+    """
+    import httpx
+
+    from signals_app.config import (
+        SUPABASE_REQUEST_TIMEOUT_SECONDS,
+        SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_URL,
+    )
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    try:
+        resp = httpx.get(
+            f"{SUPABASE_URL.rstrip('/')}/rest/v1/scorer_models",
+            params={"select": "artifact", "is_active": "eq.true", "horizon_days": f"eq.{horizon_days}", "limit": "1"},
+            headers={"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"},
+            timeout=SUPABASE_REQUEST_TIMEOUT_SECONDS,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+        return LogisticScorer.from_dict(rows[0]["artifact"]) if rows else None
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.warning("scorer: failed to load from Supabase: %s — ignoring", exc)
+        return None
+
+
+def load_active_scorer(horizon_days: int = DEFAULT_HORIZON_DAYS) -> LogisticScorer | None:
+    """Active scorer: Supabase first (survives container restarts), then the local file."""
+    return load_scorer_from_supabase(horizon_days) or load_scorer_model()
+
+
+def confidence_label(p: float, analogs: int) -> str:
+    """HIGH / MEDIUM / LOW from a calibrated probability and its analog count.
+
+    Symmetric about 0.5: p = 0.38 is as confident a *sell* as 0.62 is a buy.
+    """
+    edge = max(p, 1.0 - p)
+    if edge >= HIGH_P_THRESHOLD and analogs >= HIGH_MIN_ANALOGS:
+        return "HIGH"
+    if edge >= MEDIUM_P_THRESHOLD:
+        return "MEDIUM"
+    return "LOW"

@@ -67,3 +67,12 @@ with all counts at 0 — never a divide-by-zero.
   [architecture/pipeline.md](../architecture/pipeline.md)).
 - Multi-timeframe scoring: each timeframe gets its own independent
   `ConfluenceResult` — see [concepts/multi-timeframe.md](multi-timeframe.md).
+
+## Learned scorer (added 2026-09-23)
+
+`ConfluenceRanker` above is still the default and the fallback. When a trained scorer
+is active, the scan additionally computes a calibrated `p_outperform` and a
+cross-sectional `rank_pct` and gates on expected value instead of `|score|`. Family-based
+confluence (`FamilyConfluenceRanker`) and the regime gate are scorer variants, not the
+default. See [decisions/2026-09-23-learned-scorer-p2-p7.md](../decisions/2026-09-23-learned-scorer-p2-p7.md).
+

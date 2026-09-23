@@ -1,0 +1,69 @@
+name: Retrain scorer
+
+# docs/scoring-2x-plan.md P7. Replaces the strength-bucket calibration
+# (calibrate.yml) as the source of truth for live confidence: retrains the
+# logistic scorer weekly on purged walk-forward CV, publishes it only if it
+# clears the plan's absolute ship bar, then checks live-vs-backtest IC drift.
+# calibrate.yml stays for the legacy fallback path used while no model is active.
+
+on:
+  schedule:
+    - cron: "0 7 * * 6" # Saturday 07:00 UTC, after calibrate.yml
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Publish even if the ship bar is missed (true/false)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: retrain
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    if: github.event_name != 'schedule' || github.repository == 'adamaslan/signals-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: signals-app
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install package (editable, no deps)
+        shell: bash -l {0}
+        run: pip install -e . --no-deps
+
+      - name: Train and publish
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          FORCE=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then FORCE="--force"; fi
+          # Exit 3 = trained but the ship bar was missed: keep the current model, not a failure.
+          set +e
+          python scripts/train_scorer.py --asset-type Equity --publish --workers 2 $FORCE
+          rc=$?
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then exit "$rc"; fi
+
+      - name: Upload training report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorer-report
+          path: docs/scorer-report-*.md
+          if-no-files-found: ignore
+
+      - name: Drift check
+        shell: bash -l {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/check_scorer_drift.py

@@ -27,6 +27,7 @@ class IsotonicCalibrator:
 
     xs: tuple[float, ...]
     ys: tuple[float, ...]
+    counts: tuple[int, ...] = ()
 
     @classmethod
     def fit(cls, x: np.ndarray, y: np.ndarray) -> "IsotonicCalibrator":
@@ -56,18 +57,29 @@ class IsotonicCalibrator:
         return cls(
             xs=tuple(xs / c for xs, c in zip(xsums, counts)),
             ys=tuple(s / c for s, c in zip(sums, counts)),
+            counts=tuple(counts),
         )
 
     def predict(self, x: np.ndarray | float) -> np.ndarray:
         """Calibrated value(s) for ``x``."""
         return np.interp(np.asarray(x, dtype=float), self.xs, self.ys)
 
+    def support(self, x: float) -> int:
+        """Training samples behind the block nearest ``x`` ("historical analogs"); 0 if unknown."""
+        if not self.counts:
+            return 0
+        return int(self.counts[int(np.argmin(np.abs(np.asarray(self.xs) - float(x))))])
+
     def to_dict(self) -> dict[str, Any]:
-        return {"xs": list(self.xs), "ys": list(self.ys)}
+        return {"xs": list(self.xs), "ys": list(self.ys), "counts": list(self.counts)}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "IsotonicCalibrator":
-        return cls(xs=tuple(float(v) for v in data["xs"]), ys=tuple(float(v) for v in data["ys"]))
+        return cls(
+            xs=tuple(float(v) for v in data["xs"]),
+            ys=tuple(float(v) for v in data["ys"]),
+            counts=tuple(int(v) for v in data.get("counts", ())),
+        )
 
 
 def rank_pct(scores: dict[str, float]) -> dict[str, float]:

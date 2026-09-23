@@ -9,9 +9,11 @@ because they are noisier; longer timeframes carry more structural conviction.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any, Final
 
+import numpy as np
 import pandas as pd
 
 from signals_app.config import TIMEFRAME_CACHE_TTL_SECONDS
@@ -69,6 +71,7 @@ class MultiTimeframeResult:
     timeframe_scores: dict[str, TimeframeScore]
     timeframes_available: list[str]
     any_degraded: bool
+    available_weight_fraction: float = 1.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -82,6 +85,7 @@ class MultiTimeframeResult:
             "dominant_action": self.dominant_action,
             "timeframes_available": self.timeframes_available,
             "any_degraded": self.any_degraded,
+            "available_weight_fraction": self.available_weight_fraction,
             "timeframe_scores": {
                 tf: {
                     "score": ts.result.score,
@@ -219,6 +223,16 @@ def compute_multi_timeframe(
     any_degraded = any(ts.degraded for ts in timeframe_scores.values())
     dominant = _dominant_action(timeframe_scores)
 
+    # Timeframes that fail to score are dropped from the composite; make a
+    # composite built from a fraction of the intended weight visible.
+    intended_weight = sum(TIMEFRAME_WEIGHTS.get(tf, 0.1) for tf in SUPPORTED_TIMEFRAMES)
+    available_fraction = round(total_weight / intended_weight, 4) if intended_weight > 0 else 0.0
+    if available_fraction < LOW_AVAILABLE_WEIGHT:
+        logger.warning(
+            "mtf: %s composite uses only %.0f%% of the intended timeframe weight (%s)",
+            symbol, 100 * available_fraction, available,
+        )
+
     logger.info(
         "mtf: %s composite_score=%.3f dominant=%s timeframes=%s degraded=%s",
         symbol, composite, dominant, available, any_degraded,
@@ -231,4 +245,111 @@ def compute_multi_timeframe(
         timeframe_scores=timeframe_scores,
         timeframes_available=available,
         any_degraded=any_degraded,
+        available_weight_fraction=available_fraction,
     )
+
+
+# ---------------------------------------------------------------------------
+# Timeframe stacking on real bar intervals (docs/scoring-2x-plan.md §7, P6)
+# ---------------------------------------------------------------------------
+
+# 1M / 3M / 6M / 1Y as separate votes were the same daily bars ending on the
+# same day (plan B7); the genuinely distinct views are the bar intervals.
+STACK_INTERVALS: Final[tuple[str, ...]] = ("daily", "weekly", "monthly")
+_RESAMPLE_RULE: Final[dict[str, str]] = {"weekly": "W-FRI", "monthly": "ME"}
+STACK_FEATURES: Final[tuple[str, ...]] = (
+    *(f"p_{i}" for i in STACK_INTERVALS),
+    *(f"avail_{i}" for i in STACK_INTERVALS),
+    "dispersion",
+)
+
+# Fallback when no meta-model has been trained: weighted mean of the available
+# interval probabilities, shrunk toward 0.5 as they disagree. A heuristic, not
+# a fitted result — it exists so a missing artifact degrades gracefully.
+FALLBACK_INTERVAL_WEIGHTS: Final[dict[str, float]] = {"daily": 0.5, "weekly": 0.3, "monthly": 0.2}
+FALLBACK_DISPERSION_SCALE: Final[float] = 0.15
+LOW_AVAILABLE_WEIGHT: Final[float] = 0.75
+
+_OHLCV_AGG: Final[dict[str, str]] = {
+    "Open": "first", "High": "max", "Low": "min", "Close": "last", "Volume": "sum",
+}
+
+
+def resample_ohlcv(daily: pd.DataFrame, interval: str) -> pd.DataFrame:
+    """Aggregate daily OHLCV to ``weekly`` or ``monthly`` bars (``daily`` passes through).
+
+    Bars are stamped at period end; a still-forming final bar is kept, so the
+    caller must only score it once the period has closed if that matters.
+    """
+    if interval == "daily":
+        return daily
+    rule = _RESAMPLE_RULE.get(interval)
+    if rule is None:
+        raise ValueError(f"unknown interval {interval!r}; expected one of {STACK_INTERVALS}")
+    return daily.resample(rule).agg(_OHLCV_AGG).dropna(subset=["Close"])
+
+
+def stack_features(p_by_interval: dict[str, float | None]) -> dict[str, float]:
+    """Meta-model inputs: per-interval p, availability flags and dispersion.
+
+    A missing interval (a young ticker with no monthly history) is NaN plus an
+    availability flag of 0 — never a fabricated 0.5.
+    """
+    row: dict[str, float] = {}
+    available: list[float] = []
+    for interval in STACK_INTERVALS:
+        p = p_by_interval.get(interval)
+        ok = p is not None and not math.isnan(p)
+        row[f"p_{interval}"] = float(p) if ok else float("nan")
+        row[f"avail_{interval}"] = 1.0 if ok else 0.0
+        if ok:
+            available.append(float(p))
+    row["dispersion"] = float(np.std(available)) if len(available) >= 2 else float("nan")
+    return row
+
+
+@dataclass(frozen=True)
+class StackedProbability:
+    """Combined P(outperform) across intervals, with provenance."""
+
+    p_outperform: float
+    dispersion: float | None
+    intervals_available: tuple[str, ...]
+    available_weight_fraction: float
+    used_meta_model: bool
+
+
+def stack_probabilities(
+    p_by_interval: dict[str, float | None], meta: Any | None = None
+) -> StackedProbability | None:
+    """Combine per-interval probabilities.
+
+    Args:
+        p_by_interval: Calibrated P(outperform) per interval; None / NaN when
+            the interval could not be scored.
+        meta: A fitted ``LogisticScorer`` over ``STACK_FEATURES`` (trained on
+            out-of-fold predictions only). None uses the shrinkage fallback.
+
+    Returns:
+        None when no interval is available. The available-weight fraction is
+        logged so a composite built from a fraction of the intended views is
+        visible rather than silently renormalised.
+    """
+    row = stack_features(p_by_interval)
+    present = tuple(i for i in STACK_INTERVALS if row[f"avail_{i}"] == 1.0)
+    if not present:
+        return None
+    fraction = sum(FALLBACK_INTERVAL_WEIGHTS[i] for i in present) / sum(FALLBACK_INTERVAL_WEIGHTS.values())
+    if fraction < LOW_AVAILABLE_WEIGHT:
+        logger.warning("mtf stack: only %.0f%% of intended interval weight available (%s)", 100 * fraction, present)
+    dispersion = None if math.isnan(row["dispersion"]) else row["dispersion"]
+
+    if meta is not None:
+        X = meta.matrix([row])
+        return StackedProbability(float(meta.predict_proba(X)[0]), dispersion, present, fraction, True)
+
+    weights = np.array([FALLBACK_INTERVAL_WEIGHTS[i] for i in present])
+    ps = np.array([row[f"p_{i}"] for i in present])
+    mean_p = float(np.average(ps, weights=weights))
+    shrink = 1.0 / (1.0 + (dispersion or 0.0) / FALLBACK_DISPERSION_SCALE)
+    return StackedProbability(0.5 + (mean_p - 0.5) * shrink, dispersion, present, fraction, False)

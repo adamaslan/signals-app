@@ -30,6 +30,7 @@ RELIABILITY_BAR = 0.05
 DEFAULT_SPLITS = 5
 DEFAULT_HOLDOUT_MONTHS = 12
 MIN_HOLDOUT_ROWS = 200
+TARGET_PUBLISH_RATE = 0.40
 
 
 @dataclass
@@ -61,7 +62,7 @@ def ship_bar_failures(report: EvalReport, regime_ic: pd.DataFrame, horizon: int)
     return failures
 
 
-def _oof_predictions(
+def oof_predictions(
     panel: pd.DataFrame, features: tuple[str, ...], horizon: int, step: int, n_splits: int,
     holdout_start: pd.Timestamp | None,
 ) -> np.ndarray:
@@ -88,6 +89,7 @@ def train_scorer(
     n_splits: int = DEFAULT_SPLITS,
     holdout_months: int = DEFAULT_HOLDOUT_MONTHS,
     model_version: str | None = None,
+    features: tuple[str, ...] | None = None,
 ) -> TrainResult:
     """Cross-validate, calibrate, fit the final model and score the holdout once.
 
@@ -100,17 +102,19 @@ def train_scorer(
         n_splits: Walk-forward folds.
         holdout_months: Final months held out of every fold and evaluated once.
         model_version: Version stamp; defaults to a timestamped id.
+        features: Explicit column list overriding ``feature_set`` (used by the
+            timeframe stacker, whose inputs are per-interval probabilities).
 
     Raises:
         ValueError: If no fold could be fitted.
     """
-    features = FEATURE_SETS[feature_set]
+    features = features if features is not None else FEATURE_SETS[feature_set]
     data = horizon_panel(panel, horizon)
     version = model_version or f"logit-{feature_set}-h{horizon}-{datetime.now(timezone.utc):%Y%m%d}"
     last_date = pd.to_datetime(data["date"]).max()
     holdout_start = last_date - pd.DateOffset(months=holdout_months) if holdout_months else None
 
-    oof = _oof_predictions(data, features, horizon, step, n_splits, holdout_start)
+    oof = oof_predictions(data, features, horizon, step, n_splits, holdout_start)
     scored = data.assign(score=oof, p_outperform=oof).dropna(subset=["score"])
     if scored.empty:
         raise ValueError("no walk-forward fold produced predictions")
@@ -145,7 +149,11 @@ def train_scorer(
     if not math.isnan(holdout_gap) and holdout_gap > RELIABILITY_BAR:
         failures.append(f"holdout reliability gap {holdout_gap:.3f} > {RELIABILITY_BAR}")
 
+    calibrated_oof = calibrator.predict(scored["score"].to_numpy())
+    publish_delta = float(np.quantile(np.abs(calibrated_oof - 0.5), 1.0 - TARGET_PUBLISH_RATE))
+
     metrics: dict[str, Any] = {
+        "publish_delta": publish_delta,
         "oof": oof_report.to_dict(),
         "regime_ic": regime_ic.to_dict(orient="records"),
         "holdout": holdout_report.to_dict() if holdout_report else None,
