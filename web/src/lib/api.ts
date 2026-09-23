@@ -135,11 +135,40 @@ interface UniverseSignalRow {
 }
 
 const IN_CHUNK = 200;
+const CHUNK_TIMEOUT_MS = 15_000;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
+}
+
+/** A chunk's Supabase read exceeded {@link CHUNK_TIMEOUT_MS}. Distinct from
+ * ApiError so callers (and the UI) can tell a stalled read apart from a real
+ * query failure — the message already names which chunk stalled. */
+export class ChunkTimeoutError extends ApiError {
+  constructor(label: string) {
+    super(408, `Timed out after ${CHUNK_TIMEOUT_MS / 1000}s reading ${label}`);
+    this.name = "ChunkTimeoutError";
+  }
+}
+
+/** Race `promise` against a timeout, rejecting with a {@link ChunkTimeoutError}
+ * named for `label` if it fires first. Always clears the timer. */
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ChunkTimeoutError(label)), ms);
+  });
+  try {
+    return await Promise.race([Promise.resolve(promise), timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
 }
 
 function rowToSnapshot(row: UniverseSignalRow): UniverseSignalSnapshot {
@@ -168,11 +197,21 @@ function rowToSnapshot(row: UniverseSignalRow): UniverseSignalSnapshot {
  *
  * @param tickers - Uppercased ticker symbols.
  * @param period - Backend period string (e.g. "3mo").
+ * @param opts.signal - Aborts the in-flight chunk and stops reading further
+ *   chunks. Pass an `AbortSignal` tied to the caller's unmount/cancel.
+ * @param opts.onProgress - Called after each chunk with `(done, total)`
+ *   ticker counts, so the UI can show "Reading 600/954…" instead of a bare
+ *   spinner.
  * @throws ApiError if Supabase isn't configured or a query fails.
+ * @throws ChunkTimeoutError if a chunk's read exceeds {@link CHUNK_TIMEOUT_MS}.
  */
 export async function fetchUniverseSignals(
   tickers: string[],
   period: string,
+  opts: {
+    signal?: AbortSignal;
+    onProgress?: (done: number, total: number) => void;
+  } = {},
 ): Promise<Map<string, UniverseSignalSnapshot>> {
   if (!supabaseConfigured || !supabase) {
     throw new ApiError(503, "Supabase is not configured");
@@ -180,26 +219,37 @@ export async function fetchUniverseSignals(
   const newest = new Map<string, UniverseSignalSnapshot>();
   if (tickers.length === 0) return newest;
 
-  for (const batch of chunk(tickers, IN_CHUNK)) {
+  const chunks = chunk(tickers, IN_CHUNK);
+  for (let i = 0; i < chunks.length; i++) {
+    if (opts.signal?.aborted) {
+      throw new ApiError(499, "Universe read cancelled");
+    }
+    const batch = chunks[i];
+    const label = `chunk ${i + 1}/${chunks.length} (tickers ${batch[0]}…${batch[batch.length - 1]})`;
+
     // `latest_signals` (migration 20260831000001) is DISTINCT ON (ticker,
     // period) — one indexed row per ticker, no client-side de-dup. Falls
     // back to the raw `signals` table + newest-wins loop if the view is
     // missing (older DB), so a not-yet-migrated environment still works.
     let rows: UniverseSignalRow[] | null = null;
-    const viewRes = await supabase
+    let viewQuery = supabase
       .from("latest_signals")
       .select(UNIVERSE_SIGNAL_COLUMNS)
       .in("ticker", batch)
       .eq("period", period);
+    if (opts.signal) viewQuery = viewQuery.abortSignal(opts.signal);
+    const viewRes = await withTimeout(viewQuery, CHUNK_TIMEOUT_MS, label);
     if (!viewRes.error) {
       rows = (viewRes.data ?? []) as unknown as UniverseSignalRow[];
     } else {
-      const rawRes = await supabase
+      let rawQuery = supabase
         .from("signals")
         .select(UNIVERSE_SIGNAL_COLUMNS)
         .in("ticker", batch)
         .eq("period", period)
         .order("bar_ts", { ascending: false, nullsFirst: false });
+      if (opts.signal) rawQuery = rawQuery.abortSignal(opts.signal);
+      const rawRes = await withTimeout(rawQuery, CHUNK_TIMEOUT_MS, label);
       if (rawRes.error) throw new ApiError(500, rawRes.error.message);
       rows = (rawRes.data ?? []) as unknown as UniverseSignalRow[];
     }
@@ -209,6 +259,7 @@ export async function fetchUniverseSignals(
       // first (newest by bar_ts) wins.
       if (!newest.has(row.ticker)) newest.set(row.ticker, rowToSnapshot(row));
     }
+    opts.onProgress?.(Math.min((i + 1) * IN_CHUNK, tickers.length), tickers.length);
   }
   return newest;
 }
@@ -513,6 +564,111 @@ export async function requestCoverage(
     { onConflict: "user_id,ticker" },
   );
   if (error) throw new ApiError(500, error.message);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Local backend scan trigger — POST /scan via the `/api/*` dev-only rewrite
+ * (next.config.ts) to the FastAPI server on :8000 (scripts/run_local.sh).
+ * Not available on the deployed static site — only meaningful when both the
+ * Next dev server and the local Python backend are running side by side.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export interface ScanOutcome {
+  ticker: string;
+  ok: boolean;
+  published: boolean;
+  reason: string | null;
+}
+
+export interface ScanResponse {
+  symbolsTotal: number;
+  symbolsOk: number;
+  symbolsFailed: number;
+  symbolsPublished: number;
+  dryRun: boolean;
+  trigger: string;
+  elapsedSeconds: number;
+  outcomes: ScanOutcome[];
+}
+
+interface ScanResponseRow {
+  symbols_total: number;
+  symbols_ok: number;
+  symbols_failed: number;
+  symbols_published: number;
+  dry_run: boolean;
+  trigger: string;
+  elapsed_seconds: number;
+  outcomes: ScanOutcome[];
+}
+
+/** Mirrors `signals_app.config.MAX_MANUAL_SCAN_SYMBOLS` — kept in sync by
+ * hand since the frontend has no import path into the Python package. */
+export const MAX_MANUAL_SCAN_SYMBOLS = 100;
+
+export interface TriggerScanOpts {
+  period?: string;
+  dryRun?: boolean;
+  computeMatrix?: boolean;
+}
+
+/**
+ * Trigger a real, synchronous scan for `tickers` against the local backend
+ * (`POST /api/scan` -> FastAPI `POST /scan` -> `signals_app.service.scan`,
+ * `trigger="manual"`). Publishes straight to Supabase on success, so a
+ * subsequent `runUniverse` read picks up fresh rows.
+ *
+ * @throws ApiError(503) if the local backend isn't reachable — the caller
+ *   should tell the user to start `scripts/run_local.sh`.
+ * @throws ApiError with the backend's own status/detail for a validation or
+ *   upstream failure (bad period, no Supabase writer configured, etc).
+ */
+export async function triggerUniverseScan(
+  tickers: string[],
+  opts: TriggerScanOpts = {},
+): Promise<ScanResponse> {
+  if (tickers.length === 0) {
+    throw new ApiError(400, "No tickers to scan");
+  }
+  let res: Response;
+  try {
+    res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbols: tickers,
+        period: opts.period,
+        dry_run: opts.dryRun ?? false,
+        compute_matrix: opts.computeMatrix ?? false,
+      }),
+    });
+  } catch {
+    throw new ApiError(
+      503,
+      "Local backend not reachable at /api/scan — start it with " +
+        "`scripts/run_local.sh` (needs `next dev`, not the static export).",
+    );
+  }
+  const body = (await res.json().catch(() => null)) as
+    | ScanResponseRow
+    | { detail?: string }
+    | null;
+  if (!res.ok) {
+    const detail =
+      body && "detail" in body && body.detail ? body.detail : res.statusText;
+    throw new ApiError(res.status, `Scan failed: ${detail}`);
+  }
+  const row = body as ScanResponseRow;
+  return {
+    symbolsTotal: row.symbols_total,
+    symbolsOk: row.symbols_ok,
+    symbolsFailed: row.symbols_failed,
+    symbolsPublished: row.symbols_published,
+    dryRun: row.dry_run,
+    trigger: row.trigger,
+    elapsedSeconds: row.elapsed_seconds,
+    outcomes: row.outcomes,
+  };
 }
 
 /**
