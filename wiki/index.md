@@ -31,6 +31,7 @@
 - [2026-06-28 — SQLite Persistence (Neon-Ready)](decisions/2026-06-28-sqlite-persistence.md)
 - [2026-06-28 — GitHub Pages Deploy](decisions/2026-06-28-github-pages-deploy.md)
 - [2026-08-30 — `service.py` seam + `signals` CLI](decisions/2026-08-30-service-seam-and-cli.md)
+- [2026-09-23 — Learned scorer (plan P2–P7)](decisions/2026-09-23-learned-scorer-p2-p7.md) — family confluence, logistic model, rank + calibrated probability, EV gate, retrain + drift
 
 ## Ops
 

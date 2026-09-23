@@ -24,7 +24,7 @@ import subprocess
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -45,12 +45,25 @@ from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
 from signals_app.indicators.data_quality import score_data_quality
 from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase
-from signals_app.scoring.confluence import ConfluenceRanker
+from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
+from signals_app.scoring.features import build_feature_row, continuous_features_frame
+from signals_app.scoring.model import LogisticScorer, confidence_label, load_active_scorer
+from signals_app.scoring.probability import rank_pct as compute_rank_pct
+from signals_app.scoring.regime import current_regime
 from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES
 
 logger = logging.getLogger(__name__)
 
 MAX_CONCURRENT_FETCHES = 4
+
+# Interim gate (plan §8): independent families agreeing, in place of a raw signal
+# count that a single fan-out detector could satisfy alone.
+PUBLISH_MIN_FAMILIES = 2
+
+# EV gate (plan §8): expected excess return must clear a flat round-trip cost.
+EST_ROUND_TRIP_COST = 0.0010  # 10 bps
+BENCHMARK_SYMBOL = "SPY"
+MARKET_HISTORY_PERIOD = "2y"
 _PERIOD_TO_TIMEFRAME: dict[str, str] = {
     "1d": "1D", "5d": "5D", "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1Y",
 }
@@ -69,6 +82,8 @@ class SymbolResult:
     ok: bool
     published: bool
     reason: str | None = None  # why it wasn't published, or the error
+    p_outperform: float | None = None
+    rank_pct: float | None = None
 
 
 # Repo root — two levels up from src/signals_app/scanner.py. Used only to run
@@ -123,6 +138,7 @@ def passes_publication_gate(
     confluence_score: float,
     ai_degraded: bool,
     direction: str | None = None,
+    agreeing_families: int | None = None,
 ) -> bool:
     """The publication gate — see config.py's PUBLISH_MIN_* constants and
     docs/backend-state-and-supabase-plan.md Part 3 §3 ("Selective").
@@ -135,12 +151,19 @@ def passes_publication_gate(
             direction publishes, matching current behavior. "bullish"
             requires confluence_score to clear the threshold on the positive
             side only; "bearish" requires it on the negative side only.
+        agreeing_families: When given (family-based scoring), replaces the raw
+            ``total_signals`` floor with "at least PUBLISH_MIN_FAMILIES
+            independent families agree" — a signal count is satisfiable by one
+            detector's fan-out, a family count is not.
     """
     if direction not in (None, "bullish", "bearish"):
         raise ValueError(f"direction must be None, 'bullish', or 'bearish', got {direction!r}")
     if data_quality_score is None or data_quality_score < PUBLISH_MIN_DATA_QUALITY:
         return False
-    if total_signals < PUBLISH_MIN_SIGNALS:
+    if agreeing_families is not None:
+        if agreeing_families < PUBLISH_MIN_FAMILIES:
+            return False
+    elif total_signals < PUBLISH_MIN_SIGNALS:
         return False
     if direction == "bullish":
         if confluence_score < PUBLISH_MIN_CONFLUENCE_SCORE:
@@ -222,25 +245,138 @@ def build_matrix_for_symbol(ticker: str, settings: Any) -> dict[str, Any] | None
     return matrix.model_dump(mode="json")  # type: ignore[no-any-return]
 
 
-def scan_one_symbol(
-    ticker: str,
-    period: str,
-    writer: SignalWriter | None,
-    run: EngineRun | None,
-    settings: Any,
-    dry_run: bool,
-    strength_hit_rates: dict[str, float] | None = None,
-    compute_matrix: bool = False,
+def passes_ev_gate(
+    data_quality_score: float | None,
+    p_outperform: float,
+    expected_excess: float | None,
+    delta: float,
     direction: str | None = None,
-) -> SymbolResult:
-    """Run L1-L4 for one ticker, gate, optionally synthesize + persist.
+    est_cost: float = EST_ROUND_TRIP_COST,
+) -> bool:
+    """Expected-value publication gate for the learned scorer (plan §8).
 
-    Never raises — every failure mode is caught and returned as a
-    SymbolResult so scan_universe() can tally without aborting the run.
+    Publishes when the calibrated probability is at least ``delta`` from a coin
+    flip, the expected excess return points the same way and exceeds the
+    round-trip cost, and the data is good enough.
 
     Args:
-        direction: Forwarded to passes_publication_gate() — None gates both
-            directions (default), "bullish"/"bearish" gates one side only.
+        delta: Minimum |p - 0.5|; set at training time to hit the target
+            publish rate (``LogisticScorer.publish_delta``).
+        direction: None gates both sides; "bullish"/"bearish" one side only.
+        est_cost: Flat round-trip cost as a return fraction.
+    """
+    if direction not in (None, "bullish", "bearish"):
+        raise ValueError(f"direction must be None, 'bullish', or 'bearish', got {direction!r}")
+    if data_quality_score is None or data_quality_score < PUBLISH_MIN_DATA_QUALITY:
+        return False
+    if expected_excess is None or expected_excess != expected_excess:
+        return False
+    edge = p_outperform - 0.5
+    if abs(edge) < delta:
+        return False
+    if edge * expected_excess <= 0 or abs(expected_excess) <= est_cost:
+        return False
+    if direction == "bullish":
+        return edge > 0
+    if direction == "bearish":
+        return edge < 0
+    return True
+
+
+@dataclass(frozen=True)
+class MarketContext:
+    """Benchmark data shared by every symbol in a scan run (fetched once)."""
+
+    regime: str | None
+    benchmark_close: Any | None
+
+
+def load_market_context(settings: Any) -> MarketContext:
+    """Fetch the benchmark once and label today's regime.
+
+    Never raises: with no benchmark the model still scores, with the regime
+    indicators zeroed and relative-strength imputed.
+    """
+    try:
+        bench = DataFetcher(settings=settings).fetch_daily_history(BENCHMARK_SYMBOL, MARKET_HISTORY_PERIOD)
+        return MarketContext(regime=current_regime(bench), benchmark_close=bench["Close"])
+    except Exception as exc:  # noqa: BLE001 — market context is optional
+        logger.warning("market context unavailable (%s) — scoring without regime", exc)
+        return MarketContext(regime=None, benchmark_close=None)
+
+
+@dataclass(frozen=True)
+class ModelScore:
+    """The learned scorer's verdict on one symbol."""
+
+    raw_p: float
+    p_outperform: float
+    expected_excess: float | None
+    confidence_label: str
+    drivers: list[dict[str, Any]]
+    model_version: str
+    rank_pct: float | None = None
+
+
+@dataclass
+class ScoredSymbol:
+    """Everything phase one (score) hands to phase two (rank, gate, publish)."""
+
+    ticker: str
+    period: str
+    bar_ts: str
+    signal_list: Any
+    confluence: ConfluenceResult
+    data_quality: Any
+    indicator_snapshot: dict[str, float]
+    model: ModelScore | None = None
+
+
+_LLM_INDICATOR_COLUMNS = ("RSI", "MACD", "ADX", "Close", "ATR", "Price_Change")
+
+
+def _snapshot(current: Any) -> dict[str, float]:
+    snapshot: dict[str, float] = {}
+    for col in _LLM_INDICATOR_COLUMNS:
+        try:
+            v = float(current[col])
+        except Exception:  # noqa: BLE001 — a missing column just isn't reported
+            continue
+        if v == v and abs(v) != float("inf"):  # not NaN/inf
+            snapshot[col.lower()] = round(v, 4)
+    return snapshot
+
+
+def _model_score(
+    scorer: LogisticScorer, df: Any, signal_list: Any, market: MarketContext
+) -> ModelScore:
+    continuous = continuous_features_frame(df, market.benchmark_close).iloc[-1]
+    row = build_feature_row(list(signal_list), continuous, market.regime)
+    X = scorer.matrix([row])
+    raw = float(scorer.raw_proba(X)[0])
+    p = float(scorer.predict_proba(X)[0])
+    excess = float(scorer.expected_excess(X)[0])
+    return ModelScore(
+        raw_p=raw,
+        p_outperform=p,
+        expected_excess=None if excess != excess else excess,
+        confidence_label=confidence_label(p, scorer.analog_support(raw)),
+        drivers=scorer.drivers(X[0]),
+        model_version=scorer.model_version,
+    )
+
+
+def score_symbol(
+    ticker: str,
+    period: str,
+    settings: Any,
+    strength_hit_rates: dict[str, float] | None = None,
+    scorer: LogisticScorer | None = None,
+    market: MarketContext | None = None,
+) -> ScoredSymbol | SymbolResult:
+    """Phase one: fetch -> indicators -> detect -> confluence (-> model score).
+
+    Never raises. Returns a failed SymbolResult when the symbol cannot be scored.
     """
     try:
         fetcher = DataFetcher(settings=settings)
@@ -251,23 +387,70 @@ def scan_one_symbol(
         data_quality = score_data_quality(ohlcv.df, period)
         df = compute_indicators(ohlcv.df)
         signal_list = detect_all_signals(df)
+        confluence = ConfluenceRanker().rank_signals(
+            list(signal_list), strength_hit_rates=strength_hit_rates
+        )
+        model = (
+            _model_score(scorer, df, signal_list, market or MarketContext(None, None))
+            if scorer is not None
+            else None
+        )
+        return ScoredSymbol(
+            ticker=ticker,
+            period=period,
+            bar_ts=df.index[-1].isoformat(),
+            signal_list=signal_list,
+            confluence=confluence,
+            data_quality=data_quality,
+            indicator_snapshot=_snapshot(df.iloc[-1]),
+            model=model,
+        )
+    except Exception as exc:  # noqa: BLE001 — per-symbol isolation
+        logger.warning("scan_universe: %s failed: %s", ticker, exc)
+        return SymbolResult(ticker, ok=False, published=False, reason=str(exc))
 
-        ranker = ConfluenceRanker()
-        confluence = ranker.rank_signals(list(signal_list), strength_hit_rates=strength_hit_rates)
 
-        bar_ts = df.index[-1].isoformat()
+def _format_drivers(drivers: list[dict[str, Any]]) -> str:
+    return ", ".join(f"{d['feature']} ({d['contribution']:+.2f})" for d in drivers)
 
+
+def publish_symbol(
+    scored: ScoredSymbol,
+    writer: SignalWriter | None,
+    run: EngineRun | None,
+    settings: Any,
+    dry_run: bool,
+    compute_matrix: bool = False,
+    direction: str | None = None,
+    delta: float | None = None,
+) -> SymbolResult:
+    """Phase two: persist detector hits, gate, optionally synthesize + persist.
+
+    Never raises. ``delta`` is the EV gate's edge threshold; it is only used
+    when ``scored.model`` is present.
+    """
+    ticker, period, confluence, model = scored.ticker, scored.period, scored.confluence, scored.model
+    p_out = model.p_outperform if model else None
+    rank = model.rank_pct if model else None
+    try:
         if writer is not None and not dry_run:
             # symbols is the FK target for both detector_hits and signals —
             # must exist first for tickers scanned outside the seeded universe.
             writer.ensure_symbol(ticker)
-            writer.write_detector_hits(ticker, bar_ts, list(signal_list))
+            writer.write_detector_hits(ticker, scored.bar_ts, list(scored.signal_list))
 
-        if not passes_publication_gate(
-            data_quality.score, len(signal_list), confluence.score, signal_list.degraded,
-            direction=direction,
-        ):
-            return SymbolResult(ticker, ok=True, published=False, reason="gated")
+        if model is not None:
+            cleared = passes_ev_gate(
+                scored.data_quality.score, model.p_outperform, model.expected_excess,
+                delta if delta is not None else 0.03, direction=direction,
+            )
+        else:
+            cleared = passes_publication_gate(
+                scored.data_quality.score, len(scored.signal_list), confluence.score,
+                scored.signal_list.degraded, direction=direction,
+            )
+        if not cleared:
+            return SymbolResult(ticker, ok=True, published=False, reason="gated", p_outperform=p_out, rank_pct=rank)
 
         # Only symbols that cleared the gate pay for LLM synthesis.
         ai_direction: str | None = None
@@ -281,7 +464,6 @@ def scan_one_symbol(
             from signals_app.synthesis.mtf_llm import synthesize_single
 
             timeframe = _PERIOD_TO_TIMEFRAME.get(period, "1D")
-            current = df.iloc[-1]
             features: dict[str, Any] = {
                 "symbol": ticker,
                 "period": period,
@@ -290,15 +472,15 @@ def scan_one_symbol(
                 "action": confluence.action,
                 "bull_count": confluence.bull_count,
                 "bear_count": confluence.bear_count,
-                "total_signals": len(signal_list),
+                "total_signals": len(scored.signal_list),
+                **scored.indicator_snapshot,
             }
-            for col in ["RSI", "MACD", "ADX", "Close", "ATR", "Price_Change"]:
-                try:
-                    v = float(current[col])
-                    if v == v and abs(v) != float("inf"):  # not NaN/inf
-                        features[col.lower()] = round(v, 4)
-                except Exception:
-                    pass
+            if model is not None:
+                # The narrative should explain the model's actual reasons, not a
+                # list of unanimous detectors (plan §8).
+                features["p_outperform"] = round(model.p_outperform, 3)
+                features["rank_pct"] = model.rank_pct
+                features["model_drivers"] = _format_drivers(model.drivers)
 
             signal = synthesize_single(
                 ticker=ticker, timeframe=timeframe, features=features, settings=settings,
@@ -307,27 +489,23 @@ def scan_one_symbol(
             confidence = signal.confidence
             ai_degraded = signal.ai_degraded
             prompt_version = signal.prompt_version
-            evidence = [
-                e.model_dump(mode="json") for e in signal.evidence.items if not e.is_counter
-            ]
-            counter_evidence = [
-                e.model_dump(mode="json") for e in signal.evidence.items if e.is_counter
-            ]
+            evidence = [e.model_dump(mode="json") for e in signal.evidence.items if not e.is_counter]
+            counter_evidence = [e.model_dump(mode="json") for e in signal.evidence.items if e.is_counter]
 
             matrix: dict[str, Any] | None = None
             if compute_matrix:
                 try:
                     matrix = build_matrix_for_symbol(ticker, settings)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     logger.warning("matrix: %s failed, publishing without it: %s", ticker, exc)
 
             record = confluence_result_to_signal_record(
                 ticker=ticker,
                 period=period,
-                bar_ts=bar_ts,
+                bar_ts=scored.bar_ts,
                 confluence=confluence,
-                data_quality_score=data_quality.score,
-                data_quality_reasons=data_quality.reasons,
+                data_quality_score=scored.data_quality.score,
+                data_quality_reasons=scored.data_quality.reasons,
                 direction=ai_direction,
                 confidence=confidence,
                 evidence=evidence,
@@ -336,15 +514,96 @@ def scan_one_symbol(
                 ai_degraded=ai_degraded,
                 no_llm=False,
                 prompt_version=prompt_version,
+                rank_pct=rank,
+                p_outperform=p_out,
+                expected_excess=model.expected_excess if model else None,
+                model_version=model.model_version if model else None,
             )
             if writer is not None and run is not None:
                 writer.write_signal(run, record)
 
-        return SymbolResult(ticker, ok=True, published=True)
+        return SymbolResult(ticker, ok=True, published=True, p_outperform=p_out, rank_pct=rank)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — per-symbol isolation
         logger.warning("scan_universe: %s failed: %s", ticker, exc)
         return SymbolResult(ticker, ok=False, published=False, reason=str(exc))
+
+
+def scan_one_symbol(
+    ticker: str,
+    period: str,
+    writer: SignalWriter | None,
+    run: EngineRun | None,
+    settings: Any,
+    dry_run: bool,
+    strength_hit_rates: dict[str, float] | None = None,
+    compute_matrix: bool = False,
+    direction: str | None = None,
+) -> SymbolResult:
+    """Run L1-L4 for one ticker, gate, optionally synthesize + persist.
+
+    The legacy single-symbol path (no learned scorer, no cross-sectional rank):
+    ``score_symbol`` then ``publish_symbol``. Never raises — every failure mode
+    is returned as a SymbolResult so scan_universe() can tally without aborting.
+
+    Args:
+        direction: Forwarded to passes_publication_gate() — None gates both
+            directions (default), "bullish"/"bearish" gates one side only.
+    """
+    scored = score_symbol(ticker, period, settings, strength_hit_rates)
+    if isinstance(scored, SymbolResult):
+        return scored
+    return publish_symbol(scored, writer, run, settings, dry_run, compute_matrix, direction)
+
+
+def _scan_with_model(
+    symbols: list[str],
+    period: str,
+    writer: SignalWriter | None,
+    run: EngineRun | None,
+    settings: Any,
+    dry_run: bool,
+    strength_hit_rates: dict[str, float] | None,
+    compute_matrix: bool,
+    direction: str | None,
+    max_concurrent: int,
+    scorer: LogisticScorer,
+    record: Callable[[SymbolResult], None],
+) -> None:
+    """Score every symbol, rank the run cross-sectionally, then gate + publish.
+
+    ``rank_pct`` needs every score before any row is written (plan §4), so the
+    scan splits into: score all -> rank -> gate/synthesize/persist.
+    """
+    market = load_market_context(settings)
+    scored: list[ScoredSymbol] = []
+
+    with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
+        futures = [
+            pool.submit(score_symbol, t, period, settings, strength_hit_rates, scorer, market)
+            for t in symbols
+        ]
+        for future in as_completed(futures):
+            outcome = future.result()
+            if isinstance(outcome, SymbolResult):
+                record(outcome)
+            else:
+                scored.append(outcome)
+
+    ranks = compute_rank_pct({s.ticker: s.model.raw_p for s in scored if s.model is not None})
+    ranked = [
+        replace(s, model=replace(s.model, rank_pct=ranks.get(s.ticker))) if s.model else s
+        for s in scored
+    ]
+
+    delta = scorer.publish_delta()
+    with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
+        futures = [
+            pool.submit(publish_symbol, s, writer, run, settings, dry_run, compute_matrix, direction, delta)
+            for s in ranked
+        ]
+        for future in as_completed(futures):
+            record(future.result())
 
 
 def scan_universe(
@@ -395,25 +654,34 @@ def scan_universe(
 
     results: list[SymbolResult] = []
     started = time.perf_counter()
+    total = len(symbols)
 
-    with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
-        futures = {
-            pool.submit(
-                scan_one_symbol,
-                t, period, writer, run, settings, dry_run, strength_hit_rates,
-                compute_matrix, direction,
-            ): t
-            for t in symbols
-        }
-        total = len(futures)
-        for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
-            if progress is not None:
-                try:
-                    progress(len(results), total, result)
-                except Exception as exc:  # noqa: BLE001 — progress must never abort a scan
-                    logger.warning("scan progress callback raised: %s", exc)
+    def _record(result: SymbolResult) -> None:
+        results.append(result)
+        if progress is not None:
+            try:
+                progress(len(results), total, result)
+            except Exception as exc:  # noqa: BLE001 — progress must never abort a scan
+                logger.warning("scan progress callback raised: %s", exc)
+
+    scorer = load_active_scorer()
+    if scorer is None:
+        with ThreadPoolExecutor(max_workers=max_concurrent) as pool:
+            futures = {
+                pool.submit(
+                    scan_one_symbol,
+                    t, period, writer, run, settings, dry_run, strength_hit_rates,
+                    compute_matrix, direction,
+                ): t
+                for t in symbols
+            }
+            for future in as_completed(futures):
+                _record(future.result())
+    else:
+        _scan_with_model(
+            symbols, period, writer, run, settings, dry_run, strength_hit_rates,
+            compute_matrix, direction, max_concurrent, scorer, _record,
+        )
 
     ok = sum(1 for r in results if r.ok)
     published = sum(1 for r in results if r.published)

@@ -191,6 +191,10 @@ class SignalOutput(BaseModel):
             signal (provenance) — independent of schema_version.
         data_quality_score: 0.0-1.0 guard on the input OHLCV, None if not computed.
         data_quality_reasons: Which checks lowered data_quality_score, if any.
+        rank_pct: Cross-sectional percentile (0-100) within the scan run; None
+            when no learned scorer was active.
+        p_outperform: Calibrated P(excess return > 0); None without a scorer.
+        model_version: Which scorer produced rank_pct / p_outperform.
     """
 
     ticker: str
@@ -201,6 +205,15 @@ class SignalOutput(BaseModel):
     code_version: str | None = None
     data_quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     data_quality_reasons: list[str] = Field(default_factory=list)
+    rank_pct: float | None = Field(
+        default=None, ge=0.0, le=100.0,
+        description="Percentile of the model score within the scan run; cannot saturate.",
+    )
+    p_outperform: float | None = Field(
+        default=None, ge=0.0, le=1.0,
+        description="Calibrated probability that excess return over the benchmark is > 0.",
+    )
+    model_version: str | None = None
 
 
 def alignment_score(signals: list[Signal]) -> float:

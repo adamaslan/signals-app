@@ -323,3 +323,18 @@ The six-item list is a set of **patches to a formula**. This plan changes the **
 - It uses **the data already on disk**, so learned weights arrive in weeks, not after months of live collection.
 
 The harness in P0 decides whether the target was hit, and no one has to take it on trust.
+
+---
+
+## 12. Implementation status (2026-09-23)
+
+P-1, P0 and P1 shipped in #29. P2–P7 are implemented as code + tests; **none of the ship criteria have been demonstrated on the full universe**. See `wiki/decisions/2026-09-23-learned-scorer-p2-p7.md` for the file map.
+
+| Phase | Built | Not done / unverified |
+|---|---|---|
+| P2 | `FamilyConfluenceRanker`, regime gate | Thresholds (`FAMILY_*`) are untuned; "beats post-P-1 baseline IC" not measured |
+| P3 | Logistic rungs 1–2, purged walk-forward, holdout, ship-bar check, `scripts/train_scorer.py` | Rung 3 (LightGBM) not built; full-universe run not done; smoke runs on small samples missed the bar |
+| P4 | Isotonic calibrator, `rank_pct`, `p_outperform` in schema/DB, migration | Migration not applied to any database; reliability bar checked only in training |
+| P5 | Score → rank → gate/synthesize scan, EV gate, LLM drivers | δ targets a 40% publish rate on OOF data; live publish rate and LLM-call count unmeasured; drivers are linear contributions, not SHAP |
+| P6 | Interval resampling, stacking features, OOF stack dataset, comparison test | Live scan does not use per-interval models or the meta-model |
+| P7 | Weekly workflow, model + IC-history tables, drift alert | Workflow never run; live IC uses only published names (range-restricted) |

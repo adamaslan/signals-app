@@ -70,6 +70,10 @@ class SignalRecord:
     no_llm: bool = False
     prompt_version: str | None = None
     llm_model: str | None = None
+    rank_pct: float | None = None
+    p_outperform: float | None = None
+    expected_excess: float | None = None
+    model_version: str | None = None
 
 
 class SignalWriter(Protocol):
@@ -189,10 +193,20 @@ class SupabaseWriter:
 
     def write_signal(self, run: EngineRun, record: SignalRecord) -> None:
         """Upsert a `signals` row. Idempotent on (ticker, period, bar_ts, code_version)."""
+        # Model-derived columns exist only after the 20260923 migration; omit them
+        # when unset so legacy (no learned scorer) scans keep writing on an
+        # un-migrated database.
+        model_columns = {
+            "rank_pct": record.rank_pct,
+            "p_outperform": record.p_outperform,
+            "expected_excess": record.expected_excess,
+            "model_version": record.model_version,
+        }
         resp = self._client.post(
             "/signals?on_conflict=ticker,period,bar_ts,code_version",
             headers={"Prefer": "resolution=merge-duplicates,return=representation"},
             json={
+                **{k: v for k, v in model_columns.items() if v is not None},
                 "run_id": run.id,
                 "ticker": record.ticker,
                 "period": record.period,
@@ -264,6 +278,10 @@ def confluence_result_to_signal_record(
     no_llm: bool = False,
     prompt_version: str | None = None,
     llm_model: str | None = None,
+    rank_pct: float | None = None,
+    p_outperform: float | None = None,
+    expected_excess: float | None = None,
+    model_version: str | None = None,
 ) -> SignalRecord:
     """Build a SignalRecord from a ConfluenceResult plus optional synthesis output.
 
@@ -290,4 +308,8 @@ def confluence_result_to_signal_record(
         no_llm=no_llm,
         prompt_version=prompt_version,
         llm_model=llm_model,
+        rank_pct=rank_pct,
+        p_outperform=p_outperform,
+        expected_excess=expected_excess,
+        model_version=model_version,
     )

@@ -200,3 +200,20 @@ def detector_report_card(events: pd.DataFrame, base_rate: float | None = None) -
     card["lift"] = card["excess_hit"] - np.where(card["direction"] > 0, base_rate, 1.0 - base_rate)
     card = card[card["n"] >= MIN_FAMILY_SAMPLES]
     return card.sort_values("mean_dir_adj_excess").reset_index(drop=True)
+
+
+def ic_by_regime(panel: pd.DataFrame, regime_col: str = "regime") -> pd.DataFrame:
+    """Rank IC, t-stat and date count per market regime (plan §6).
+
+    A scorer with a good average but a negative IC in one regime should not ship
+    without a gate for that regime.
+    """
+    rows = []
+    for regime, group in panel.dropna(subset=[regime_col]).groupby(regime_col):
+        ics = daily_rank_ic(group)
+        n = len(ics)
+        mean_ic = float(ics.mean()) if n else math.nan
+        std_ic = float(ics.std(ddof=1)) if n > 1 else math.nan
+        t_stat = mean_ic / std_ic * math.sqrt(n) if n > 1 and std_ic > 0 else math.nan
+        rows.append({"regime": regime, "rank_ic": mean_ic, "ic_t_stat": t_stat, "n_dates": n})
+    return pd.DataFrame(rows, columns=["regime", "rank_ic", "ic_t_stat", "n_dates"])
