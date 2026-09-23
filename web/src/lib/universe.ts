@@ -148,10 +148,46 @@ export async function getUniverse(id: number): Promise<Universe | null> {
   return (await db.universes.get(id)) ?? null;
 }
 
-/** All universes, most-recently-updated first. */
+/** All universes: the auto-seeded default first, then the rest
+ * most-recently-updated first. */
 export async function listUniverses(): Promise<Universe[]> {
   if (!db) return [];
-  return db.universes.orderBy("updatedAt").reverse().toArray();
+  const all = await db.universes.orderBy("updatedAt").reverse().toArray();
+  all.sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+  return all;
+}
+
+/**
+ * Create the auto-seeded "All Symbols" universe from the full ticker list
+ * the scanner covers, if it doesn't already exist on this device. Safe to
+ * call on every app load — idempotent, and cheap once seeded.
+ */
+export async function ensureDefaultUniverse(): Promise<void> {
+  if (!db) return;
+  const existing = await db.universes.filter((u) => u.isDefault === true).first();
+  if (existing) return;
+  const { DEFAULT_UNIVERSE_NAME, DEFAULT_UNIVERSE_TICKERS } = await import(
+    "./defaultUniverseTickers"
+  );
+  // A same-named universe may already exist without being flagged default
+  // (e.g. the user made one by hand) — skip seeding rather than clash.
+  const nameTaken = (await db.universes.toArray()).some(
+    (u) => nameKey(u.name) === nameKey(DEFAULT_UNIVERSE_NAME),
+  );
+  if (nameTaken) return;
+  const now = Date.now();
+  await db.universes.add({
+    name: DEFAULT_UNIVERSE_NAME,
+    note: "Auto-seeded — every ticker the scanner covers.",
+    tickers: cleanTickerList(DEFAULT_UNIVERSE_TICKERS),
+    defaultPeriod: "3mo",
+    defaultNoLlm: false,
+    createdAt: now,
+    updatedAt: now,
+    revision: 1,
+    isDefault: true,
+    coverage: null,
+  });
 }
 
 export async function renameUniverse(id: number, name: string): Promise<void> {
@@ -264,6 +300,30 @@ export async function importTickersFromText(
     await mutateTickers(id, (cur) => [...cur, ...added]);
   }
   return { added, skipped, invalid };
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Admin — backtest history across every universe on this device. There is
+ * no separate account system; the single on-device profile (db.ts
+ * PROFILE_ID) is the "admin" this history belongs to.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export interface BacktestHistoryEntry extends UniverseBacktest {
+  universeName: string;
+}
+
+/** Every cached backtest across every universe, newest first. */
+export async function getBacktestHistory(): Promise<BacktestHistoryEntry[]> {
+  if (!db) return [];
+  const [backtests, universes] = await Promise.all([
+    db.universeBacktests.orderBy("ranAt").reverse().toArray(),
+    db.universes.toArray(),
+  ]);
+  const nameById = new Map(universes.map((u) => [u.id, u.name]));
+  return backtests.map((bt) => ({
+    ...bt,
+    universeName: nameById.get(bt.universeId) ?? "(deleted universe)",
+  }));
 }
 
 /* ────────────────────────────────────────────────────────────────────────

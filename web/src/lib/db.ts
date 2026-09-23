@@ -116,6 +116,9 @@ export interface Universe {
   updatedAt: number;
   /** Bumped on every membership change, so a run records what it ran against. */
   revision: number;
+  /** The auto-seeded full-ticker-list universe. Always sorted first in the
+   * list regardless of updatedAt; at most one row should ever have this set. */
+  isDefault?: boolean;
   /** Cached coverage check — which tickers the scanner actually has. */
   coverage: {
     checkedAt: number;

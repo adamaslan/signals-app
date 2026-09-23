@@ -165,6 +165,11 @@ export function UniverseListPanel() {
                 className="flex items-center justify-between"
               >
                 <div>
+                  {u.isDefault && (
+                    <span className="text-[11px] text-blue-400 mr-2">
+                      ★ default
+                    </span>
+                  )}
                   <span className="font-semibold text-white">{u.name}</span>
                   <span className="text-gray-500 text-sm ml-2">
                     {u.tickers.length} ticker
