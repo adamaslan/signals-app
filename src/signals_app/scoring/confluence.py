@@ -10,7 +10,7 @@ BUY/HOLD/SELL action recommendation before LLM synthesis.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 from signals_app.config import (
@@ -22,6 +22,8 @@ from signals_app.config import (
     SignalStrength,
 )
 from signals_app.detection.base import MutableSignal
+from signals_app.scoring.families import FAMILIES, family_of, is_bearish_extension_vote
+from signals_app.scoring.regime import TREND_UP
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,9 @@ class ConfluenceResult:
     bull_weight: float
     bear_weight: float
     max_weight: float
+    families: dict[str, float] = field(default_factory=dict)
+    agreeing_families: int = 0
+    regime: str | None = None
 
     def to_dict(self) -> dict:
         """Serialize to dictionary.
@@ -115,6 +120,9 @@ class ConfluenceResult:
             "bull_weight": self.bull_weight,
             "bear_weight": self.bear_weight,
             "max_weight": self.max_weight,
+            "families": self.families,
+            "agreeing_families": self.agreeing_families,
+            "regime": self.regime,
         }
 
 
@@ -268,4 +276,109 @@ class ConfluenceRanker:
             bull_weight=round(weighted_bull, 3),
             bear_weight=round(weighted_bear, 3),
             max_weight=round(max_weight, 3),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Family-based variant (docs/scoring-2x-plan.md P2)
+# ---------------------------------------------------------------------------
+
+# Per-family pseudo-count: one lone vote of weight 1 gives a family net of
+# 1 / (1 + K) rather than saturating at +/-1.
+FAMILY_PSEUDO_COUNT: Final[float] = 1.5
+
+# |family net| a family must reach to count as taking a side.
+FAMILY_SIDE_MIN_NET: Final[float] = 0.15
+
+# BUY / SELL need at least this many families on the same side and no more
+# than FAMILY_MAX_OPPOSING on the other (plan §0.4 item 4).
+FAMILY_MIN_AGREEING: Final[int] = 3
+FAMILY_MAX_OPPOSING: Final[int] = 1
+
+# Thresholds on the mean family net. Starting values, NOT yet tuned on the
+# evaluation harness (plan P2 ship criterion is beating the post-P-1 baseline).
+FAMILY_BUY_THRESHOLD: Final[float] = 0.20
+FAMILY_SELL_THRESHOLD: Final[float] = -0.20
+
+
+class FamilyConfluenceRanker:
+    """Confluence over independent signal *families*, with a regime gate.
+
+    Each family's votes collapse into one net in (-1, 1); the score is the mean
+    net over all families (a silent family counts as 0). BUY / SELL require
+    agreement across several families, so a single fan-out detector can no
+    longer carry a call by itself. In an uptrend, bearish "overbought /
+    extended" votes are zeroed (they were anti-predictive there, plan §0.4).
+
+    Same output type as ``ConfluenceRanker`` so the two are interchangeable.
+    """
+
+    def rank_signals(
+        self,
+        signals: list[MutableSignal],
+        regime: str | None = None,
+    ) -> ConfluenceResult:
+        """Score signals by family.
+
+        Args:
+            signals: Detector output for one bar.
+            regime: Market regime label (see ``scoring.regime``). ``trend_up``
+                neutralises bearish extension votes; None disables the gate.
+
+        Returns:
+            ConfluenceResult with ``families`` (net per family) and
+            ``agreeing_families`` (largest same-side family count) populated.
+        """
+        bull = {f: 0.0 for f in FAMILIES}
+        bear = {f: 0.0 for f in FAMILIES}
+        bull_count = bear_count = neutral_count = 0
+
+        for signal in signals:
+            base_vote = _STRENGTH_BULL_WEIGHT.get(signal.strength, 0.0)
+            family = family_of(signal)
+            gated = regime == TREND_UP and is_bearish_extension_vote(signal)
+            if base_vote == 0.0 or family is None or gated:
+                neutral_count += 1
+                continue
+            vote = abs(base_vote) + _CATEGORY_BONUS.get(signal.category, 0.0)
+            if base_vote > 0:
+                bull[family] += vote
+                bull_count += 1
+            else:
+                bear[family] += vote
+                bear_count += 1
+
+        nets = {
+            f: (bull[f] - bear[f]) / (bull[f] + bear[f] + FAMILY_PSEUDO_COUNT) for f in FAMILIES
+        }
+        score = round(sum(nets.values()) / len(FAMILIES), 4)
+        bull_families = sum(1 for n in nets.values() if n >= FAMILY_SIDE_MIN_NET)
+        bear_families = sum(1 for n in nets.values() if n <= -FAMILY_SIDE_MIN_NET)
+
+        if score >= FAMILY_BUY_THRESHOLD and bull_families >= FAMILY_MIN_AGREEING and bear_families <= FAMILY_MAX_OPPOSING:
+            action = "BUY"
+        elif score <= FAMILY_SELL_THRESHOLD and bear_families >= FAMILY_MIN_AGREEING and bull_families <= FAMILY_MAX_OPPOSING:
+            action = "SELL"
+        else:
+            action = "HOLD"
+
+        bias = "bullish" if score >= 0.05 else "bearish" if score <= -0.05 else "neutral"
+        abs_score = abs(score)
+        confidence_label = "HIGH" if abs_score >= 0.35 else "MEDIUM" if abs_score >= 0.2 else "LOW"
+
+        return ConfluenceResult(
+            score=score,
+            bias=bias,
+            confidence_label=confidence_label,
+            action=action,
+            bull_count=bull_count,
+            bear_count=bear_count,
+            neutral_count=neutral_count,
+            total_signals=len(signals),
+            bull_weight=round(sum(bull.values()), 3),
+            bear_weight=round(sum(bear.values()), 3),
+            max_weight=round(sum(bull.values()) + sum(bear.values()), 3),
+            families={f: round(n, 4) for f, n in nets.items()},
+            agreeing_families=max(bull_families, bear_families),
+            regime=regime,
         )
