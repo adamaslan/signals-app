@@ -25,7 +25,13 @@ import {
   watchlistFromUniverse,
 } from "@/lib/universe";
 import { VALID_PERIODS } from "@/lib/types";
-import { requestCoverage, fetchMyCoverageRequests } from "@/lib/api";
+import {
+  requestCoverage,
+  fetchMyCoverageRequests,
+  triggerUniverseScan,
+  MAX_MANUAL_SCAN_SYMBOLS,
+  type ScanResponse,
+} from "@/lib/api";
 import { UniverseTable } from "./UniverseTable";
 import { UniverseHeatmap } from "./UniverseHeatmap";
 import { UniverseDriftView } from "./UniverseDriftView";
@@ -68,6 +74,8 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   const [paste, setPaste] = useState("");
   const [pasteResult, setPasteResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
   const [checkingCoverage, setCheckingCoverage] = useState(false);
   const [view, setView] = useState<"table" | "heatmap">("heatmap");
   const [err, setErr] = useState<string | null>(null);
@@ -133,6 +141,28 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
       setErr(e instanceof Error ? e.message : "run failed");
     } finally {
       setRunning(false);
+    }
+  }
+
+  /**
+   * Trigger a *real* scan — runs the production pipeline against the local
+   * backend (scripts/run_local.sh) instead of just reading whatever's
+   * already in Supabase. On success, immediately re-reads the basket so the
+   * newly-published signals show up without a second click.
+   */
+  async function handleTriggerScan() {
+    if (!universe) return;
+    setErr(null);
+    setScanResult(null);
+    setScanning(true);
+    try {
+      const result = await triggerUniverseScan(universe.tickers, { period });
+      setScanResult(result);
+      await runUniverse(universeId, { period });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "scan failed");
+    } finally {
+      setScanning(false);
     }
   }
 
@@ -377,20 +407,54 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
       </div>
 
       {/* Run */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleRun}
-          disabled={running || universe.tickers.length === 0}
-          className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white text-sm px-4 py-2 transition-colors"
-        >
-          {running ? "Running…" : `Run basket (${period})`}
-        </button>
-        {latestRun && (
-          <span className="text-xs text-gray-500">
-            last run {new Date(latestRun.startedAt).toLocaleString()} ·{" "}
-            {latestRun.status}
-          </span>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleRun}
+            disabled={running || universe.tickers.length === 0}
+            className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white text-sm px-4 py-2 transition-colors"
+            title="Read whatever the scanner has already published to Supabase"
+          >
+            {running ? "Running…" : `Run basket (${period})`}
+          </button>
+          <button
+            onClick={handleTriggerScan}
+            disabled={
+              scanning ||
+              universe.tickers.length === 0 ||
+              universe.tickers.length > MAX_MANUAL_SCAN_SYMBOLS
+            }
+            className="rounded-lg bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm px-4 py-2 transition-colors"
+            title="Compute fresh signals now via the local backend (scripts/run_local.sh), then re-read"
+          >
+            {scanning ? "Scanning…" : `Run real scan (${period})`}
+          </button>
+          {latestRun && (
+            <span className="text-xs text-gray-500">
+              last run {new Date(latestRun.startedAt).toLocaleString()} ·{" "}
+              {latestRun.status}
+            </span>
+          )}
+        </div>
+        {universe.tickers.length > MAX_MANUAL_SCAN_SYMBOLS && (
+          <p className="text-xs text-amber-500">
+            Real scan is capped at {MAX_MANUAL_SCAN_SYMBOLS} tickers per
+            trigger — this basket has {universe.tickers.length}. Split it or
+            use the scheduled full-universe scan instead.
+          </p>
         )}
+        {scanResult && (
+          <p className="text-xs text-gray-400">
+            scan: {scanResult.symbolsOk}/{scanResult.symbolsTotal} ok,{" "}
+            {scanResult.symbolsPublished} published,{" "}
+            {scanResult.symbolsFailed} failed · {scanResult.elapsedSeconds}s
+          </p>
+        )}
+        <p className="text-[11px] text-gray-600">
+          "Run real scan" requires the local backend running (
+          <code>scripts/run_local.sh</code>) alongside <code>next dev</code> —
+          it's not available on the deployed static site.
+        </p>
       </div>
 
       {/* Latest run */}

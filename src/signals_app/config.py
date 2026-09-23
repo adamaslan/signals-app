@@ -43,6 +43,11 @@ VALID_PERIODS: Final[tuple[str, ...]] = (
 MAX_RETRY_ATTEMPTS: Final[int] = 3
 RETRY_BACKOFF_SECONDS: Final[float] = 1.0
 
+# A manually-triggered scan (POST /scan, e.g. from the frontend's "Run real
+# scan" button) is capped well below the 954-ticker seed — a stray click
+# should never fan out into hundreds of yfinance fetches + LLM calls.
+MAX_MANUAL_SCAN_SYMBOLS: Final[int] = 100
+
 FETCH_BACKOFF_MIN_SECONDS: Final[float] = 1.0
 FETCH_BACKOFF_MAX_SECONDS: Final[float] = 10.0
 STALE_FALLBACK_HOURS: Final[int] = 24

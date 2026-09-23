@@ -9,6 +9,7 @@ GET /signals/{symbol}   — full L1–L5 pipeline for one symbol
 GET /history/{symbol}    — persisted run history for a ticker
 GET /backtest/{symbol}   — historical hit-rate backtest
 GET /health              — liveness probe
+POST /scan               — real universe scan, publishes to Supabase
 """
 from __future__ import annotations
 
@@ -16,11 +17,13 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from signals_app import service
 from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
+    MAX_MANUAL_SCAN_SYMBOLS,
     VALID_PERIODS,
 )
 from signals_app.schemas.signal_output import SignalOutput
@@ -187,5 +190,79 @@ async def get_backtest(
         "by_strength": [
             {"key": b.key, "hits": b.hits, "total": b.total, "hit_rate": round(b.hit_rate, 4)}
             for b in result.by_strength
+        ],
+    }
+
+
+class ScanRequest(BaseModel):
+    """Body for ``POST /scan`` — a manually-triggered real scan of a basket."""
+
+    symbols: list[str] = Field(
+        min_length=1,
+        max_length=MAX_MANUAL_SCAN_SYMBOLS,
+        description=f"Tickers to scan (1–{MAX_MANUAL_SCAN_SYMBOLS}).",
+    )
+    period: str = DEFAULT_PERIOD
+    dry_run: bool = False
+    compute_matrix: bool = False
+
+
+@router.post(
+    "/scan",
+    summary="Trigger a real scan for a set of tickers",
+    description=(
+        "Runs the same production scan the GitHub Actions workflow runs "
+        "(fetch → detect → confluence gate → LLM synthesis → publish), but "
+        "synchronously over an explicit ticker list, `trigger='manual'`. "
+        "Writes publishable signals straight to Supabase — the frontend's "
+        "existing 'run basket' read then sees fresh rows. Requires "
+        "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY on the server unless "
+        "dry_run is set."
+    ),
+)
+async def post_scan(body: ScanRequest) -> dict[str, Any]:
+    """Run a real, synchronous scan over ``body.symbols`` and publish results.
+
+    Args:
+        body: Tickers plus scan options. Capped at
+            ``MAX_MANUAL_SCAN_SYMBOLS`` — a manual trigger is meant for a
+            basket, not the full seed universe (use the scheduled/sharded
+            GitHub Actions workflow for that).
+
+    Returns:
+        A dict mirroring :class:`signals_app.service.ScanResult`, plus a
+        per-symbol ``outcomes`` list (ticker, ok, published, reason).
+
+    Raises:
+        HTTPException: 400 invalid period, 503 Supabase writer unavailable,
+            500 otherwise.
+    """
+    try:
+        result = await service.scan(
+            symbols=body.symbols,
+            period=body.period,
+            dry_run=body.dry_run,
+            trigger="manual",
+            compute_matrix=body.compute_matrix,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _raise_http(exc) from exc
+
+    return {
+        "symbols_total": result.symbols_total,
+        "symbols_ok": result.symbols_ok,
+        "symbols_failed": result.symbols_failed,
+        "symbols_published": result.symbols_published,
+        "dry_run": result.dry_run,
+        "trigger": result.trigger,
+        "elapsed_seconds": round(result.elapsed_seconds, 2),
+        "outcomes": [
+            {
+                "ticker": o.ticker,
+                "ok": o.ok,
+                "published": o.published,
+                "reason": o.reason,
+            }
+            for o in result.outcomes
         ],
     }

@@ -515,6 +515,111 @@ export async function requestCoverage(
   if (error) throw new ApiError(500, error.message);
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+ * Local backend scan trigger — POST /scan via the `/api/*` dev-only rewrite
+ * (next.config.ts) to the FastAPI server on :8000 (scripts/run_local.sh).
+ * Not available on the deployed static site — only meaningful when both the
+ * Next dev server and the local Python backend are running side by side.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export interface ScanOutcome {
+  ticker: string;
+  ok: boolean;
+  published: boolean;
+  reason: string | null;
+}
+
+export interface ScanResponse {
+  symbolsTotal: number;
+  symbolsOk: number;
+  symbolsFailed: number;
+  symbolsPublished: number;
+  dryRun: boolean;
+  trigger: string;
+  elapsedSeconds: number;
+  outcomes: ScanOutcome[];
+}
+
+interface ScanResponseRow {
+  symbols_total: number;
+  symbols_ok: number;
+  symbols_failed: number;
+  symbols_published: number;
+  dry_run: boolean;
+  trigger: string;
+  elapsed_seconds: number;
+  outcomes: ScanOutcome[];
+}
+
+/** Mirrors `signals_app.config.MAX_MANUAL_SCAN_SYMBOLS` — kept in sync by
+ * hand since the frontend has no import path into the Python package. */
+export const MAX_MANUAL_SCAN_SYMBOLS = 100;
+
+export interface TriggerScanOpts {
+  period?: string;
+  dryRun?: boolean;
+  computeMatrix?: boolean;
+}
+
+/**
+ * Trigger a real, synchronous scan for `tickers` against the local backend
+ * (`POST /api/scan` -> FastAPI `POST /scan` -> `signals_app.service.scan`,
+ * `trigger="manual"`). Publishes straight to Supabase on success, so a
+ * subsequent `runUniverse` read picks up fresh rows.
+ *
+ * @throws ApiError(503) if the local backend isn't reachable — the caller
+ *   should tell the user to start `scripts/run_local.sh`.
+ * @throws ApiError with the backend's own status/detail for a validation or
+ *   upstream failure (bad period, no Supabase writer configured, etc).
+ */
+export async function triggerUniverseScan(
+  tickers: string[],
+  opts: TriggerScanOpts = {},
+): Promise<ScanResponse> {
+  if (tickers.length === 0) {
+    throw new ApiError(400, "No tickers to scan");
+  }
+  let res: Response;
+  try {
+    res = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbols: tickers,
+        period: opts.period,
+        dry_run: opts.dryRun ?? false,
+        compute_matrix: opts.computeMatrix ?? false,
+      }),
+    });
+  } catch {
+    throw new ApiError(
+      503,
+      "Local backend not reachable at /api/scan — start it with " +
+        "`scripts/run_local.sh` (needs `next dev`, not the static export).",
+    );
+  }
+  const body = (await res.json().catch(() => null)) as
+    | ScanResponseRow
+    | { detail?: string }
+    | null;
+  if (!res.ok) {
+    const detail =
+      body && "detail" in body && body.detail ? body.detail : res.statusText;
+    throw new ApiError(res.status, `Scan failed: ${detail}`);
+  }
+  const row = body as ScanResponseRow;
+  return {
+    symbolsTotal: row.symbols_total,
+    symbolsOk: row.symbols_ok,
+    symbolsFailed: row.symbols_failed,
+    symbolsPublished: row.symbols_published,
+    dryRun: row.dry_run,
+    trigger: row.trigger,
+    elapsedSeconds: row.elapsed_seconds,
+    outcomes: row.outcomes,
+  };
+}
+
 /**
  * Check whether Supabase is reachable and configured.
  *
