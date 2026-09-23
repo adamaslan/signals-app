@@ -110,6 +110,11 @@ class MultiRSIDetector:
         current = df.iloc[-1]
         prev = df.iloc[-2]
 
+        oversold: tuple[float, int, float] | None = None  # (level, period, rsi)
+        overbought: tuple[float, int, float] | None = None
+        cross_bull: tuple[int, float] | None = None
+        cross_bear: tuple[int, float] | None = None
+
         for period in RSI_PERIODS:
             col = f"RSI_{period}" if period != 14 else "RSI"
             if col not in current.index:
@@ -121,36 +126,51 @@ class MultiRSIDetector:
                 continue
 
             for os_lvl, ob_lvl in RSI_OS_OB_LEVELS:
-                if rsi < os_lvl:
-                    signals.append(MutableSignal(
-                        signal=f"RSI{period} OVERSOLD (<{os_lvl:.0f})",
-                        description=f"RSI({period}): {rsi:.1f}",
-                        strength=SignalStrength.BULLISH.value,
-                        category=SignalCategory.RSI.value,
-                    ))
-                elif rsi > ob_lvl:
-                    signals.append(MutableSignal(
-                        signal=f"RSI{period} OVERBOUGHT (>{ob_lvl:.0f})",
-                        description=f"RSI({period}): {rsi:.1f}",
-                        strength=SignalStrength.BEARISH.value,
-                        category=SignalCategory.RSI.value,
-                    ))
+                if rsi < os_lvl and (oversold is None or os_lvl < oversold[0]):
+                    oversold = (os_lvl, period, rsi)
+                elif rsi > ob_lvl and (overbought is None or ob_lvl > overbought[0]):
+                    overbought = (ob_lvl, period, rsi)
 
             if prev_rsi is not None:
-                if prev_rsi < 50 <= rsi:
-                    signals.append(MutableSignal(
-                        signal=f"RSI{period} CROSSED 50 BULL",
-                        description=f"RSI({period}) crossed above 50: {rsi:.1f}",
-                        strength=SignalStrength.BULLISH.value,
-                        category=SignalCategory.RSI.value,
-                    ))
-                elif prev_rsi > 50 >= rsi:
-                    signals.append(MutableSignal(
-                        signal=f"RSI{period} CROSSED 50 BEAR",
-                        description=f"RSI({period}) crossed below 50: {rsi:.1f}",
-                        strength=SignalStrength.BEARISH.value,
-                        category=SignalCategory.RSI.value,
-                    ))
+                if prev_rsi < 50 <= rsi and cross_bull is None:
+                    cross_bull = (period, rsi)
+                elif prev_rsi > 50 >= rsi and cross_bear is None:
+                    cross_bear = (period, rsi)
+
+        # One vote per concept: the most extreme level reached, not one per
+        # (period, level) pair.
+        if oversold is not None:
+            lvl, period, rsi = oversold
+            signals.append(MutableSignal(
+                signal=f"RSI{period} OVERSOLD (<{lvl:.0f})",
+                description=f"RSI({period}): {rsi:.1f}",
+                strength=SignalStrength.BULLISH.value,
+                category=SignalCategory.RSI.value,
+            ))
+        if overbought is not None:
+            lvl, period, rsi = overbought
+            signals.append(MutableSignal(
+                signal=f"RSI{period} OVERBOUGHT (>{lvl:.0f})",
+                description=f"RSI({period}): {rsi:.1f}",
+                strength=SignalStrength.BEARISH.value,
+                category=SignalCategory.RSI.value,
+            ))
+        if cross_bull is not None:
+            period, rsi = cross_bull
+            signals.append(MutableSignal(
+                signal=f"RSI{period} CROSSED 50 BULL",
+                description=f"RSI({period}) crossed above 50: {rsi:.1f}",
+                strength=SignalStrength.BULLISH.value,
+                category=SignalCategory.RSI.value,
+            ))
+        if cross_bear is not None:
+            period, rsi = cross_bear
+            signals.append(MutableSignal(
+                signal=f"RSI{period} CROSSED 50 BEAR",
+                description=f"RSI({period}) crossed below 50: {rsi:.1f}",
+                strength=SignalStrength.BEARISH.value,
+                category=SignalCategory.RSI.value,
+            ))
 
         return signals
 
@@ -247,7 +267,6 @@ class MultiMACDDetector:
             tag = f"_{fast}_{slow}_{sig}"
             macd_col = f"MACD{tag}"
             sig_col = f"MACD_Signal{tag}"
-            hist_col = f"MACD_Hist{tag}"
 
             if macd_col not in current.index or sig_col not in current.index:
                 continue
@@ -291,25 +310,6 @@ class MultiMACDDetector:
                     strength=SignalStrength.BEARISH.value,
                     category=SignalCategory.MACD.value,
                 ))
-
-            if hist_col in current.index:
-                hist = _sf(current[hist_col])
-                prev_hist = _sf(prev[hist_col])
-                if hist is not None and prev_hist is not None:
-                    if prev_hist <= 0 < hist:
-                        signals.append(MutableSignal(
-                            signal=f"{label} HIST BULL",
-                            description="MACD histogram turned positive",
-                            strength=SignalStrength.BULLISH.value,
-                            category=SignalCategory.MACD.value,
-                        ))
-                    elif prev_hist >= 0 > hist:
-                        signals.append(MutableSignal(
-                            signal=f"{label} HIST BEAR",
-                            description="MACD histogram turned negative",
-                            strength=SignalStrength.BEARISH.value,
-                            category=SignalCategory.MACD.value,
-                        ))
 
         return signals
 

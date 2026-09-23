@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Bumped whenever detection/scoring logic changes — provenance stamp on every
 # SignalOutput so two runs on identical data are distinguishable if the logic
 # that produced them differs. Independent of schema_version (wire format).
-SIGNALS_APP_CODE_VERSION: Final[str] = "signals-app@1.1.0"
+SIGNALS_APP_CODE_VERSION: Final[str] = "signals-app@1.2.0"
 
 # ---------------------------------------------------------------------------
 # Environment / deployment mode

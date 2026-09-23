@@ -179,12 +179,13 @@ def _mem_cache_set(symbol: str, period: str, df: pd.DataFrame) -> None:
     _MEM_CACHE[key] = (df, time.time() + ttl)
 
 
-def _fetch_from_yfinance(symbol: str, period: str) -> pd.DataFrame:
+def _fetch_from_yfinance(symbol: str, period: str, interval: str | None = None) -> pd.DataFrame:
     """Fetch OHLCV data from yfinance with retry logic.
 
     Args:
         symbol: Ticker symbol.
         period: yfinance period string.
+        interval: Explicit bar interval. Defaults to the period's mapped interval.
 
     Returns:
         Normalized OHLCV DataFrame sorted oldest-first.
@@ -192,7 +193,7 @@ def _fetch_from_yfinance(symbol: str, period: str) -> pd.DataFrame:
     Raises:
         ValueError: If symbol is invalid or data is empty after retries.
     """
-    interval = PERIOD_TO_INTERVAL.get(period, "1d")
+    interval = interval or PERIOD_TO_INTERVAL.get(period, "1d")
 
     for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
@@ -312,6 +313,22 @@ class DataFetcher:
             from_cache=False,
             bar_count=len(df),
         )
+
+    def fetch_daily_history(self, symbol: str, period: str = "10y") -> pd.DataFrame:
+        """Fetch long daily-bar history for calibration/backtests.
+
+        Forces a 1d interval regardless of ``PERIOD_TO_INTERVAL`` (which maps
+        2y/5y to weekly bars) and bypasses the cache, so calibrated rates are
+        measured on the same bar size the live scan scores.
+
+        Args:
+            symbol: Ticker symbol.
+            period: yfinance period string (default "10y").
+
+        Returns:
+            Normalized daily OHLCV DataFrame sorted oldest-first.
+        """
+        return _fetch_from_yfinance(symbol.upper().strip(), period, interval="1d")
 
     def fetch_multi(
         self,

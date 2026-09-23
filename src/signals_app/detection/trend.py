@@ -231,11 +231,12 @@ class TrendSignalDetector:
             return signals
 
         if adx > ADX_TRENDING:
-            trend = "UP" if _sf(current["Close"]) > _sf(current["SMA_50"]) else "DOWN"  # type: ignore[operator]
+            is_up = _sf(current["Close"]) > _sf(current["SMA_50"])  # type: ignore[operator]
+            trend = "UP" if is_up else "DOWN"
             signals.append(MutableSignal(
                 signal=f"STRONG {trend}TREND",
                 description=f"ADX: {adx:.1f}",
-                strength=SignalStrength.TRENDING.value,
+                strength=(SignalStrength.BULLISH if is_up else SignalStrength.BEARISH).value,
                 category=SignalCategory.TREND.value,
             ))
 
@@ -405,66 +406,61 @@ class BBExpansionDetector:
         if close is None:
             return signals
 
+        breach: tuple[float, int, str, float, float] | None = None  # (sd, period, side, close, band)
+        riding: tuple[float, int] | None = None
         for period in (10, 20, 30, 50):
             for sd in (1.5, 2.0, 2.5, 3.0):
                 sd_tag = str(sd).replace(".", "_")
                 upper_col = f"BB_{period}_{sd_tag}_Upper"
                 lower_col = f"BB_{period}_{sd_tag}_Lower"
-                pct_col = f"BB_{period}_{sd_tag}_Pct"
-
                 if upper_col not in current.index or lower_col not in current.index:
                     continue
-
                 upper = _sf(current[upper_col])
                 lower = _sf(current[lower_col])
-
                 if upper is None or lower is None:
                     continue
 
-                label = f"BB({period},{sd})"
-
                 if close > upper:
-                    signals.append(MutableSignal(
-                        signal=f"ABOVE UPPER {label}",
-                        description=f"Price {close:.2f} above upper band {upper:.2f}",
-                        strength=SignalStrength.EXTREME_BULLISH.value,
-                        category=SignalCategory.BB_BREAKOUT.value,
-                    ))
+                    side, band = "UPPER", upper
                 elif close < lower:
-                    signals.append(MutableSignal(
-                        signal=f"BELOW LOWER {label}",
-                        description=f"Price {close:.2f} below lower band {lower:.2f}",
-                        strength=SignalStrength.EXTREME_BEARISH.value,
-                        category=SignalCategory.BB_BREAKOUT.value,
-                    ))
+                    side, band = "LOWER", lower
+                else:
+                    continue
+                if breach is None or (sd, period) > breach[:2]:
+                    breach = (sd, period, side, close, band)
 
-                if pct_col in current.index:
-                    pct_b = _sf(current[pct_col])
-                    if pct_b is not None:
-                        if pct_b > 1.0:
-                            signals.append(MutableSignal(
-                                signal=f"{label} %B > 1",
-                                description=f"%B={pct_b:.2f} (overbought)",
-                                strength=SignalStrength.BEARISH.value,
-                                category=SignalCategory.BB_BREAKOUT.value,
-                            ))
-                        elif pct_b < 0.0:
-                            signals.append(MutableSignal(
-                                signal=f"{label} %B < 0",
-                                description=f"%B={pct_b:.2f} (oversold)",
-                                strength=SignalStrength.BULLISH.value,
-                                category=SignalCategory.BB_BREAKOUT.value,
-                            ))
+                prev_upper = _sf(prev.get(upper_col)) if prev_close is not None else None
+                if (
+                    side == "UPPER"
+                    and prev_upper is not None
+                    and prev_close > prev_upper  # type: ignore[operator]
+                    and (riding is None or (sd, period) > riding)
+                ):
+                    riding = (sd, period)
 
-                if prev_close is not None and upper_col in prev.index:
-                    prev_upper = _sf(prev[upper_col])
-                    if prev_upper is not None and prev_close > prev_upper and close > upper:
-                        signals.append(MutableSignal(
-                            signal=f"{label} RIDING UPPER BAND",
-                            description="2 consecutive closes above upper band",
-                            strength=SignalStrength.STRONG_BULLISH.value,
-                            category=SignalCategory.BB_BREAKOUT.value,
-                        ))
+        # Deepest breach only: above 3 sigma implies 2.5, 2 and 1.5 sigma. The
+        # redundant %B > 1 / < 0 branch was removed; it is the same event and
+        # voted the opposite way.
+        if breach is not None:
+            sd, period, side, price, band = breach
+            label = f"BB({period},{sd})"
+            bullish = side == "UPPER"
+            signals.append(MutableSignal(
+                signal=f"{'ABOVE UPPER' if bullish else 'BELOW LOWER'} {label}",
+                description=f"Price {price:.2f} {'above upper' if bullish else 'below lower'} band {band:.2f}",
+                strength=(
+                    SignalStrength.EXTREME_BULLISH if bullish else SignalStrength.EXTREME_BEARISH
+                ).value,
+                category=SignalCategory.BB_BREAKOUT.value,
+            ))
+        if riding is not None:
+            sd, period = riding
+            signals.append(MutableSignal(
+                signal=f"BB({period},{sd}) RIDING UPPER BAND",
+                description="2 consecutive closes above upper band",
+                strength=SignalStrength.STRONG_BULLISH.value,
+                category=SignalCategory.BB_BREAKOUT.value,
+            ))
 
         return signals
 
@@ -532,43 +528,43 @@ class HLProximityDetector:
         if close is None:
             return signals
 
+        best_high: tuple[float, int, float] | None = None  # (prox, lb, level)
+        best_low: tuple[float, int, float] | None = None
         for lb in HL_LOOKBACKS:
-            high_col = f"High_{lb}b"
-            low_col = f"Low_{lb}b"
-            if high_col not in current.index or low_col not in current.index:
-                continue
-
-            high_val = _sf(current[high_col])
-            low_val = _sf(current[low_col])
-
+            high_val = _sf(current.get(f"High_{lb}b"))
+            low_val = _sf(current.get(f"Low_{lb}b"))
             if high_val is None or low_val is None:
                 continue
 
             for prox in HL_PROXIMITIES:
                 if high_val != 0 and close >= high_val * (1 - prox):
-                    strength = (
-                        SignalStrength.EXTREME_BULLISH.value
-                        if prox <= 0.01
-                        else SignalStrength.BULLISH.value
-                    )
-                    signals.append(MutableSignal(
-                        signal=f"WITHIN {int(prox * 100)}% OF {lb}b HIGH",
-                        description=f"Close {close:.2f} within {prox * 100:.0f}% of {lb}-bar high {high_val:.2f}",
-                        strength=strength,
-                        category=SignalCategory.RANGE.value,
-                    ))
+                    if best_high is None or (prox, -lb) < (best_high[0], -best_high[1]):
+                        best_high = (prox, lb, high_val)
                 if low_val != 0 and close <= low_val * (1 + prox):
-                    strength = (
-                        SignalStrength.EXTREME_BEARISH.value
-                        if prox <= 0.01
-                        else SignalStrength.BEARISH.value
-                    )
-                    signals.append(MutableSignal(
-                        signal=f"WITHIN {int(prox * 100)}% OF {lb}b LOW",
-                        description=f"Close {close:.2f} within {prox * 100:.0f}% of {lb}-bar low {low_val:.2f}",
-                        strength=strength,
-                        category=SignalCategory.RANGE.value,
-                    ))
+                    if best_low is None or (prox, -lb) < (best_low[0], -best_low[1]):
+                        best_low = (prox, lb, low_val)
+
+        # One fact ("near a high") is one vote, not one per (lookback, proximity).
+        if best_high is not None:
+            prox, lb, high_val = best_high
+            signals.append(MutableSignal(
+                signal=f"WITHIN {int(prox * 100)}% OF {lb}b HIGH",
+                description=f"Close {close:.2f} within {prox * 100:.0f}% of {lb}-bar high {high_val:.2f}",
+                strength=(
+                    SignalStrength.EXTREME_BULLISH if prox <= 0.01 else SignalStrength.BULLISH
+                ).value,
+                category=SignalCategory.RANGE.value,
+            ))
+        if best_low is not None:
+            prox, lb, low_val = best_low
+            signals.append(MutableSignal(
+                signal=f"WITHIN {int(prox * 100)}% OF {lb}b LOW",
+                description=f"Close {close:.2f} within {prox * 100:.0f}% of {lb}-bar low {low_val:.2f}",
+                strength=(
+                    SignalStrength.EXTREME_BEARISH if prox <= 0.01 else SignalStrength.BEARISH
+                ).value,
+                category=SignalCategory.RANGE.value,
+            ))
 
         return signals
 
@@ -591,29 +587,33 @@ class MADistanceExpandedDetector:
         signals: list[MutableSignal] = []
         current = df.iloc[-1]
 
+        best_above: tuple[float, int, float] | None = None  # (thresh, period, dist)
+        best_below: tuple[float, int, float] | None = None
         for period in MA_DIST_PERIODS:
-            dist_col = f"Dist_SMA_{period}"
-            if dist_col not in current.index:
-                continue
-
-            dist = _sf(current[dist_col])
+            dist = _sf(current.get(f"Dist_SMA_{period}"))
             if dist is None:
                 continue
-
             for thresh in MA_DIST_THRESHOLDS:
-                if dist > thresh:
-                    signals.append(MutableSignal(
-                        signal=f">{thresh:.0f}% ABOVE {period}SMA",
-                        description=f"{dist:.1f}% above {period}-period SMA",
-                        strength=SignalStrength.BEARISH.value,
-                        category=SignalCategory.MA_DISTANCE.value,
-                    ))
-                elif dist < -thresh:
-                    signals.append(MutableSignal(
-                        signal=f">{thresh:.0f}% BELOW {period}SMA",
-                        description=f"{abs(dist):.1f}% below {period}-period SMA",
-                        strength=SignalStrength.BULLISH.value,
-                        category=SignalCategory.MA_DISTANCE.value,
-                    ))
+                if dist > thresh and (best_above is None or (thresh, period) > best_above[:2]):
+                    best_above = (thresh, period, dist)
+                elif dist < -thresh and (best_below is None or (thresh, period) > best_below[:2]):
+                    best_below = (thresh, period, dist)
+
+        if best_above is not None:
+            thresh, period, dist = best_above
+            signals.append(MutableSignal(
+                signal=f">{thresh:.0f}% ABOVE {period}SMA",
+                description=f"{dist:.1f}% above {period}-period SMA",
+                strength=SignalStrength.BEARISH.value,
+                category=SignalCategory.MA_DISTANCE.value,
+            ))
+        if best_below is not None:
+            thresh, period, dist = best_below
+            signals.append(MutableSignal(
+                signal=f">{thresh:.0f}% BELOW {period}SMA",
+                description=f"{abs(dist):.1f}% below {period}-period SMA",
+                strength=SignalStrength.BULLISH.value,
+                category=SignalCategory.MA_DISTANCE.value,
+            ))
 
         return signals

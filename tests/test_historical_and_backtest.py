@@ -55,7 +55,7 @@ def test_score_historical_signals_produces_bounded_hit_rates():
 
     result = score_historical_signals(df, bars, horizon_days=5)
 
-    assert set(result.keys()) == {"by_category", "by_strength"}
+    assert set(result.keys()) == {"by_category", "by_strength", "by_strength_raw"}
     for bucket_list in result.values():
         for bucket in bucket_list:
             assert isinstance(bucket, HitRateBucket)
