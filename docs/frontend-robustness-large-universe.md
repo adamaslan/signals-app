@@ -11,18 +11,20 @@ Companion: docs/session-summary-2026-09-22-universe-scan-8-timeframes.md
 | Phase | Branch | PR | Scope | Status |
 |---|---|---|---|---|
 | 1 | `fix/universe-dev-robustness` | [#26](https://github.com/adamaslan/signals-app/pull/26) | §C — F11, F12, progress, stuck-run sweep, error boundaries, dev perf footer | **Shipped** (PR open, targets `main`) — F11 ✅ F12 ✅ progress ✅ stuck-run sweep ✅ error boundaries ✅ perf footer ✅ |
-| 2 | `feat/universe-view-at-scale` | — | A1 summary strip · A2 heatmap group/collapse/density · A3 filter/search/window | Not started |
+| 2 | `feat/universe-view-at-scale` | [#27](https://github.com/adamaslan/signals-app/pull/27) | A1 summary strip · A2 heatmap group/collapse/density · A3 filter/search/window | **Shipped** (PR open, stacked on #26 — base branch is `fix/universe-dev-robustness`, retarget to `main` after #26 merges) — A1 ✅ A2 ✅ A3 ✅ `universeView.ts` + 16 tests ✅ |
 | 3 | `feat/deep-dive-8-slot-matrix` | — | B1 fixed 8-slot matrix · B2 top date line | Not started |
 
 Merge order per §4: **3 (dev robustness) → 1 (universe view) → 2 (deep dive)**
 in this doc's own PR-split numbering — i.e. this progress table's **Phase 1
-is the doc's "PR 3"**, chosen to merge first because PRs "1" and "3" both
-touch `UniverseEditor.tsx` and "3" changes the data flow "1" renders from.
-Phases 2 and 3 above correspond to the doc's PR "1" and PR "2" respectively.
+is the doc's "PR 3"** and **Phase 2 is the doc's "PR 1"**, chosen to merge
+first/second in that order because PRs "1" and "3" both touch
+`UniverseEditor.tsx` and "3" changes the data flow "1" renders from. Phase 3
+above corresponds to the doc's PR "2".
 
 Running total against the §0 checklist (12 failure modes): **6/12 passing**
-once phase 1 merges (F11 F12 fixed here; F1 F2 F3 F6 remain — phase 2; F8
-remains — phase 3).
+once phases 1+2 merge (F11 F12 F1 F2 F3 F6 fixed; F8 remains — phase 3,
+which reaches the doc's stated 50% target on its own before phase 3 even
+lands — phase 3 pushes past it to F8 as well).
 
 ---
 

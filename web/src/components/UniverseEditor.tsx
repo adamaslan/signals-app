@@ -34,12 +34,39 @@ import {
   MAX_MANUAL_SCAN_SYMBOLS,
   type ScanResponse,
 } from "@/lib/api";
+import { resultStatus } from "@/lib/universeView";
 import { UniverseTable } from "./UniverseTable";
 import { UniverseHeatmap } from "./UniverseHeatmap";
+import { UniverseSummaryStrip } from "./UniverseSummaryStrip";
 import { UniverseDriftView } from "./UniverseDriftView";
 import { UniverseBacktestPanel } from "./UniverseBacktestPanel";
 import { UniverseTimeline } from "./UniverseTimeline";
 import { ErrorBoundary } from "./ErrorBoundary";
+
+/** Narrows a run's results to one UniverseSummaryStrip segment. Empty key =
+ * no filter (used by both the heatmap and table views, per §A1). */
+function segmentFilteredResults(
+  results: UniverseRun["results"],
+  key: string,
+): UniverseRun["results"] {
+  if (!key) return results;
+  return results.filter((r) => {
+    switch (key) {
+      case "uncovered":
+        return resultStatus(r) === "uncovered";
+      case "failed":
+        return resultStatus(r) === "failed";
+      case "bullish":
+        return r.signal === "strong_buy" || r.signal === "buy";
+      case "bearish":
+        return r.signal === "sell" || r.signal === "strong_sell";
+      case "neutral":
+        return r.signal === "hold";
+      default:
+        return true;
+    }
+  });
+}
 
 function download(name: string, content: string, type: string) {
   const blob = new Blob([content], { type });
@@ -81,6 +108,7 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
   const [checkingCoverage, setCheckingCoverage] = useState(false);
   const [view, setView] = useState<"table" | "heatmap">("heatmap");
+  const [segmentKey, setSegmentKey] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [requested, setRequested] = useState<Set<string>>(new Set());
@@ -586,23 +614,21 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           </div>
 
           {latestRun.summary && (
+            <ErrorBoundary label="Summary strip">
+              <UniverseSummaryStrip
+                summary={latestRun.summary}
+                results={latestRun.results}
+                runStartedAt={latestRun.startedAt}
+                period={latestRun.period}
+                activeSegment={segmentKey || null}
+                onSegmentClick={(_directions, key) =>
+                  setSegmentKey((prev) => (prev === key ? "" : key))
+                }
+              />
+            </ErrorBoundary>
+          )}
+          {latestRun.summary && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-              <span>
-                <span style={{ color: "#00C853" }}>
-                  {latestRun.summary.bullish}
-                </span>{" "}
-                bull ·{" "}
-                <span className="text-gray-600">
-                  {latestRun.summary.neutral}
-                </span>{" "}
-                hold ·{" "}
-                <span style={{ color: "#D50000" }}>
-                  {latestRun.summary.bearish}
-                </span>{" "}
-                bear
-              </span>
-              <span>{latestRun.summary.uncovered} uncovered</span>
-              <span>{latestRun.summary.failed} failed</span>
               {latestRun.summary.avgConfidence != null && (
                 <span>
                   avg conf{" "}
@@ -621,12 +647,12 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           <ErrorBoundary label={view === "heatmap" ? "Heatmap" : "Table"}>
             {view === "heatmap" ? (
               <UniverseHeatmap
-                results={latestRun.results}
+                results={segmentFilteredResults(latestRun.results, segmentKey)}
                 period={latestRun.period}
               />
             ) : (
               <UniverseTable
-                results={latestRun.results}
+                results={segmentFilteredResults(latestRun.results, segmentKey)}
                 period={latestRun.period}
               />
             )}
