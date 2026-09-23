@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Dashboard functionality', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    // baseURL carries the /signals-app basePath, but a leading-slash goto drops it.
+    await page.goto('/signals-app/');
   });
 
   test('Recent Runs section mounts', async ({ page }) => {
@@ -21,6 +22,28 @@ test.describe('Dashboard functionality', () => {
     ).first();
 
     await expect(watchlistSection).toBeVisible({ timeout: 5000 });
+  });
+
+  test('every landing showcase section mounts (empty-safe without Supabase)', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    for (const id of [
+      'landing-hero',
+      'landing-proof-line',
+      'landing-example-chips',
+      'landing-top-signals',
+      'landing-heatmap',
+      'landing-pipeline',
+      'landing-track-record',
+      'landing-featured',
+      'landing-universe-cta',
+      'landing-activity',
+      'landing-footer',
+    ]) {
+      await expect(page.getByTestId(id)).toBeVisible({ timeout: 5000 });
+    }
+    expect(errors).toHaveLength(0);
   });
 
   test('ticker search accepts input', async ({ page }) => {

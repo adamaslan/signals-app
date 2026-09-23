@@ -685,3 +685,199 @@ export async function checkHealth(): Promise<boolean> {
     return false;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Landing-page showcase reads. Every function here returns `null` (never
+ * throws) when Supabase is unset or a query fails — a showcase section must
+ * degrade to its empty state, not take the page down.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** Period that drives every landing-page section. */
+export const LANDING_PERIOD = "3mo";
+
+/** Supabase's default row cap; the universe is ~954 tickers so one page fits. */
+const LANDING_ROW_LIMIT = 1000;
+
+const LANDING_COLUMNS =
+  "ticker,direction,confidence,confluence_score,data_quality_score,ai_degraded,bar_ts,created_at";
+
+export interface LandingSignal {
+  ticker: string;
+  direction: SignalDirection;
+  confidence: number | null;
+  confluenceScore: number | null;
+  dataQuality: number | null;
+  aiDegraded: boolean;
+  barTs: string | null;
+  createdAt: string | null;
+}
+
+interface LandingRow {
+  ticker: string;
+  direction: string | null;
+  confidence: number | null;
+  confluence_score: number | null;
+  data_quality_score: number | null;
+  ai_degraded: boolean;
+  bar_ts: string | null;
+  created_at: string | null;
+}
+
+/**
+ * Newest published signal per ticker for one period, light columns only
+ * (no evidence JSONB). One query feeds the top-signals list, the heatmap
+ * preview and the funnel's published count.
+ */
+export async function fetchLandingSignals(
+  period: string = LANDING_PERIOD,
+): Promise<LandingSignal[] | null> {
+  if (!supabaseConfigured || !supabase) return null;
+  try {
+    let res = await supabase
+      .from("latest_signals")
+      .select(LANDING_COLUMNS)
+      .eq("period", period)
+      .limit(LANDING_ROW_LIMIT);
+    if (res.error) {
+      // Older DB without the view: fall back to the raw table (a superset of
+      // rows; the newest-per-ticker de-dup below handles duplicates).
+      res = await supabase
+        .from("signals")
+        .select(LANDING_COLUMNS)
+        .eq("period", period)
+        .order("bar_ts", { ascending: false, nullsFirst: false })
+        .limit(LANDING_ROW_LIMIT);
+      if (res.error) return null;
+    }
+    const seen = new Set<string>();
+    const out: LandingSignal[] = [];
+    for (const row of (res.data ?? []) as unknown as LandingRow[]) {
+      if (seen.has(row.ticker) || !row.direction) continue;
+      seen.add(row.ticker);
+      out.push({
+        ticker: row.ticker,
+        direction: row.direction as SignalDirection,
+        confidence: row.confidence,
+        confluenceScore: row.confluence_score,
+        dataQuality: row.data_quality_score,
+        aiDegraded: row.ai_degraded,
+        barTs: row.bar_ts,
+        createdAt: row.created_at,
+      });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export interface TopSignals {
+  bullish: LandingSignal[];
+  bearish: LandingSignal[];
+}
+
+/**
+ * The strongest `perDirection` bullish and bearish published signals for a
+ * period, ranked by confidence.
+ */
+export async function fetchTopSignals(
+  period: string,
+  perDirection: number,
+): Promise<TopSignals | null> {
+  const rows = await fetchLandingSignals(period);
+  if (!rows) return null;
+  return pickTopSignals(rows, perDirection);
+}
+
+/** Pure ranking half of {@link fetchTopSignals}, split out for testing. */
+export function pickTopSignals(
+  rows: LandingSignal[],
+  perDirection: number,
+): TopSignals {
+  const rank = (a: LandingSignal, b: LandingSignal) =>
+    (b.confidence ?? -1) - (a.confidence ?? -1) ||
+    a.ticker.localeCompare(b.ticker);
+  const bullish = rows
+    .filter((r) => r.direction === "strong_buy" || r.direction === "buy")
+    .sort(rank)
+    .slice(0, perDirection);
+  const bearish = rows
+    .filter((r) => r.direction === "strong_sell" || r.direction === "sell")
+    .sort(rank)
+    .slice(0, perDirection);
+  return { bullish, bearish };
+}
+
+export interface PipelineFunnel {
+  /** Symbols the newest run attempted. */
+  total: number;
+  /** Symbols fetched + scored without error. */
+  scanned: number;
+  /** Symbols whose newest signal cleared the publication gate. */
+  published: number;
+  /** Scanned but rejected by the gate — these never reached the LLM. */
+  gated: number;
+  failed: number;
+  finishedAt: string | null;
+  startedAt: string;
+}
+
+/**
+ * Stage counts for the newest engine run. `engine_runs` stores total/ok/failed
+ * only, so `published` is the count of rows in `latest_signals` for the
+ * period and `gated` is scanned − published (clamped at 0).
+ */
+export async function fetchPipelineFunnel(
+  period: string = LANDING_PERIOD,
+): Promise<PipelineFunnel | null> {
+  if (!supabaseConfigured || !supabase) return null;
+  try {
+    const runRes = await supabase
+      .from("engine_runs")
+      .select("symbols_total,symbols_ok,symbols_failed,finished_at,started_at")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (runRes.error || !runRes.data) return null;
+    const run = runRes.data as unknown as {
+      symbols_total: number;
+      symbols_ok: number;
+      symbols_failed: number;
+      finished_at: string | null;
+      started_at: string;
+    };
+
+    const countRes = await supabase
+      .from("latest_signals")
+      .select("ticker", { count: "exact", head: true })
+      .eq("period", period);
+    if (countRes.error || countRes.count == null) return null;
+
+    return buildFunnel(run, countRes.count);
+  } catch {
+    return null;
+  }
+}
+
+/** Pure half of {@link fetchPipelineFunnel}, split out for testing. */
+export function buildFunnel(
+  run: {
+    symbols_total: number;
+    symbols_ok: number;
+    symbols_failed: number;
+    finished_at: string | null;
+    started_at: string;
+  },
+  publishedCount: number,
+): PipelineFunnel {
+  const published = Math.min(publishedCount, run.symbols_ok);
+  return {
+    total: run.symbols_total,
+    scanned: run.symbols_ok,
+    published,
+    gated: Math.max(0, run.symbols_ok - published),
+    failed: run.symbols_failed,
+    finishedAt: run.finished_at,
+    startedAt: run.started_at,
+  };
+}
