@@ -71,7 +71,8 @@ def _failed(ticker: str) -> SymbolReport:
 # ---------------------------------------------------------------------------
 class TestGateExplanation:
     def test_low_data_quality_named_first(self):
-        assert _explain_gate(0.5, 10, 0.9).startswith("data_quality")
+        got = _explain_gate(PUBLISH_MIN_DATA_QUALITY - 0.1, 10, 0.9)
+        assert got.startswith("data_quality")
 
     def test_too_few_signals(self):
         got = _explain_gate(1.0, PUBLISH_MIN_SIGNALS - 1, 0.9)
@@ -157,7 +158,11 @@ class TestRenderers:
     def test_markdown_has_sections_and_symbols(self, universe):
         md = render_markdown(universe)
         assert "# Universe Signal Scan" in md
-        assert "## Category firing across the universe" in md
+        # NB: the universe-wide "Category firing" table was deliberately removed
+        # from both renderers (docs/report-improvements-2026-09-01.md §2);
+        # category_stats is still computed and covered by
+        # TestAggregate::test_category_stats_cover_every_category.
+        assert "## Category firing across the universe" not in md
         assert "### AAA — ✅ PUBLISHED" in md
         assert "### DDD — ❌ FAILED" in md
         assert "GOLDEN CROSS" in md
