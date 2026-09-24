@@ -61,6 +61,14 @@ describe("pickFeatured", () => {
     expect(pickFeatured(rows)?.ticker).toBe("B");
     expect(pickFeatured([sig({ ticker: "H", direction: "hold" })])).toBeNull();
   });
+
+  it("breaks a confidence tie by |confluence score|", () => {
+    const rows = [
+      sig({ ticker: "A", confidence: 0.55, confluenceScore: 0.4 }),
+      sig({ ticker: "B", direction: "sell", confidence: 0.55, confluenceScore: -0.9 }),
+    ];
+    expect(pickFeatured(rows)?.ticker).toBe("B");
+  });
 });
 
 describe("sortForHeatmap", () => {
