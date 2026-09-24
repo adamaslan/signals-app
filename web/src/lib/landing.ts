@@ -18,7 +18,7 @@ export function formatEt(ts: string | number | null | undefined): string | null 
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   }).format(new Date(ms));
   return `${text} ET`;
 }

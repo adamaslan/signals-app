@@ -824,7 +824,7 @@ export interface PipelineFunnel {
 
 /**
  * Stage counts for the newest engine run. `engine_runs` stores total/ok/failed
- * only, so `published` is the count of rows in `latest_signals` for the
+ * only, so `published` is the count of `signals` rows for that run and
  * period and `gated` is scanned − published (clamped at 0).
  */
 export async function fetchPipelineFunnel(
@@ -834,12 +834,13 @@ export async function fetchPipelineFunnel(
   try {
     const runRes = await supabase
       .from("engine_runs")
-      .select("symbols_total,symbols_ok,symbols_failed,finished_at,started_at")
+      .select("id,symbols_total,symbols_ok,symbols_failed,finished_at,started_at")
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (runRes.error || !runRes.data) return null;
     const run = runRes.data as unknown as {
+      id: string;
       symbols_total: number;
       symbols_ok: number;
       symbols_failed: number;
@@ -848,8 +849,9 @@ export async function fetchPipelineFunnel(
     };
 
     const countRes = await supabase
-      .from("latest_signals")
+      .from("signals")
       .select("ticker", { count: "exact", head: true })
+      .eq("run_id", run.id)
       .eq("period", period);
     if (countRes.error || countRes.count == null) return null;
 

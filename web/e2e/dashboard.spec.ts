@@ -27,6 +27,8 @@ test.describe('Dashboard functionality', () => {
   test('every landing showcase section mounts (empty-safe without Supabase)', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
+    // beforeEach already loaded the page; reload so hydration errors are captured
+    await page.reload();
 
     for (const id of [
       'landing-hero',

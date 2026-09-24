@@ -43,7 +43,7 @@ The Signals App is a **technical analysis engine** that:
 | **Detectors** | 18 independent signal sources |
 | **Timeframes** | 1D, 5D, 1M, 3M, 6M, 1Y, 5Y, MAX |
 | **Potential Signals/Scan** | ~158,364 (166 × 954, theoretical) |
-| **Published/Scanned** | ~42% (288/954 in recent run) |
+| **Published/Scanned** | ~30% (288/954 in recent run) |
 | **LLM Cost** | ~403 calls per full universe scan |
 | **Publication Rate** | ~58% filtered by gate before LLM |
 
@@ -190,7 +190,7 @@ Organized by category:
 Each detector:
 - Runs **in isolation** (failure → `degraded: true`, not fatal)
 - Fires 0 or more times per ticker per timeframe
-- Can sweep parameter grids (e.g., `BBExpansionDetector` covers 4 periods × 4 std-devs × 3 checks = 48 possible firings)
+- Can sweep parameter grids (e.g., `BBExpansionDetector` covers periods × std-devs × 3 checks; see the parameter grid below)
 - Returns a **signal strength** (VERY_WEAK, WEAK, MODERATE, STRONG, VERY_STRONG)
 
 **Example:** Bollinger Band Expansion detector might fire 3 times (20-period at 1σ, 20-period at 2σ, 50-period at 2σ) with different strengths.
@@ -243,10 +243,11 @@ def passes_publication_gate(
     direction=None             # optional: filter to bullish/bearish only
 ):
     # 1. Data must be fresh enough (>= 0.7 score)
-    if data_quality_score < 0.7:
+    if data_quality_score is None or data_quality_score < 0.7:
         return False
     
-    # 2. Must have at least 3 detectors firing
+    # 2. Must have at least 3 detectors firing (count-based path; when
+    #    agreeing_families is supplied, the family-based check replaces this floor)
     if total_signals < 3:
         return False
     
@@ -472,7 +473,7 @@ Result: **LLM trouble degrades output, not the run.**
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | `PUBLISH_MIN_DATA_QUALITY` | 0.70 | Data must be fresh, <5% gaps |
-| `PUBLISH_MIN_SIGNALS` | 3 | Need multi-detector agreement |
+| `PUBLISH_MIN_SIGNALS` | 3 | Multi-detector agreement floor for count-based calls (replaced by the family check when `agreeing_families` is passed) |
 | `PUBLISH_MIN_CONFLUENCE_SCORE` | ±0.35 | HOLD threshold (bidirectional) |
 
 ### Gate Semantics
@@ -497,7 +498,7 @@ Used when you want bullish signals only (useful for calendar spreads, etc.).
 
 In a typical 954-ticker scan:
 - **405 symbols scanned**
-- **288 symbols published** (~42%)
+- **288 symbols published** (~30% of 954)
 - **117 symbols rejected** (~58%)
 
 Why this is good:
@@ -868,7 +869,7 @@ CREATE POLICY "Public read signals" ON signals
 ### Cost Management
 
 **LLM Cost Control**
-- Publication gate rejects ~58% before LLM: **saves $~0.12 per ticker**
+- Publication gate rejects ~58% before LLM: **saves the per-ticker LLM call (~$0.0001–$0.0005 each)**
 - Full scan: 954 tickers → ~403 LLM calls (not 954)
 - Cost per call: ~$0.0001–$0.0005 (Gemini 2.0 Flash)
 - **Estimated per-scan:** $0.04–$0.20 USD
@@ -948,11 +949,11 @@ TIMEFRAME_WEIGHTS = {
 
 ### Detector Parameter Sweeps
 
-**Bollinger Band Expansion** (example: 48 possible firings per timeframe)
+**Bollinger Band Expansion** (example: 9 possible firings per timeframe in this configuration)
 - Periods: [20]
 - Std-devs: [1, 2, 3]
 - Checks: [band_width_expanded, price_above_upper, price_below_lower]
-- → 1 × 3 × 3 = 9 parameter combinations... actually 48 after counting all variants
+- → 1 × 3 × 3 = 9 parameter combinations
 
 **Moving Average Crossover**
 - Pairs: [(5,20), (20,50), (20,200), (50,200)]
@@ -1018,7 +1019,7 @@ elif hit_rate(strength) < 0.50:
 
 **Full Universe (954 tickers)**
 - **L1–L4 (gate input):** 10–15 min (fetches parallelized 4×)
-- **Gate filtering:** ~2 min (288 pass, 666 fail)
+- **Gate filtering:** ~2 min (288 pass, 666 fail; ~30% / ~70% of 954)
 - **L5 (LLM):** ~20 min (403 calls × ~3s per call)
 - **L6 (persist):** ~1 min
 - **Total run:** ~30–40 min
@@ -1093,7 +1094,7 @@ elif hit_rate(strength) < 0.50:
 
 **Goal:** a first-time visitor to `/signals-app/` should understand in about 10 seconds what the engine does, see that it ran recently, see real results, and have one click into every major feature. Today it can't do that.
 
-### Where the landing page stands now (checked against `web/src/app/page.tsx`, 2026-09-23)
+### Historical baseline — the landing page before the showcase (checked against `web/src/app/page.tsx`, 2026-09-23; superseded by the shipped showcase described above)
 
 The live page is a title, `Greeting`, `TickerSearch`, `RecentRunsTable`, and `WatchlistPanel`. **Both panels read the visitor's own IndexedDB (Dexie)**, so a new visitor sees *"No runs yet"* and an empty watchlist. None of the engine's shared output (published signals, gate stats, calibration, engine health) appears on `/`.
 
