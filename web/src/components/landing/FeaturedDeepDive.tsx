@@ -8,7 +8,7 @@ import { SIGNAL_COLORS, SIGNAL_LABELS, type SignalOutput } from "@/lib/types";
 import { EvidenceList } from "@/components/EvidenceList";
 import { SignalMatrixRow } from "@/components/SignalMatrixRow";
 import { useLandingData } from "./LandingData";
-import { EmptyState, Section, SkeletonBlock } from "./Shared";
+import { EmptyState, Section, SkeletonBlock, useInView } from "./Shared";
 
 const MAX_SUPPORTING = 3;
 const MAX_COUNTER = 1;
@@ -18,10 +18,12 @@ export function FeaturedDeepDive() {
   const featured = useMemo(() => (signals ? pickFeatured(signals) : null), [signals]);
   const [output, setOutput] = useState<SignalOutput | null>(null);
   const [fetched, setFetched] = useState(false);
+  // Below the fold: only spend the extra query once the section is near view.
+  const [sectionRef, nearView] = useInView<HTMLElement>();
 
   const ticker = featured?.ticker;
   useEffect(() => {
-    if (!ticker) return;
+    if (!ticker || !nearView) return;
     let active = true;
     fetchSignal(ticker, LANDING_PERIOD, false)
       .then((o) => active && setOutput(o))
@@ -30,7 +32,7 @@ export function FeaturedDeepDive() {
     return () => {
       active = false;
     };
-  }, [ticker]);
+  }, [ticker, nearView]);
 
   const items = output
     ? [
@@ -42,6 +44,7 @@ export function FeaturedDeepDive() {
   return (
     <Section
       testId="landing-featured"
+      sectionRef={sectionRef}
       title="Featured deep dive"
       aside={
         ticker && (

@@ -1,0 +1,535 @@
+<title>Score Ceiling Explainer</title>
+<meta name="description" content="Why confluence_score and the HIGH confidence label hit their ceiling on as little as one unanimous detector.">
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --border: #dde1ea;
+    --border-strong: #c3c9d8;
+    --text: #171c2c;
+    --text-dim: #5b6478;
+    --text-faint: #8890a3;
+    --accent: #0f8f83;
+    --accent-soft: #e3f4f1;
+    --bull: #0f8f83;
+    --bull-soft: #e3f4f1;
+    --bear: #c53d5c;
+    --bear-soft: #fbe7ec;
+    --warn: #a8660a;
+    --warn-soft: #fbeed9;
+    --code-bg: #eef0f6;
+    --shadow: 0 1px 2px rgba(23,28,44,0.06), 0 8px 24px -12px rgba(23,28,44,0.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1220;
+      --surface: #161b2c;
+      --surface-raised: #1c2236;
+      --border: #2a3149;
+      --border-strong: #3a4362;
+      --text: #e7eaf4;
+      --text-dim: #a3aac2;
+      --text-faint: #767f9b;
+      --accent: #4fd7c8;
+      --accent-soft: #17352f;
+      --bull: #4fd7c8;
+      --bull-soft: #14312c;
+      --bear: #f0748e;
+      --bear-soft: #3a1b26;
+      --warn: #f0b955;
+      --warn-soft: #3a2c12;
+      --code-bg: #10182a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1220;
+    --surface: #161b2c;
+    --surface-raised: #1c2236;
+    --border: #2a3149;
+    --border-strong: #3a4362;
+    --text: #e7eaf4;
+    --text-dim: #a3aac2;
+    --text-faint: #767f9b;
+    --accent: #4fd7c8;
+    --accent-soft: #17352f;
+    --bull: #4fd7c8;
+    --bull-soft: #14312c;
+    --bear: #f0748e;
+    --bear-soft: #3a1b26;
+    --warn: #f0b955;
+    --warn-soft: #3a2c12;
+    --code-bg: #10182a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    padding-inline: 20px;
+    padding-block: 40px 80px;
+  }
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .mono, code, .num {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  header.hero {
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 38px);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .lede {
+    color: var(--text-dim);
+    font-size: 17px;
+    line-height: 1.55;
+    max-width: 62ch;
+    margin: 0;
+  }
+  .lede code { font-size: 0.92em; }
+
+  .src {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 18px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+  .src span {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 7px;
+  }
+
+  section {
+    margin-block: 44px;
+    padding-top: 4px;
+  }
+  section h2 {
+    font-size: 21px;
+    letter-spacing: -0.005em;
+    margin: 0 0 6px;
+  }
+  section .sub {
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0 0 20px;
+    max-width: 64ch;
+  }
+  p { line-height: 1.65; color: var(--text); }
+  p.dim { color: var(--text-dim); }
+
+  .formula {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 18px 0;
+  }
+  .formula .label {
+    font-size: 11.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+  .formula .expr {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15.5px;
+    color: var(--text);
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .formula .expr .op { color: var(--accent); }
+
+  table.rows {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: 14px;
+  }
+  table.rows thead th {
+    text-align: left;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+    padding: 12px 14px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  table.rows td {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+  table.rows tr:last-child td { border-bottom: none; }
+  table.rows td.num, table.rows th.num { font-family: "IBM Plex Mono", monospace; }
+  .tablewrap { overflow-x: auto; border-radius: 12px; }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: "IBM Plex Mono", monospace;
+    white-space: nowrap;
+  }
+  .pill.high { background: var(--bull-soft); color: var(--bull); }
+  .pill.med  { background: var(--warn-soft); color: var(--warn); }
+  .pill.low  { background: var(--code-bg); color: var(--text-dim); }
+  .pill.buy  { background: var(--bull-soft); color: var(--bull); }
+  .pill.hold { background: var(--code-bg); color: var(--text-dim); }
+  .pill.sell { background: var(--bear-soft); color: var(--bear); }
+
+  .score-cell { font-weight: 600; }
+  .score-cell.max { color: var(--accent); }
+
+  .callout {
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 20px 0;
+    border: 1px solid var(--border);
+  }
+  .callout.warn {
+    background: var(--warn-soft);
+    border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+  }
+  .callout .ctitle {
+    font-weight: 700;
+    font-size: 14.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .callout.warn .ctitle { color: var(--warn); }
+  .callout p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .twocol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 18px 0;
+  }
+  @media (max-width: 560px) {
+    .twocol { grid-template-columns: 1fr; }
+  }
+  .kase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .kase .ktitle {
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+  .kase .kscore {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .kase.up .kscore { color: var(--bull); }
+  .kase .kdetail { font-size: 13px; color: var(--text-dim); line-height: 1.55; }
+  .kase .kdetail code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 20px 0 4px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+  }
+  .chain .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: var(--shadow);
+  }
+  .chain .arrow { color: var(--text-faint); }
+
+  .fixlist {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .fixrow {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .fixrow .fnum {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .fixrow h3 {
+    margin: 0 0 4px;
+    font-size: 14.5px;
+  }
+  .fixrow p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-dim);
+  }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+
+<div class="page">
+
+  <header class="hero">
+    <p class="eyebrow">signals-app · scoring pipeline</p>
+    <h1>Why the score keeps hitting the ceiling</h1>
+    <p class="lede">
+      <code>confluence_score=1.00</code> shows up in the rule-based fallback evidence because the score
+      isn't measured against a fixed maximum — it's measured against <em>itself</em>. Any set of detectors
+      that all agree pins the ratio at exactly <span class="mono">1.0</span>, whether it's one weak signal
+      or ten extreme ones. Here's the arithmetic, and where the <code>confidence</code> label rides along.
+    </p>
+    <p class="src"><span>src/signals_app/scoring/confluence.py</span><span>src/signals_app/synthesis/mtf_llm.py</span></p>
+  </header>
+
+  <section>
+    <h2>1. The formula that's too easy to max out</h2>
+    <p class="sub">Every firing detector casts a signed vote. The net score is the imbalance between bull and bear votes, divided by the total weight that actually fired — not by any fixed universe-wide ceiling.</p>
+    <div class="formula">
+      <div class="label">ConfluenceRanker.rank_signals()</div>
+      <div class="expr">
+        raw_score <span class="op">=</span> (weighted_bull <span class="op">−</span> weighted_bear) <span class="op">/</span> max_weight<br>
+        <span style="color:var(--text-faint)">where max_weight = weighted_bull + weighted_bear&nbsp; (the achieved total, not a cap)</span>
+      </div>
+    </div>
+    <p class="dim">
+      When every firing detector votes the same direction, <code>weighted_bear = 0</code>, so the formula collapses to
+      <code class="mono">weighted_bull / weighted_bull = 1.0</code> — exactly, every time, regardless of how many
+      detectors fired or how strong they were. The denominator was never an independent ceiling; it's built from the
+      same votes as the numerator.
+    </p>
+  </section>
+
+  <section>
+    <h2>2. Unanimity beats conviction</h2>
+    <p class="sub">Two tickers, same detector count, very different underlying conviction — the metric can't tell them apart.</p>
+    <div class="twocol">
+      <div class="kase up">
+        <div class="ktitle">One weak, unopposed signal</div>
+        <div class="kscore">1.00</div>
+        <div class="kdetail">
+          1 detector fires <code>BULLISH</code> (vote 1.0), nothing disagrees.<br>
+          <code>bull=1.0 / max=1.0</code>
+        </div>
+      </div>
+      <div class="kase">
+        <div class="ktitle">One extreme signal, one dissent</div>
+        <div class="kscore" style="color:var(--warn)">0.50</div>
+        <div class="kdetail">
+          1 detector fires <code>EXTREME_BULLISH</code> (vote 3.0), 1 fires <code>BEARISH</code> (vote −1.0).<br>
+          <code>(3.0 − 1.0) / 4.0</code>
+        </div>
+      </div>
+    </div>
+    <p class="dim">The far stronger, better-evidenced ticker on the right scores <em>lower</em> than the flimsiest possible unanimous case on the left — because the score rewards agreement, not magnitude or sample size.</p>
+  </section>
+
+  <section>
+    <h2>3. Worked examples against the real thresholds</h2>
+    <p class="sub">Using the live constants: publish gate needs <code>|score| ≥ 0.15</code> and 2+ signals; <code>BUY</code>/<code>SELL</code> need <code>|score| ≥ 0.35</code> and 3+ same-direction signals; the confidence label switches to <span class="pill high">HIGH</span> at <code>|score| ≥ 0.55</code>.</p>
+    <div class="tablewrap">
+    <table class="rows">
+      <thead>
+        <tr>
+          <th>Detector votes</th>
+          <th class="num">bull_count</th>
+          <th class="num">score</th>
+          <th>bias</th>
+          <th>confidence_label</th>
+          <th>action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1× <span class="mono">BULLISH</span> (1.0)</td>
+          <td class="num">1</td>
+          <td class="num score-cell max">1.00</td>
+          <td><span class="pill buy">bullish</span></td>
+          <td><span class="pill high">HIGH</span></td>
+          <td><span class="pill hold">HOLD</span> <span style="color:var(--text-faint)">(bull_count &lt; 3)</span></td>
+        </tr>
+        <tr>
+          <td>2× <span class="mono">BULLISH</span> (1.0 each)</td>
+          <td class="num">2</td>
+          <td class="num score-cell max">1.00</td>
+          <td><span class="pill buy">bullish</span></td>
+          <td><span class="pill high">HIGH</span></td>
+          <td><span class="pill hold">HOLD</span> <span style="color:var(--text-faint)">(bull_count &lt; 3)</span></td>
+        </tr>
+        <tr>
+          <td>3× <span class="mono">BULLISH</span>, MA_CROSS bonus (1.5 each)</td>
+          <td class="num">3</td>
+          <td class="num score-cell max">1.00</td>
+          <td><span class="pill buy">bullish</span></td>
+          <td><span class="pill high">HIGH</span></td>
+          <td><span class="pill buy">BUY</span></td>
+        </tr>
+        <tr>
+          <td>1× <span class="mono">EXTREME_BULLISH</span> (3.0) + 1× <span class="mono">BEARISH</span> (−1.0)</td>
+          <td class="num">1</td>
+          <td class="num score-cell">0.50</td>
+          <td><span class="pill buy">bullish</span></td>
+          <td><span class="pill med">MEDIUM</span></td>
+          <td><span class="pill hold">HOLD</span></td>
+        </tr>
+        <tr>
+          <td>6× <span class="mono">EXTREME_BULLISH</span> (3.0 each) — maximal real conviction</td>
+          <td class="num">6</td>
+          <td class="num score-cell max">1.00</td>
+          <td><span class="pill buy">bullish</span></td>
+          <td><span class="pill high">HIGH</span></td>
+          <td><span class="pill buy">BUY</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="dim">Rows 1, 2, 3 and 5 all land on the identical <code>1.00 / HIGH</code> reading — the formula can't distinguish "one unopposed weak blip" from "six independently-firing extreme detectors." Row 4, the most extreme single vote on the whole table, scores lower than all of them just because one dissenter showed up.</p>
+  </section>
+
+  <section>
+    <h2>4. Where "confidence = 1.0" actually comes from</h2>
+    <p class="sub">Three different fields get called "confidence" in this pipeline, and only one of them can even reach 1.0.</p>
+    <div class="chain">
+      <div class="step"><b>confluence_score</b><br><span style="color:var(--text-faint)">−1 … 1, from §1 above</span></div>
+      <span class="arrow">→</span>
+      <div class="step"><b>confidence_label</b><br><span style="color:var(--text-faint)">HIGH / MEDIUM / LOW</span></div>
+      <span class="arrow">→</span>
+      <div class="step"><b>Signal.confidence</b><br><span style="color:var(--text-faint)">0 &lt; x &lt; 1, schema-enforced</span></div>
+    </div>
+    <div class="tablewrap" style="margin-top:20px">
+    <table class="rows">
+      <thead>
+        <tr><th>Field</th><th>Can it actually be 1.00?</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">ConfluenceResult.score</td>
+          <td><span class="pill sell">Yes — trivially</span></td>
+          <td>Ratio of achieved-vs-achieved (§1). Any unanimous vote set hits exactly 1.00, seen directly in the fallback evidence string <code class="mono">"confluence_score=1.00"</code>.</td>
+        </tr>
+        <tr>
+          <td class="mono">ConfluenceResult.confidence_label</td>
+          <td><span class="pill med">HIGH, easily</span></td>
+          <td>Snaps to <code>HIGH</code> whenever <code>abs(score) ≥ 0.55</code> — and since score alone can hit 1.00 off a single signal, <code>HIGH</code> is reachable the same way, with no minimum signal count required.</td>
+        </tr>
+        <tr>
+          <td class="mono">Signal.confidence</td>
+          <td><span class="pill hold">No — never</span></td>
+          <td><code>schemas/signal_output.py</code> validates <code>0.0 &lt; confidence &lt; 1.0</code> strictly and rejects exact 1.0. The <em>rule-based fallback</em> caps it further, at 0.55 (buy/sell) or 0.30 (hold).</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="callout warn">
+      <div class="ctitle">⚠ likely source of the "1.00" you're seeing</div>
+      <p>It's <code>confluence_score</code>, printed verbatim into the fallback evidence summary:</p>
+      <p class="mono" style="background:var(--code-bg);padding:8px 10px;border-radius:6px;">"Rule-based fallback: confluence_score={score:.2f}, change_pct=…"</p>
+      <p>That line comes from <code>_fallback_signal()</code> in <code>mtf_llm.py</code> — it fires whenever the LLM is disabled or fails, and just formats whatever <code>ConfluenceResult.score</code> handed it. A second, unrelated field also reads "1.0" in the same payload: the fallback's single evidence item always sets <code>weight: 1.0</code>, because a one-item evidence list trivially satisfies the "weights sum to 1.0" schema rule — that's not a confidence value at all, just the full weight of the only evidence item present.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. What "too easy" means concretely</h2>
+    <p class="sub">The gate that's supposed to filter for conviction only checks direction and count — never how close the vote actually was.</p>
+    <div class="fixlist">
+      <div class="fixrow">
+        <div class="fnum">01</div>
+        <div>
+          <h3>The denominator has no independent ceiling</h3>
+          <p><code>max_weight</code> is defined as the sum of whatever fired — it grows and shrinks with the numerator instead of being fixed relative to the full detector roster (18 detectors, up to 166 possible firings). A truly comprehensive, unanimous reading and a single-detector unanimous reading are mathematically identical.</p>
+        </div>
+      </div>
+      <div class="fixrow">
+        <div class="fnum">02</div>
+        <div>
+          <h3>confidence_label ignores sample size entirely</h3>
+          <p>The HIGH/MEDIUM/LOW cut only looks at <code>abs(score)</code>. Nothing in that branch consults <code>bull_count</code> / <code>bear_count</code> / <code>total_signals</code>, so a 1-signal read and a 6-signal read can both claim HIGH.</p>
+        </div>
+      </div>
+      <div class="fixrow">
+        <div class="fnum">03</div>
+        <div>
+          <h3>Action and confidence disagree on what "enough" means</h3>
+          <p><code>action</code> already has a signal-count floor (<code>CONFLUENCE_BUY_MIN_SIGNALS = 3</code>) that <code>confidence_label</code> doesn't share — which is how row 1 in §3 above ends up <code>HOLD</code> at <code>HIGH</code> confidence, a combination that reads as contradictory wherever it's surfaced.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    generated from src/signals_app/scoring/confluence.py + src/signals_app/synthesis/mtf_llm.py · 2026-09-23 · explainer only, no code changed
+  </footer>
+
+</div>

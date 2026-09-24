@@ -1149,8 +1149,8 @@ The live page is a title, `Greeting`, `TickerSearch`, `RecentRunsTable`, and `Wa
 - [x] Every number carries an absolute timestamp ("bar Sep 19 16:00 ET · computed Sep 22 14:07 ET"), matching the deep-dive convention.
 - [x] Degraded-mode banner when the newest run is stale (>26h, `ENGINE_STALE_HOURS`) or LLM synthesis ran degraded.
 - [x] Add `data-testid` hooks on every section. Added on the landing sections; the rest of the app still has none (open P1 above).
-- [ ] Mobile layout: sections stack, the heatmap preview scrolls horizontally inside its card, and nothing overflows at 375px.
-- [ ] Performance budget: at most ~6 Supabase queries on first paint, lazy-load sections below the fold, heatmap preview under 1,000 DOM cells.
+- [x] Mobile layout: sections stack, the heatmap preview scrolls horizontally inside its card (six fixed rows below `md`), and nothing overflows at 375px (asserted in `dashboard.spec.ts`).
+- [x] Performance budget: first paint is three shared queries (signals, funnel, health; the funnel makes two calls) plus one deferred query for the featured deep dive, which only fires once that section is within 200px of the viewport (`useInView`). Heatmap preview is one cell per published ticker (≤ ~1,000).
 - [x] Update the [Dashboard section](#1-dashboard-signals-app) of this guide to match what actually ships.
 
 **Phase 4: verification (run against the static export, never `next dev`)**
@@ -1162,7 +1162,7 @@ The live page is a title, `Greeting`, `TickerSearch`, `RecentRunsTable`, and `Wa
   ```
   Expect: `out/` is written and `out/404.html` exists.
 
-- [ ] Serve it locally and open the landing page:
+- [x] Serve it locally and open the landing page (covered by the Playwright run against the static export):
 
   ```bash
   cd ~/code/signals-app/web && npm run start:static

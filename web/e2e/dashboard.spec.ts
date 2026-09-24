@@ -48,6 +48,16 @@ test.describe('Dashboard functionality', () => {
     expect(errors).toHaveLength(0);
   });
 
+  test('landing page does not overflow horizontally at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/signals-app/');
+    await expect(page.getByTestId('landing-footer')).toBeVisible({ timeout: 5000 });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
   test('ticker search accepts input', async ({ page }) => {
     // Find search input (look for input with placeholder or aria-label)
     const searchInput = page.locator('input[type="text"]').first();

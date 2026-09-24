@@ -190,6 +190,8 @@ TIMEFRAME_CACHE_TTL_SECONDS: Final[dict[str, int]] = {
     "3M": 12 * 3600,
     "6M": 24 * 3600,
     "1Y": 24 * 3600,
+    "5Y": 48 * 3600,
+    "MAX": 48 * 3600,
 }
 
 # ---------------------------------------------------------------------------
@@ -207,13 +209,17 @@ CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = 3
 # the gate is what makes the engine selective instead of always emitting a
 # direction. Run before LLM synthesis, not after — an unpublishable signal
 # should never pay for a synthesis call.
+#
+# Loosened 2026-09-22 from data_quality=0.7/signals=3/confluence=0.35 (which
+# reused CONFLUENCE_BUY_THRESHOLD directly) so more of a universe scan
+# actually publishes instead of coming back "not scanned" — that reuse also
+# meant tightening the real buy/sell threshold would have silently tightened
+# publishing too, so PUBLISH_MIN_CONFLUENCE_SCORE is now its own constant.
 # ---------------------------------------------------------------------------
 
-PUBLISH_MIN_DATA_QUALITY: Final[float] = 0.7
-PUBLISH_MIN_SIGNALS: Final[int] = 3
-# Reuses the existing BUY/SELL confluence bands — a signal weak enough to be
-# HOLD-territory carries no information worth persisting.
-PUBLISH_MIN_CONFLUENCE_SCORE: Final[float] = CONFLUENCE_BUY_THRESHOLD
+PUBLISH_MIN_DATA_QUALITY: Final[float] = 0.5
+PUBLISH_MIN_SIGNALS: Final[int] = 2
+PUBLISH_MIN_CONFLUENCE_SCORE: Final[float] = 0.15
 
 # ---------------------------------------------------------------------------
 # LLM config — Gemini

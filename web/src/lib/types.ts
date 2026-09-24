@@ -10,7 +10,7 @@ export type SignalDirection =
   | "sell"
   | "strong_sell";
 
-export type Timeframe = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y";
+export type Timeframe = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y" | "5Y" | "MAX";
 
 export type EvidenceSource =
   | "technical"
@@ -80,7 +80,9 @@ export interface SignalOutput {
 }
 
 /** Periods the backend currently accepts end-to-end. */
-export const VALID_PERIODS = ["1d", "5d", "1mo", "3mo", "6mo", "1y"] as const;
+export const VALID_PERIODS = [
+  "1d", "5d", "1mo", "3mo", "6mo", "1y", "5y", "max",
+] as const;
 export type Period = (typeof VALID_PERIODS)[number];
 
 export const PERIOD_LABELS: Record<Period, string> = {
@@ -90,6 +92,8 @@ export const PERIOD_LABELS: Record<Period, string> = {
   "3mo": "3M",
   "6mo": "6M",
   "1y": "1Y",
+  "5y": "5Y",
+  "max": "MAX",
 };
 
 /**
@@ -134,8 +138,8 @@ export const PERIOD_OPTIONS: PeriodOption[] = [
   { id: "3mo",  label: "3M",  longLabel: "3 months",   spanMinutes: 90 * DAY,       supported: true,  supportedFallback: "3mo", group: "swing" },
   { id: "6mo",  label: "6M",  longLabel: "6 months",   spanMinutes: 180 * DAY,      supported: true,  supportedFallback: "6mo", group: "long" },
   { id: "1y",   label: "1Y",  longLabel: "1 year",     spanMinutes: 365 * DAY,      supported: true,  supportedFallback: "1y",  group: "long" },
-  { id: "5y",   label: "5Y",  longLabel: "5 years",    spanMinutes: 5 * 365 * DAY,  supported: false, supportedFallback: "1y",  group: "long" },
-  { id: "max",  label: "MAX", longLabel: "Lifetime",   spanMinutes: 50 * 365 * DAY, supported: false, supportedFallback: "1y",  group: "long" },
+  { id: "5y",   label: "5Y",  longLabel: "5 years",    spanMinutes: 5 * 365 * DAY,  supported: true,  supportedFallback: "5y",  group: "long" },
+  { id: "max",  label: "MAX", longLabel: "Lifetime",   spanMinutes: 50 * 365 * DAY, supported: true,  supportedFallback: "max", group: "long" },
 ];
 
 const PERIOD_OPTION_BY_ID: Record<string, PeriodOption> = Object.fromEntries(
@@ -180,4 +184,6 @@ export const SIGNAL_ARROWS: Record<SignalDirection, string> = {
   strong_sell: "⬇",
 };
 
-export const TIMEFRAMES: Timeframe[] = ["1D", "5D", "1M", "3M", "6M", "1Y"];
+export const TIMEFRAMES: Timeframe[] = [
+  "1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "MAX",
+];

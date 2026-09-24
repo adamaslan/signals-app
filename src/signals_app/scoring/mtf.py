@@ -25,14 +25,19 @@ logger = logging.getLogger(__name__)
 
 # Relative weights for each timeframe in the composite score
 TIMEFRAME_WEIGHTS: Final[dict[str, float]] = {
-    "1D": 0.10,
-    "5D": 0.15,
-    "1M": 0.25,
-    "3M": 0.30,
-    "6M": 0.20,
+    "1D": 0.05,
+    "5D": 0.08,
+    "1M": 0.12,
+    "3M": 0.15,
+    "6M": 0.15,
+    "1Y": 0.20,
+    "5Y": 0.15,
+    "MAX": 0.10,
 }
 
-SUPPORTED_TIMEFRAMES: Final[tuple[str, ...]] = ("1D", "5D", "1M", "3M", "6M")
+SUPPORTED_TIMEFRAMES: Final[tuple[str, ...]] = (
+    "1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "MAX",
+)
 
 
 @dataclass

@@ -20,6 +20,8 @@ const TIMEFRAME_GROUP: Record<Timeframe, "swing" | "long"> = {
   "3M": "swing",
   "6M": "long",
   "1Y": "long",
+  "5Y": "long",
+  MAX: "long",
 };
 
 const SWING_TIMEFRAMES = TIMEFRAMES.filter((tf) => TIMEFRAME_GROUP[tf] === "swing");

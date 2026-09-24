@@ -27,8 +27,13 @@ export function HeatmapPreview() {
       ) : cells.length === 0 ? (
         <EmptyState>No published signals to map yet.</EmptyState>
       ) : (
-        <div className="max-h-48 overflow-y-auto">
-          <div className="flex flex-wrap gap-[3px]">
+        <div
+          data-testid="landing-heatmap-scroll"
+          className="overflow-x-auto md:max-h-48 md:overflow-y-auto md:overflow-x-hidden"
+        >
+          {/* Phone: six fixed rows that scroll sideways inside the card.
+              md+: wrapping grid, height-capped. */}
+          <div className="grid grid-flow-col grid-rows-6 auto-cols-[12px] gap-[3px] w-max md:flex md:w-auto md:flex-wrap">
             {cells.map((s) => (
               <Link
                 key={s.ticker}
@@ -37,7 +42,7 @@ export function HeatmapPreview() {
                   s.confidence != null ? ` ${Math.round(s.confidence * 100)}%` : ""
                 }`}
                 aria-label={`${s.ticker} ${SIGNAL_LABELS[s.direction]}`}
-                className="h-3 w-3 rounded-[2px] hover:scale-150"
+                className="h-3 w-3 shrink-0 rounded-[2px] hover:scale-150"
                 style={{
                   backgroundColor: SIGNAL_COLORS[s.direction],
                   opacity: s.confidence != null ? 0.35 + 0.65 * s.confidence : 0.5,

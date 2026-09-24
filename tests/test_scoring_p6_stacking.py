@@ -17,6 +17,7 @@ from backtests.stacking import (
 from backtests.evaluate import EvalReport
 from signals_app.scoring.mtf import (
     STACK_FEATURES,
+    TIMEFRAME_WEIGHTS,
     compute_multi_timeframe,
     resample_ohlcv,
     stack_features,
@@ -76,8 +77,10 @@ def test_multi_timeframe_reports_available_weight_fraction():
     # 1D and 5D return too few bars to score, exactly as in production (bug B7).
     frames = {"1D": _ohlcv(1, 0), "5D": _ohlcv(5, 1), "1M": _ohlcv(300, 2), "3M": _ohlcv(300, 3), "6M": _ohlcv(300, 4)}
     result = compute_multi_timeframe("TEST", frames)
-    assert result.available_weight_fraction == pytest.approx(0.75)
-    assert result.to_dict()["available_weight_fraction"] == pytest.approx(0.75)
+    # 1M+3M+6M of the 8-timeframe weights (1Y/5Y/MAX absent from `frames` too).
+    expected = sum(TIMEFRAME_WEIGHTS[tf] for tf in ("1M", "3M", "6M"))
+    assert result.available_weight_fraction == pytest.approx(expected)
+    assert result.to_dict()["available_weight_fraction"] == pytest.approx(expected)
 
 
 def test_stack_dataset_has_no_lookahead_and_carries_availability():

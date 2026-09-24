@@ -33,6 +33,8 @@ class Timeframe(str, Enum):
     three_month = "3M"
     six_month = "6M"
     one_year = "1Y"
+    five_year = "5Y"
+    max = "MAX"
 
 
 class EvidenceSource(str, Enum):
@@ -249,6 +251,7 @@ def classify_divergence(signals: dict[str, Signal]) -> DivergencePattern:
     long_tfs = {
         Timeframe.one_month.value, Timeframe.three_month.value,
         Timeframe.six_month.value, Timeframe.one_year.value,
+        Timeframe.five_year.value, Timeframe.max.value,
     }
 
     bull = {SignalDirection.buy, SignalDirection.strong_buy}

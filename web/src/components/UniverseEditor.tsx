@@ -644,6 +644,21 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
             </div>
           )}
 
+          {latestRun.summary &&
+            latestRun.summary.uncovered === latestRun.results.length &&
+            (cov?.covered.length ?? 0) > 0 && (
+              <p className="text-amber-500 text-xs rounded-lg bg-amber-950/20 border border-amber-800/40 px-3 py-2">
+                Every ticker came back uncovered at period{" "}
+                <span className="font-semibold">{latestRun.period}</span>,
+                but {cov?.covered.length} of them are in the scan
+                universe — signals just aren't published for this period
+                yet. Try switching{" "}
+                <span className="text-white">Default period</span> to{" "}
+                <span className="font-semibold">3mo</span> (the period the
+                last full scan actually ran with) and re-running.
+              </p>
+            )}
+
           <ErrorBoundary label={view === "heatmap" ? "Heatmap" : "Table"}>
             {view === "heatmap" ? (
               <UniverseHeatmap

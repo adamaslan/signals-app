@@ -66,11 +66,14 @@ BENCHMARK_SYMBOL = "SPY"
 MARKET_HISTORY_PERIOD = "2y"
 _PERIOD_TO_TIMEFRAME: dict[str, str] = {
     "1d": "1D", "5d": "5D", "1mo": "1M", "3mo": "3M", "6mo": "6M", "1y": "1Y",
+    "5y": "5Y", "max": "MAX",
 }
 # Inverse mapping for Phase 10 (multi-timeframe matrix): SUPPORTED_TIMEFRAMES
-# ("1D","5D","1M","3M","6M") -> the yfinance period string DataFetcher expects.
+# ("1D","5D","1M","3M","6M","1Y","5Y","MAX") -> the yfinance period string
+# DataFetcher expects.
 _TIMEFRAME_TO_PERIOD: dict[str, str] = {
     "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", "6M": "6mo",
+    "1Y": "1y", "5Y": "5y", "MAX": "max",
 }
 
 
@@ -177,13 +180,13 @@ def passes_publication_gate(
 
 
 def build_matrix_for_symbol(ticker: str, settings: Any) -> dict[str, Any] | None:
-    """Compute the full 5-timeframe matrix (Phase 10) for a symbol that has
-    already cleared the single-period publication gate.
+    """Compute the full 8-timeframe matrix (Phase 10, extended) for a symbol
+    that has already cleared the single-period publication gate.
 
-    Fetches SUPPORTED_TIMEFRAMES's 5 periods, scores each with
+    Fetches SUPPORTED_TIMEFRAMES's 8 periods, scores each with
     compute_multi_timeframe(), then calls build_timeframe_matrix() — which
-    makes up to 5 LLM calls, one per timeframe. Deliberately only called for
-    already-gated symbols (see scan_one_symbol) so the 5x fetch/LLM cost is
+    makes up to 8 LLM calls, one per timeframe. Deliberately only called for
+    already-gated symbols (see scan_one_symbol) so the 8x fetch/LLM cost is
     never paid for a symbol that would be rejected anyway.
 
     Returns:

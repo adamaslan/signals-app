@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from signals_app import scanner
+from signals_app.config import PUBLISH_MIN_DATA_QUALITY
 from signals_app.data.fetcher import OHLCVResult
 from signals_app.scanner import (
     MarketContext,
@@ -25,7 +26,7 @@ class TestEvGate:
         assert not passes_ev_gate(0.9, 0.60, 0.0005, delta=0.05)  # EV below the 10 bp cost
         assert not passes_ev_gate(0.9, 0.60, -0.004, delta=0.05)  # EV disagrees with p
         assert not passes_ev_gate(0.9, 0.60, None, delta=0.05)  # no EV head
-        assert not passes_ev_gate(0.5, 0.60, 0.004, delta=0.05)  # bad data
+        assert not passes_ev_gate(PUBLISH_MIN_DATA_QUALITY - 0.1, 0.60, 0.004, delta=0.05)  # bad data
 
     def test_sell_side_and_direction_filter(self):
         assert passes_ev_gate(0.9, 0.38, -0.004, delta=0.05)

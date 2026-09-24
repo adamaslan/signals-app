@@ -1,6 +1,16 @@
 # signals-app — TODO
 
-**Last updated:** 2026-08-20
+**Last updated:** 2026-09-03 (was 2026-08-20)
+
+> **New 2026-09-03 — this repo now has a downstream consumer.**
+> `~/code/nuwrrrld-portal` is porting this app's scoring and indicator modules
+> into its own card pipeline, and already consumes
+> `seed/universe_symbols.csv` as its universe of record. Three items below have
+> therefore changed priority because a second repo depends on them: **#6**
+> (`data_quality.py`'s flaky test), **#9a** (`pivots.py` / the S/R detector),
+> and the new **#11** (CSV vendor-neutrality — a live bug in the portal today).
+> Plan and rationale:
+> `~/code/nuwrrrld-portal/docs/signal-engine-three-phase-plan.md`.
 **State:** All 11 phases of [backend-state-and-supabase-plan.md](backend-state-and-supabase-plan.md)
 are shipped and merged (PRs #7–#17). The engine runs unattended, calibrates itself,
 and serves a live dashboard. Everything below is **verification, cleanup, and cost
@@ -28,6 +38,21 @@ Counts in this file were measured on 2026-08-20, not copied from an older doc.
 > (`src/signals_app/synthesis/mtf_llm.py:173`) and both workflow jobs already pass
 > the key through — only the key itself is missing.
 
+> **Worth doing now, and here is the cautionary tale.** The portal had the
+> identical failure — a shipped code path, a workflow passing secrets through,
+> and the secrets never pushed. Verified 2026-09-03: its nightly universe
+> hydration failed **11 consecutive times over 15 days** on a missing
+> `PORTAL_PUSH_SECRET`, and nobody noticed, because a red scheduled workflow
+> notifies no one. The guard worked; the *observation* didn't.
+>
+> Two transferable lessons for this repo:
+> - A secret referenced by a scheduled workflow is never dead config. If you
+>   find yourself deciding whether a dependency is real, grep the workflows —
+>   that answers it in seconds.
+> - Add failure notification to `signals-scan.yml` at the same time you add the
+>   key. An unattended job whose only failure channel is the Actions tab is a
+>   job whose failures are discovered by accident.
+
 Full procedure: [uni6 §1](../../homebase/docs/signals-app-docs/uni6-production-run-and-e2e.md)
 
 ### 2. Price the full-universe run before spending
@@ -48,6 +73,52 @@ Full procedure: [uni6 §1](../../homebase/docs/signals-app-docs/uni6-production-
 - [ ] If any shard >60 min: bump `matrix.shard` to `[0..7]` and `--shard .../8`
 - [ ] Update [uni5.html](../../homebase/docs/signals-app-docs/uni5.html) with measured cost + timing,
       strike the last debt item
+
+---
+
+## P0b — Cross-repo: the universe CSV is now a shared asset
+
+### 11. `universe_symbols.csv` is yfinance-shaped, and a second vendor reads it
+
+`seed/universe_symbols.csv` is this repo's file, written for **yfinance**. It is
+now also `nuwrrrld-portal`'s universe of record, and the portal fetches through
+**Alpaca**. The two vendors spell share classes differently:
+
+| | yfinance | Alpaca |
+|---|---|---|
+| Berkshire Hathaway B | `BRK-B` | `BRK.B` |
+| Brown-Forman B | `BF-B` | `BF.B` |
+
+The CSV carries the hyphen form, which is **correct for this repo** and 400s at
+Alpaca. Downstream, the portal's `prune-universe.mjs` saw the vendor rejection,
+correctly classified those symbols `reject`, and deactivated them — so two of
+the most liquid names on the tape sit in the portal's database marked as if
+delisted. This is not a typo in the CSV; it is a symbology mismatch at a repo
+boundary that nobody owned.
+
+The normalization fix belongs in the portal (the CSV should stay correct for its
+own vendor). What belongs **here**:
+
+- [ ] **Identify the 4 failures in the full-universe dry run.** The recorded
+      result is `954 scanned / 403 published / 4 failed` (§2 above), and those
+      4 have never been named. If they are the share-class symbols, this repo
+      has the same class of bug against its own vendor and the CSV needs a fix
+      rather than a downstream normalizer.
+- [ ] **Add an `asset_type`-adjacent note or column documenting the symbology
+      convention** the file uses, so the next consumer doesn't have to
+      rediscover it by watching requests fail.
+- [ ] **Decide whether the CSV is a public interface.** It now has two
+      consumers with different vendors; a third is likely. If it is an
+      interface, changes to ticker spelling are breaking changes and should be
+      noted in this file when made.
+
+Also flagged for the portal side, recorded here because the CSV is the shared
+artifact: four crypto rows (`BTC-USD`, `ETH-USD`, `DOGE-USD`, `SOL-USD`) reached
+the portal's database registered as ETFs, even though its seeder maps
+`Crypto → skip`. They came from some other path. This repo scans crypto fine —
+the incompatibility is the portal's Mon–Fri trading-day math — so no change is
+needed here beyond awareness that the file's crypto rows are load-bearing
+downstream in a way this repo doesn't see.
 
 ---
 
@@ -89,6 +160,19 @@ clock time.
 - [ ] Freeze time in the fixture (inject an explicit `datetime`, or `freezegun`)
 - [ ] **Do not** widen `DATA_QUALITY_STALE_HOURS` — that weakens a real production
       gate to satisfy a test
+
+> **Priority raised 2026-09-03: `data_quality.py` is being ported.** The portal
+> is replacing its own `dataQuality` — currently `fields_present / 5`, pure
+> completeness with no staleness or NaN component — with this module's scoring.
+> That field is load-bearing there: it is the tie-break deciding which engine's
+> card wins, so a completeness-only measure silently ranks a 5-field card from a
+> truncated window above a 2-field card from a better model.
+>
+> Two consequences for this item. It is now the **first** thing to fix, because
+> a port that starts from a flaky test inherits the flake. And the "do not widen
+> the threshold" warning applies doubly — the portal's motivating bug was
+> 15-day-old cards scoring exactly as well as fresh ones, which is precisely
+> what a relaxed staleness gate produces.
 
 ---
 
@@ -167,6 +251,11 @@ comparison table, the gap is two separate things — do them as separate PRs:
         exact fire conditions and threshold grid (`SR_PROXIMITIES` already
         exists in `indicators/grids.py:83`, unused until this lands).
       - Update `docs/app-overview.md`'s per-ticker signal ceiling once merged.
+      - **Second consumer as of 2026-09-03:** the portal wants pivots and
+        nearest-levels for its grounding packs (explainability, not ranking).
+        Build it here once rather than in both repos — `pivots.py` is already
+        the shared dependency, and the portal's need is satisfied by this
+        detector's output shape, not by a reimplementation.
 - [ ] **(Separately, lower priority) historical bar-by-bar scanning.**
       `signals-app`'s detectors currently read `df.iloc[-1]` only (latest bar).
       `boll-4-april-500.py`'s `detect_signals()` loops
@@ -266,13 +355,19 @@ Full measured detail: [universe-scan-findings.md](universe-scan-findings.md)
 
 ## Suggested order
 
-Cheapest-first, so the free work de-risks the expensive work:
+Cheapest-first, so the free work de-risks the expensive work. **Revised
+2026-09-03** — two items moved up because a second repo now depends on them:
 
-1. **#2** dry-run pricing *(free)*
-2. **#4** Playwright scaffold + smoke test *(free, offline)*
-3. **#1** key wiring *(10 min)*
-4. **#3** pilot run *(cents)*
-5. **#4** E2E into CI, blocking
-6. **#3** full universe *(the spend — now with a known price)*
-7. **#7/#8** lint + type cleanup, separate PR
-8. **#6** flaky-test fix (fold into the cleanup PR)
+1. **#11** name the 4 dry-run failures *(free, minutes)* — it may be the same
+   share-class bug that has two liquid tickers marked delisted downstream
+2. **#6** freeze time in the data-quality fixture *(free)* — moved up from last;
+   `data_quality.py` is being ported and a port inherits the flake
+3. **#2** dry-run pricing *(free)*
+4. **#4** Playwright scaffold + smoke test *(free, offline)*
+5. **#1** key wiring *(10 min)* — **and add failure notification to
+   `signals-scan.yml` in the same commit**, per the P0 #1 note
+6. **#3** pilot run *(cents)*
+7. **#4** E2E into CI, blocking
+8. **#3** full universe *(the spend — now with a known price)*
+9. **#7/#8** lint + type cleanup, separate PR
+10. **#9a** `SUPPORT_RESISTANCE` detector — now serves two repos
