@@ -108,3 +108,5 @@ post-fix: all 5 previously-published symbols dropped below the gate. Full
 analysis in docs/universe-scan-improvements.md.
 
 ## [2026-09-23] ingest | scoring 2x plan P2–P7 (family confluence, learned scorer, rank + p_outperform, EV gate, stacking, retrain + drift) | pages touched: 3
+
+## [2026-09-24] ingest | PR landing signal guide + 2000-ticker universe research | pages touched: 2
