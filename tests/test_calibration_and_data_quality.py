@@ -1,10 +1,11 @@
 """Tests for the calibration persistence layer and data-quality scoring."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from backtests.engine import HitRateBucket, merge_hit_rate_buckets
 from signals_app.indicators.data_quality import score_data_quality
@@ -15,8 +16,26 @@ from signals_app.scoring.calibration import (
 )
 
 
+# Fixed clock: score_data_quality measures bar age against datetime.now(UTC), while
+# date.today() is the *local* date, so fixtures built from it drift past
+# DATA_QUALITY_STALE_HOURS depending on the time of day the suite runs.
+FIXED_NOW = datetime(2026, 9, 25, 15, 0, tzinfo=timezone.utc)
+FIXED_TODAY = FIXED_NOW.date()
+
+
+class _FrozenDatetime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return FIXED_NOW if tz is None else FIXED_NOW.astimezone(tz)
+
+
+@pytest.fixture(autouse=True)
+def _freeze_data_quality_clock(monkeypatch):
+    monkeypatch.setattr("signals_app.indicators.data_quality.datetime", _FrozenDatetime)
+
+
 def _make_ohlcv(n: int = 60, last_date: date | None = None) -> pd.DataFrame:
-    dates = pd.date_range(end=last_date or date.today(), periods=n, freq="B")
+    dates = pd.date_range(end=last_date or FIXED_TODAY, periods=n, freq="B")
     close = np.linspace(100, 110, n)
     return pd.DataFrame(
         {
@@ -120,7 +139,7 @@ def test_load_corrupt_file_returns_none(tmp_path):
 def test_score_data_quality_perfect_fresh_data_scores_one():
     # 200+ bars clears both the period floor and the 200-period indicator
     # warmup, so this is the only bar count that should score a clean 1.0.
-    df = _make_ohlcv(n=200, last_date=date.today())
+    df = _make_ohlcv(n=200, last_date=FIXED_TODAY)
     result = score_data_quality(df, period="1y")
 
     assert result.score == 1.0
@@ -134,7 +153,7 @@ def test_score_data_quality_flags_indicator_warmup_short():
     # so rather than reporting a misleadingly perfect score (the actual bug
     # behind the 2026-09-01 universe scan: A and ABT published SELL calls
     # built on a "200SMA" that was really a 63-bar mean).
-    df = _make_ohlcv(n=60, last_date=date.today())
+    df = _make_ohlcv(n=60, last_date=FIXED_TODAY)
     result = score_data_quality(df, period="3mo")
 
     assert result.score == 0.8
@@ -143,7 +162,7 @@ def test_score_data_quality_flags_indicator_warmup_short():
 
 
 def test_score_data_quality_flags_insufficient_bars():
-    df = _make_ohlcv(n=5, last_date=date.today())
+    df = _make_ohlcv(n=5, last_date=FIXED_TODAY)
     result = score_data_quality(df, period="1y")  # needs 200 bars
 
     assert result.score < 1.0
@@ -151,7 +170,7 @@ def test_score_data_quality_flags_insufficient_bars():
 
 
 def test_score_data_quality_flags_stale_data():
-    df = _make_ohlcv(n=60, last_date=date.today() - timedelta(days=10))
+    df = _make_ohlcv(n=60, last_date=FIXED_TODAY - timedelta(days=10))
     result = score_data_quality(df, period="3mo")
 
     assert result.score < 1.0
@@ -159,7 +178,7 @@ def test_score_data_quality_flags_stale_data():
 
 
 def test_score_data_quality_flags_high_nan_ratio():
-    df = _make_ohlcv(n=60, last_date=date.today())
+    df = _make_ohlcv(n=60, last_date=FIXED_TODAY)
     df.loc[df.index[:10], "Close"] = float("nan")
 
     result = score_data_quality(df, period="3mo")
@@ -177,7 +196,7 @@ def test_score_data_quality_empty_dataframe_scores_zero():
 
 
 def test_score_data_quality_flags_missing_columns():
-    df = _make_ohlcv(n=60, last_date=date.today()).drop(columns=["Volume"])
+    df = _make_ohlcv(n=60, last_date=FIXED_TODAY).drop(columns=["Volume"])
     result = score_data_quality(df, period="3mo")
 
     assert result.score < 1.0
@@ -185,7 +204,7 @@ def test_score_data_quality_flags_missing_columns():
 
 
 def test_score_data_quality_flags_future_timestamp():
-    df = _make_ohlcv(n=60, last_date=date.today() + timedelta(days=5))
+    df = _make_ohlcv(n=60, last_date=FIXED_TODAY + timedelta(days=5))
     result = score_data_quality(df, period="3mo")
 
     assert result.score < 1.0
@@ -197,7 +216,7 @@ def test_score_data_quality_handles_pure_date_index_without_crashing():
     # some data sources. Must not raise AttributeError on missing .tzinfo.
     # n=200 clears the indicator-warmup floor too, isolating this test to
     # the pure-date-index behavior it's actually about.
-    df = _make_ohlcv(n=200, last_date=date.today())
+    df = _make_ohlcv(n=200, last_date=FIXED_TODAY)
     df.index = pd.Index([d.date() for d in df.index])
 
     result = score_data_quality(df, period="1y")
