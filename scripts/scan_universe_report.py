@@ -41,10 +41,10 @@ import json
 import logging
 import sys
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -364,7 +364,7 @@ def _aggregate(reports: list[SymbolReport], period: str, elapsed: float,
     ]
 
     return UniverseReport(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         period=period,
         symbols_requested=requested,
         symbols_scanned=len(reports),
@@ -553,17 +553,14 @@ def render_html(u: UniverseReport) -> str:
     P.append('<meta name=viewport content="width=device-width,initial-scale=1">')
     P.append(f"<title>Universe Signal Scan — {_esc(u.generated_at[:10])}</title>")
     P.append(f"<style>{_HTML_STYLE}</style></head><body>")
-    P.append(f"<h1>Universe Signal Scan</h1>")
+    P.append("<h1>Universe Signal Scan</h1>")
     P.append(
         f"<p class=lede>{_esc(u.generated_at[:19])}Z · period "
         f"<code>{_esc(u.period)}</code> · {u.elapsed_seconds}s</p>"
     )
     P.append(
-        "<p><b>{scanned}</b> scanned · <b>{ok}</b> ok · <b>{fail}</b> failed · "
-        "<b class=pub>{pub}</b> published · <b>{gated}</b> gated</p>".format(
-            scanned=u.symbols_scanned, ok=u.symbols_ok, fail=u.symbols_failed,
-            pub=u.symbols_published, gated=u.symbols_gated,
-        )
+        f"<p><b>{u.symbols_scanned}</b> scanned · <b>{u.symbols_ok}</b> ok · <b>{u.symbols_failed}</b> failed · "
+        f"<b class=pub>{u.symbols_published}</b> published · <b>{u.symbols_gated}</b> gated</p>"
     )
     P.append(
         f"<p class=lede>Publication gate: data-quality ≥ {PUBLISH_MIN_DATA_QUALITY}, "

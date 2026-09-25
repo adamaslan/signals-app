@@ -25,7 +25,7 @@ import argparse
 import logging
 import sys
 from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -45,8 +45,8 @@ from backtests.stacking import (  # noqa: E402
 from backtests.train import TrainResult, adopt_richer_rung, train_scorer  # noqa: E402
 from signals_app.config import get_settings  # noqa: E402
 from signals_app.data.fetcher import DataFetcher  # noqa: E402
-from signals_app.scoring.mtf import STACK_FEATURES  # noqa: E402
 from signals_app.scoring.model import DEFAULT_MODEL_PATH  # noqa: E402
+from signals_app.scoring.mtf import STACK_FEATURES  # noqa: E402
 from signals_app.scoring.regime import regime_series  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ def load_symbols(seed: Path, limit: int | None, asset_type: str | None) -> list[
 
 def render_report(results: dict[str, TrainResult], chosen: str, horizon: int, n_symbols: int, forced: bool) -> str:
     lines = [
-        f"# Scorer training report — {datetime.now(timezone.utc):%Y-%m-%d}",
+        f"# Scorer training report — {datetime.now(UTC):%Y-%m-%d}",
         "",
         f"Horizon {horizon} bars · {n_symbols} symbols · chosen feature set **{chosen}**"
         + (" · ⚠️ published with --force despite missing the ship bar" if forced else ""),
@@ -181,7 +181,7 @@ def main() -> int:
     forced = args.force and not winner.ship_bar_met
 
     report = render_report(results, chosen, args.horizon, n_symbols, forced)
-    report_path = args.report_dir / f"scorer-report-{datetime.now(timezone.utc):%Y%m%d}.md"
+    report_path = args.report_dir / f"scorer-report-{datetime.now(UTC):%Y%m%d}.md"
     report_path.write_text(report)
     print(report)
     print(f"report: {report_path}")

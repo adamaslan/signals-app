@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pandas as pd
 
@@ -93,15 +93,15 @@ def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
         last_dt = last_ts.to_pydatetime() if hasattr(last_ts, "to_pydatetime") else last_ts
         if isinstance(last_dt, datetime):
             if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
+                last_dt = last_dt.replace(tzinfo=UTC)
         elif isinstance(last_dt, date):
             # Pure date (no time-of-day) — common for daily bars. Anchor to
             # midnight UTC rather than raising on the missing .tzinfo attr.
-            last_dt = datetime(last_dt.year, last_dt.month, last_dt.day, tzinfo=timezone.utc)
+            last_dt = datetime(last_dt.year, last_dt.month, last_dt.day, tzinfo=UTC)
         else:
             raise TypeError(f"unsupported index value type: {type(last_dt)}")
 
-        age_hours = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600.0
+        age_hours = (datetime.now(UTC) - last_dt).total_seconds() / 3600.0
         if age_hours > DATA_QUALITY_STALE_HOURS:
             score -= 0.3
             reasons.append(f"stale_last_bar:{age_hours:.1f}h>{DATA_QUALITY_STALE_HOURS}h")

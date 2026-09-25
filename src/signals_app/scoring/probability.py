@@ -30,7 +30,7 @@ class IsotonicCalibrator:
     counts: tuple[int, ...] = ()
 
     @classmethod
-    def fit(cls, x: np.ndarray, y: np.ndarray) -> "IsotonicCalibrator":
+    def fit(cls, x: np.ndarray, y: np.ndarray) -> IsotonicCalibrator:
         """Fit on paired samples; raises ValueError when fewer than 2 are finite."""
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
@@ -74,7 +74,7 @@ class IsotonicCalibrator:
         return {"xs": list(self.xs), "ys": list(self.ys), "counts": list(self.counts)}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "IsotonicCalibrator":
+    def from_dict(cls, data: dict[str, Any]) -> IsotonicCalibrator:
         return cls(
             xs=tuple(float(v) for v in data["xs"]),
             ys=tuple(float(v) for v in data["ys"]),

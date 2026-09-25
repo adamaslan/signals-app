@@ -6,7 +6,7 @@ import pandas as pd
 
 from backtests.dataset import build_symbol_panel, horizon_panel
 from backtests.evaluate import evaluate_panel
-from backtests.train import adopt_richer_rung, ship_bar_failures, train_scorer
+from backtests.train import adopt_richer_rung, train_scorer
 from signals_app.scoring.features import FEATURE_SETS
 from signals_app.scoring.regime import regime_series
 

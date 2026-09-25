@@ -48,9 +48,9 @@ from signals_app.scoring.calibration import load_strength_hit_rates_from_supabas
 from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
 from signals_app.scoring.features import build_feature_row, continuous_features_frame
 from signals_app.scoring.model import LogisticScorer, confidence_label, load_active_scorer
+from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES
 from signals_app.scoring.probability import rank_pct as compute_rank_pct
 from signals_app.scoring.regime import current_regime
-from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES
 
 logger = logging.getLogger(__name__)
 

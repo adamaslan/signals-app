@@ -42,7 +42,7 @@ class ScorerStore:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "ScorerStore":
+    def __enter__(self) -> ScorerStore:
         return self
 
     def __exit__(self, *exc: object) -> None:

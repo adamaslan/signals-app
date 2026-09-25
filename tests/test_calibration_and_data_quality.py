@@ -1,7 +1,7 @@
 """Tests for the calibration persistence layer and data-quality scoring."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -15,11 +15,10 @@ from signals_app.scoring.calibration import (
     save_strength_hit_rates,
 )
 
-
 # Fixed clock: score_data_quality measures bar age against datetime.now(UTC), while
 # date.today() is the *local* date, so fixtures built from it drift past
 # DATA_QUALITY_STALE_HOURS depending on the time of day the suite runs.
-FIXED_NOW = datetime(2026, 9, 25, 15, 0, tzinfo=timezone.utc)
+FIXED_NOW = datetime(2026, 9, 25, 15, 0, tzinfo=UTC)
 FIXED_TODAY = FIXED_NOW.date()
 
 

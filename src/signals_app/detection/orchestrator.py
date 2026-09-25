@@ -38,7 +38,11 @@ from signals_app.detection.trend import (
     PriceActionSignalDetector,
     TrendSignalDetector,
 )
-from signals_app.detection.volume import OBVCMFDetector, VolumeDivergenceDetector, VolumeSignalDetector
+from signals_app.detection.volume import (
+    OBVCMFDetector,
+    VolumeDivergenceDetector,
+    VolumeSignalDetector,
+)
 
 logger = logging.getLogger(__name__)
 
