@@ -4,7 +4,7 @@ import {
   FAMILY_ORDER,
   detectorsByFamily,
   isPairedLabel,
-  signalLabelCount,
+  signalPatternCount,
 } from "./signalGlossary";
 
 describe("signal glossary", () => {
@@ -34,9 +34,9 @@ describe("signal glossary", () => {
     }
   });
 
-  it("counts paired labels as two signals", () => {
+  it("detects paired labels and counts each catalogue entry once as a pattern", () => {
     expect(isPairedLabel("MACD BULL / BEAR CROSS")).toBe(true);
     expect(isPairedLabel("GOLDEN CROSS")).toBe(false);
-    expect(signalLabelCount()).toBeGreaterThan(DETECTORS.length * 2);
+    expect(signalPatternCount()).toBeGreaterThan(DETECTORS.length);
   });
 });

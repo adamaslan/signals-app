@@ -263,9 +263,13 @@ cd ~/code/signals-app && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/
 Expect: about 5 minutes, then a summary line with the pool size and the rank-2000 dollar volume.
 
 > **Fallback if the script is missing or fails:** the appendix prototype
-> produces the same ranking. Run it, then keep the top 2,000 rows:
+> produces the same ranking, but its `liquidity_ranked.csv` has five different
+> columns and no `sector_group`. This block ranks, then converts the top 2,000
+> rows to the four-column seed schema. `sector_group` is filled with the
+> placeholder `Unclassified`; replace it with the real sector mapping before
+> relying on sector grouping.
 > ```bash
-> cd ~/code/signals-app && S=$(mktemp -d) && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt -o "$S/nasdaqlisted.txt" && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt -o "$S/otherlisted.txt" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python scripts/rank_next2000_prototype.py "$S" && echo "ranked CSV: $S/liquidity_ranked.csv"
+> cd ~/code/signals-app && S=$(mktemp -d) && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt -o "$S/nasdaqlisted.txt" && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt -o "$S/otherlisted.txt" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python scripts/rank_next2000_prototype.py "$S" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python -c "import pandas as pd, sys; d = pd.read_csv(sys.argv[1] + '/liquidity_ranked.csv').head(2000); pd.DataFrame({'ticker': d.ticker, 'name': d.name, 'asset_type': 'Equity', 'sector_group': 'Unclassified'}).to_csv('seed/universe_next2000.csv', index=False)" "$S" && echo "wrote seed/universe_next2000.csv"
 > ```
 > (The appendix script is committed as `scripts/rank_next2000_prototype.py`.)
 
@@ -324,7 +328,7 @@ import yfinance as yf
 
 S = sys.argv[1]
 seed = {r["ticker"] for r in csv.DictReader(open("seed/universe_symbols.csv"))}
-bad = re.compile(r"warrant|\bunits?\b|\bright(s)?\b|preferred|depositary shares? (representing|each)|notes due|debenture|% |acquisition corp|capital trust", re.I)
+bad = re.compile(r"warrant|\bunits?\b|\bright(s)?\b|preferred|depositary shares?\W+(representing|each)|notes due|debenture|% |acquisition corp|capital trust", re.I)
 pool = {}
 for fn, sym in (("nasdaqlisted.txt", "Symbol"), ("otherlisted.txt", "ACT Symbol")):
     for r in csv.DictReader(open(f"{S}/{fn}"), delimiter="|"):

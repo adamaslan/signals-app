@@ -14,7 +14,7 @@ import {
   SCORING_RULES,
   detectorsByFamily,
   isPairedLabel,
-  signalLabelCount,
+  signalPatternCount,
   type DetectorEntry,
   type FiredSignal,
   type SignalFamily,
@@ -27,7 +27,7 @@ const WEIGHT_LABEL = ["no vote", "normal vote", "strong vote", "extreme vote"] a
 const STEPS = [
   {
     title: "Detect",
-    body: `${DETECTORS.length} detectors scan the latest bar and fire any of ~${signalLabelCount()} labelled signals.`,
+    body: `${DETECTORS.length} detectors scan the latest bar and fire any of ${signalPatternCount()} signal patterns.`,
   },
   {
     title: "Vote",
@@ -93,7 +93,7 @@ function DetectorCard({ d, open, onToggle }: { d: DetectorEntry; open: boolean; 
           <h3 className="mt-2 text-sm font-semibold text-white">{d.name}</h3>
         </div>
         <span className="shrink-0 pt-1 text-[11px] text-gray-500">
-          {d.signals.length} signal{d.signals.length === 1 ? "" : "s"}
+          {d.signals.length} pattern{d.signals.length === 1 ? "" : "s"}
         </span>
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-gray-400">{d.watches}</p>

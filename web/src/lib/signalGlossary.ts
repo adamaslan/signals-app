@@ -308,12 +308,9 @@ export function detectorsByFamily(family: SignalFamily | "all"): DetectorEntry[]
   return family === "all" ? DETECTORS : DETECTORS.filter((d) => d.family === family);
 }
 
-/** Total distinct signal labels the catalogue documents (paired labels count twice). */
-export function signalLabelCount(): number {
-  return DETECTORS.reduce(
-    (n, d) => n + d.signals.reduce((m, s) => m + (isPairedLabel(s.label) ? 2 : 1), 0),
-    0,
-  );
+/** Total signal patterns the catalogue documents (a parameterized or paired entry counts once). */
+export function signalPatternCount(): number {
+  return DETECTORS.reduce((n, d) => n + d.signals.length, 0);
 }
 
 /** Mirrors `config.py` so the "how a call is made" copy can't quietly drift. */

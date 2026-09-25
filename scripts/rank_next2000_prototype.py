@@ -5,7 +5,7 @@ import yfinance as yf
 
 S = sys.argv[1]
 seed = {r["ticker"] for r in csv.DictReader(open("seed/universe_symbols.csv"))}
-bad = re.compile(r"warrant|\bunits?\b|\bright(s)?\b|preferred|depositary shares? (representing|each)|notes due|debenture|% |acquisition corp|capital trust", re.I)
+bad = re.compile(r"warrant|\bunits?\b|\bright(s)?\b|preferred|depositary shares?\W+(representing|each)|notes due|debenture|% |acquisition corp|capital trust", re.I)
 pool = {}
 for fn, sym in (("nasdaqlisted.txt", "Symbol"), ("otherlisted.txt", "ACT Symbol")):
     for r in csv.DictReader(open(f"{S}/{fn}"), delimiter="|"):

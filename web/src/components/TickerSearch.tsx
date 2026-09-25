@@ -34,7 +34,14 @@ export function TickerSearch() {
     if (!t) return;
     // No name gate in front of search: a default on-device profile is created
     // on the first analysis so run history still records.
-    if (ready && !profile) await initWithName("");
+    // ensureProfile is idempotent, so also cover a submit that beats `ready`.
+    if (!ready || !profile) {
+      try {
+        await initWithName("");
+      } catch {
+        // Profile persistence must never block search.
+      }
+    }
     router.push(`/signal/?symbol=${t}&period=${period}&no_llm=${noLlm}`);
   }
 
