@@ -47,7 +47,12 @@ test.describe("Local universes", () => {
   test("no console errors on the universe index", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
+      if (msg.type() !== "error") return;
+      // Next logs this (and falls back to a normal navigation) when a nav-link
+      // prefetch is aborted mid-flight — Firefox/WebKit under CI load. It is
+      // transport noise, not an app error; every nav link triggers one.
+      if (msg.text().startsWith("Failed to fetch RSC payload")) return;
+      errors.push(msg.text());
     });
     await page.goto("/universe/");
     await page.waitForTimeout(500);

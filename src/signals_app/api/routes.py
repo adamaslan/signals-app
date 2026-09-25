@@ -10,11 +10,13 @@ GET /history/{symbol}    — persisted run history for a ticker
 GET /backtest/{symbol}   — historical hit-rate backtest
 GET /health              — liveness probe
 POST /scan               — real universe scan, publishes to Supabase
+POST /backtest/run       — basket backtest, optionally judged against a hypothesis
+POST /backtest/suggest   — engine-proposed backtests from a basket's live signals
 """
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -23,8 +25,18 @@ from signals_app import service
 from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
+    MAX_MANUAL_BACKTEST_SYMBOLS,
     MAX_MANUAL_SCAN_SYMBOLS,
+    MAX_SUGGEST_BACKTEST_SYMBOLS,
     VALID_PERIODS,
+)
+from backtests.engine import HitRateBucket, bucket_baseline
+from signals_app.hypotheses import (
+    BacktestHypothesis,
+    FocusVerdict,
+    HypothesisFocus,
+    HypothesisVerdict,
+    wilson_interval,
 )
 from signals_app.schemas.signal_output import SignalOutput
 from signals_app.service import (
@@ -265,4 +277,174 @@ async def post_scan(body: ScanRequest) -> dict[str, Any]:
             }
             for o in result.outcomes
         ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Frontend-driven backtests (/backtest/run, /backtest/suggest)
+# ---------------------------------------------------------------------------
+class FocusModel(BaseModel):
+    """One bucket a hypothesis is about — e.g. ``{"group": "signal", "key": "GOLDEN CROSS"}``."""
+
+    group: Literal["signal", "category", "strength"]
+    key: str = Field(min_length=1, max_length=120)
+
+
+class BacktestRunRequest(BaseModel):
+    """Body for ``POST /backtest/run``."""
+
+    symbols: list[str] = Field(min_length=1, max_length=MAX_MANUAL_BACKTEST_SYMBOLS)
+    period: str = "2y"
+    horizon_days: int = Field(default=20, ge=1, le=60)
+    focus: list[FocusModel] = Field(default_factory=list, max_length=4)
+
+
+class BacktestSuggestRequest(BaseModel):
+    """Body for ``POST /backtest/suggest``."""
+
+    symbols: list[str] = Field(min_length=1, max_length=MAX_SUGGEST_BACKTEST_SYMBOLS)
+    period: str = "2y"
+    horizon_days: int | None = Field(default=None, ge=1, le=60)
+    max_suggestions: int = Field(default=8, ge=1, le=20)
+
+
+def _bucket_json(b: HitRateBucket, up_rate: float | None) -> dict[str, Any]:
+    lower, upper = wilson_interval(b.hits, b.total)
+    return {
+        "key": b.key,
+        "hits": b.hits,
+        "total": b.total,
+        "bullish": b.bullish,
+        "hit_rate": round(b.hit_rate, 4),
+        "lower": round(lower, 4),
+        "upper": round(upper, 4),
+        "baseline": round(bucket_baseline(b, up_rate), 4) if up_rate is not None else None,
+    }
+
+
+def _focus_verdict_json(v: FocusVerdict) -> dict[str, Any]:
+    def r(x: float | None) -> float | None:
+        return round(x, 4) if x is not None else None
+
+    return {
+        "group": v.focus.group,
+        "key": v.focus.key,
+        "status": v.status,
+        "hits": v.hits,
+        "total": v.total,
+        "hit_rate": r(v.hit_rate),
+        "lower": r(v.lower),
+        "upper": r(v.upper),
+        "baseline": r(v.baseline),
+        "message": v.message,
+    }
+
+
+def _verdict_json(v: HypothesisVerdict | None) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    return {
+        "status": v.status,
+        "message": v.message,
+        "focuses": [_focus_verdict_json(f) for f in v.focuses],
+    }
+
+
+def _hypothesis_json(h: BacktestHypothesis) -> dict[str, Any]:
+    return {
+        "id": h.id,
+        "kind": h.kind,
+        "title": h.title,
+        "rationale": h.rationale,
+        "symbols": list(h.symbols),
+        "period": h.period,
+        "horizon_days": h.horizon_days,
+        "focus": [{"group": f.group, "key": f.key} for f in h.focus],
+        "priority": round(h.priority, 3),
+    }
+
+
+@router.post(
+    "/backtest/run",
+    summary="Backtest a basket, optionally judging a hypothesis",
+    description=(
+        "Replays every detector over every historical bar for each ticker "
+        "and scores each directional call against its realized forward return. "
+        "Buckets carry Wilson 95% bounds and a mix-weighted chance baseline. "
+        "Pass `focus` (e.g. a hypothesis from /backtest/suggest) to get a "
+        "supported / contradicted / inconclusive verdict. Read-only — writes "
+        f"nothing. Capped at {MAX_MANUAL_BACKTEST_SYMBOLS} tickers."
+    ),
+)
+async def post_backtest_run(body: BacktestRunRequest) -> dict[str, Any]:
+    """Run a basket backtest and serialize buckets plus an optional verdict.
+
+    Raises:
+        HTTPException: 400 invalid period, 500 otherwise.
+    """
+    try:
+        run = await service.run_hypothesis(
+            body.symbols,
+            body.period,
+            body.horizon_days,
+            [HypothesisFocus(f.group, f.key) for f in body.focus],
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _raise_http(exc) from exc
+
+    res = run.result
+    up = res.up_rate
+    return {
+        "symbols_ok": res.symbols_ok,
+        "symbols_failed": [
+            {"symbol": f.symbol, "error_type": f.error_type, "message": f.message}
+            for f in res.symbols_failed
+        ],
+        "period": res.period,
+        "horizon_days": res.horizon_days,
+        "up_rate": round(up, 4) if up is not None else None,
+        "scored_bars": res.scored_bars,
+        "by_signal": [_bucket_json(b, up) for b in res.by_signal],
+        "by_category": [_bucket_json(b, up) for b in res.by_category],
+        "by_strength": [_bucket_json(b, up) for b in res.by_strength],
+        "verdict": _verdict_json(run.verdict),
+    }
+
+
+@router.post(
+    "/backtest/suggest",
+    summary="Engine-suggested backtests for a basket",
+    description=(
+        "Detects each ticker's live signals on its latest bar (rule-based, no "
+        "LLM) and proposes backtests that test the claims those signals make: "
+        "clusters firing across the basket, per-ticker strongest calls, "
+        "bull/bear conflicts, the dominant category, and whether STRONG labels "
+        "are earned. Each suggestion is a ready-to-POST /backtest/run spec."
+    ),
+)
+async def post_backtest_suggest(body: BacktestSuggestRequest) -> dict[str, Any]:
+    """Return hypothesis specs for ``body.symbols``.
+
+    Raises:
+        HTTPException: 400 invalid period, 500 otherwise.
+    """
+    try:
+        sug = await service.suggest_backtests(
+            body.symbols,
+            backtest_period=body.period,
+            horizon_days=body.horizon_days,
+            max_suggestions=body.max_suggestions,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _raise_http(exc) from exc
+
+    return {
+        "hypotheses": [_hypothesis_json(h) for h in sug.hypotheses],
+        "symbols_ok": sug.symbols_ok,
+        "symbols_failed": [
+            {"symbol": f.symbol, "error_type": f.error_type, "message": f.message}
+            for f in sug.symbols_failed
+        ],
+        "live_signals": sug.live_signals,
+        "max_backtest_symbols": MAX_MANUAL_BACKTEST_SYMBOLS,
     }

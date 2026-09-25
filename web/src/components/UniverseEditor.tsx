@@ -40,6 +40,8 @@ import { UniverseHeatmap } from "./UniverseHeatmap";
 import { UniverseSummaryStrip } from "./UniverseSummaryStrip";
 import { UniverseDriftView } from "./UniverseDriftView";
 import { UniverseBacktestPanel } from "./UniverseBacktestPanel";
+import { SuggestedBacktests } from "./SuggestedBacktests";
+import { labHref } from "@/lib/backtestLab";
 import { UniverseTimeline } from "./UniverseTimeline";
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -695,6 +697,31 @@ export function UniverseEditor({ universeId }: UniverseEditorProps) {
           </h2>
           <ErrorBoundary label="Backtest panel">
             <UniverseBacktestPanel universeId={universeId} />
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {/* Engine-suggested hypotheses */}
+      {universe.tickers.length > 0 && (
+        <div className="rounded-xl bg-[#1a1a2e] border border-white/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
+              Suggested backtests
+            </h2>
+            <Link
+              href={labHref({ symbols: universe.tickers, suggest: true })}
+              className="text-xs text-gray-500 hover:text-gray-300 underline"
+            >
+              open in Backtest Lab →
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500">
+            The panel above scores signals this basket <em>published</em>. This asks the engine
+            what its detectors are claiming about these tickers right now, then replays each
+            claim over years of history to see whether it has held.
+          </p>
+          <ErrorBoundary label="Suggested backtests">
+            <SuggestedBacktests symbols={universe.tickers} />
           </ErrorBoundary>
         </div>
       )}

@@ -28,6 +28,7 @@ from typing import Any, Literal
 import pandas as pd
 
 from backtests.engine import (
+    BASELINE_UP_KEY,
     HitRateBucket,
     merge_hit_rate_buckets,
     score_historical_signals,
@@ -35,17 +36,27 @@ from backtests.engine import (
 from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
+    MAX_MANUAL_BACKTEST_SYMBOLS,
     MIN_HISTORICAL_LOOKBACK,
     SIGNALS_APP_CODE_VERSION,
+    SUGGEST_DETECT_PERIOD,
     VALID_PERIODS,
     get_settings,
 )
 from signals_app.data.fetcher import DataFetcher
 from signals_app.db.ops import RunRecord, get_ticker_history, record_run
+from signals_app.detection.base import MutableSignal
 from signals_app.detection.historical import scan_historical
 from signals_app.detection.orchestrator import detect_all_signals, get_default_detectors
 from signals_app.indicators.compute import compute_indicators
 from signals_app.indicators.data_quality import score_data_quality
+from signals_app.hypotheses import (
+    BacktestHypothesis,
+    HypothesisFocus,
+    HypothesisVerdict,
+    evaluate_hypothesis,
+    suggest_hypotheses,
+)
 from signals_app.schemas.signal_output import Signal, SignalOutput
 from signals_app.scoring.calibration import load_strength_hit_rates
 from signals_app.scoring.confluence import ConfluenceRanker
@@ -171,6 +182,10 @@ class BacktestResult:
     bars_scanned: int
     by_category: list[HitRateBucket]
     by_strength: list[HitRateBucket]
+    by_signal: list[HitRateBucket] = field(default_factory=list)
+    # Scored bars that rose over the horizon / scored bars — the chance rate.
+    up_bars: int = 0
+    scored_bars: int = 0
 
 
 @dataclass(frozen=True)
@@ -186,6 +201,15 @@ class UniverseBacktestResult:
     horizon_days: int
     by_category: list[HitRateBucket]
     by_strength: list[HitRateBucket]
+    by_signal: list[HitRateBucket] = field(default_factory=list)
+    up_bars: int = 0
+    scored_bars: int = 0
+    period: str = "2y"
+
+    @property
+    def up_rate(self) -> float | None:
+        """Fraction of scored bars that rose — the basket's chance baseline."""
+        return self.up_bars / self.scored_bars if self.scored_bars else None
 
 
 @dataclass(frozen=True)
@@ -560,8 +584,11 @@ async def backtest(
     )
 
     try:
+        # Daily bars regardless of period: fetch() maps 2y/5y to *weekly*
+        # bars, which both starves the 200-bar warmup and makes
+        # horizon_days mean weeks.
         fetcher = DataFetcher(settings=settings)
-        df_raw = fetcher.fetch(symbol, period).df
+        df_raw = await asyncio.to_thread(fetcher.fetch_daily_history, symbol, period)
     except ValueError as exc:
         raise SymbolNotFound(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
@@ -574,21 +601,32 @@ async def backtest(
             f"need > {MIN_HISTORICAL_LOOKBACK + horizon_days} (warmup + horizon)"
         )
 
-    try:
+    def _replay() -> tuple[int, dict[str, list[HitRateBucket]]]:
         df = compute_indicators(df_raw)
         bars = scan_historical(df)
-        scored = score_historical_signals(df, bars, horizon_days=horizon_days)
+        return len(bars), score_historical_signals(df, bars, horizon_days=horizon_days)
+
+    try:
+        # The replay is pure CPU (every detector x every bar); off the event
+        # loop so a basket backtest doesn't stall concurrent requests.
+        bars_scanned, scored = await asyncio.to_thread(_replay)
     except Exception as exc:  # noqa: BLE001
         logger.error("service.backtest: failed for %s: %s", symbol, exc, exc_info=True)
         raise UpstreamUnavailable(f"Backtest error: {exc}") from exc
 
+    baseline = next(
+        (b for b in scored.get("baseline", []) if b.key == BASELINE_UP_KEY), None
+    )
     return BacktestResult(
         symbol=symbol,
         period=period,
         horizon_days=horizon_days,
-        bars_scanned=len(bars),
+        bars_scanned=bars_scanned,
         by_category=list(scored["by_category"]),
         by_strength=list(scored["by_strength"]),
+        by_signal=list(scored.get("by_signal", [])),
+        up_bars=baseline.hits if baseline else 0,
+        scored_bars=baseline.total if baseline else 0,
     )
 
 
@@ -619,7 +657,7 @@ async def backtest_many(
     period = _normalize_period(period)
     unique = sorted({_normalize_symbol(s) for s in symbols})
     if not unique:
-        return UniverseBacktestResult([], [], horizon_days, [], [])
+        return UniverseBacktestResult([], [], horizon_days, [], [], period=period)
 
     sem = asyncio.Semaphore(max(1, max_concurrent))
 
@@ -639,6 +677,9 @@ async def backtest_many(
     failed: list[BatchFailure] = []
     cat_lists: list[list[HitRateBucket]] = []
     strength_lists: list[list[HitRateBucket]] = []
+    signal_lists: list[list[HitRateBucket]] = []
+    up_bars = 0
+    scored_bars = 0
     for sym, outcome in results:
         if isinstance(outcome, BatchFailure):
             failed.append(outcome)
@@ -646,9 +687,13 @@ async def backtest_many(
             ok_syms.append(sym)
             cat_lists.append(outcome.by_category)
             strength_lists.append(outcome.by_strength)
+            signal_lists.append(outcome.by_signal)
+            up_bars += outcome.up_bars
+            scored_bars += outcome.scored_bars
 
     merged_cat = merge_hit_rate_buckets(cat_lists) if cat_lists else []
     merged_strength = merge_hit_rate_buckets(strength_lists) if strength_lists else []
+    merged_signal = merge_hit_rate_buckets(signal_lists) if signal_lists else []
 
     logger.info(
         "backtest_many: %d ok, %d failed of %d", len(ok_syms), len(failed), len(unique)
@@ -659,7 +704,144 @@ async def backtest_many(
         horizon_days=horizon_days,
         by_category=merged_cat,
         by_strength=merged_strength,
+        by_signal=merged_signal,
+        up_bars=up_bars,
+        scored_bars=scored_bars,
+        period=period,
     )
+
+
+@dataclass(frozen=True)
+class BacktestSuggestions:
+    """Hypotheses the engine proposes for a basket, from its live signals."""
+
+    hypotheses: list[BacktestHypothesis]
+    symbols_ok: list[str]
+    symbols_failed: list[BatchFailure]
+    # Ticker -> directional signal names live on its latest bar (for display).
+    live_signals: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class HypothesisRun:
+    """A backtest run for an explicit spec, plus its verdict when focused."""
+
+    result: UniverseBacktestResult
+    verdict: HypothesisVerdict | None
+
+
+async def _latest_signals(symbol: str, period: str) -> list[MutableSignal]:
+    """Detectors' output on ``symbol``'s most recent bar. No LLM, no DB."""
+    settings = get_settings()
+
+    def _detect() -> list[MutableSignal]:
+        df_raw = DataFetcher(settings=settings).fetch(symbol, period).df
+        if len(df_raw) < _MIN_ANALYZE_BARS:
+            raise InsufficientData(f"{symbol}: only {len(df_raw)} bars for period={period}")
+        return list(detect_all_signals(compute_indicators(df_raw)))
+
+    try:
+        return await asyncio.to_thread(_detect)
+    except SignalsError:
+        raise
+    except ValueError as exc:
+        raise SymbolNotFound(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise UpstreamUnavailable(f"Detection error for {symbol}: {exc}") from exc
+
+
+async def suggest_backtests(
+    symbols: Sequence[str],
+    *,
+    backtest_period: str = "2y",
+    horizon_days: int | None = None,
+    max_suggestions: int = 8,
+    max_concurrent: int = _DEFAULT_BATCH_CONCURRENCY,
+) -> BacktestSuggestions:
+    """Propose backtests that test the claims this basket's live signals make.
+
+    Detects each ticker's current signals (latest bar, rule-based only), then
+    hands them to :func:`signals_app.hypotheses.suggest_hypotheses`.
+
+    Args:
+        symbols: The run's tickers.
+        backtest_period: History window each suggested backtest should replay.
+        horizon_days: Force one horizon; ``None`` picks per signal category.
+        max_suggestions: Cap on returned hypotheses.
+        max_concurrent: Bounded fetch/detect concurrency.
+
+    Returns:
+        A :class:`BacktestSuggestions`. Per-symbol failures never fail the call.
+
+    Raises:
+        InvalidPeriod: ``backtest_period`` is not supported.
+    """
+    backtest_period = _normalize_period(backtest_period)
+    unique = sorted({_normalize_symbol(s) for s in symbols})
+    sem = asyncio.Semaphore(max(1, max_concurrent))
+
+    async def _one(sym: str) -> tuple[str, list[MutableSignal] | BatchFailure]:
+        async with sem:
+            try:
+                return sym, await _latest_signals(sym, SUGGEST_DETECT_PERIOD)
+            except SignalsError as exc:
+                return sym, BatchFailure(sym, type(exc).__name__, str(exc))
+
+    latest: dict[str, list[MutableSignal]] = {}
+    failed: list[BatchFailure] = []
+    for sym, outcome in await asyncio.gather(*(_one(s) for s in unique)):
+        if isinstance(outcome, BatchFailure):
+            failed.append(outcome)
+        else:
+            latest[sym] = outcome
+
+    hypotheses = suggest_hypotheses(
+        latest,
+        period=backtest_period,
+        horizon_days=horizon_days,
+        max_suggestions=max_suggestions,
+        max_symbols=MAX_MANUAL_BACKTEST_SYMBOLS,
+    )
+    live = {
+        t: sorted({s.signal for s in sigs if "BULLISH" in s.strength or "BEARISH" in s.strength})
+        for t, sigs in latest.items()
+    }
+    logger.info(
+        "suggest_backtests: %d hypotheses from %d ok / %d failed symbols",
+        len(hypotheses), len(latest), len(failed),
+    )
+    return BacktestSuggestions(hypotheses, sorted(latest), failed, live)
+
+
+async def run_hypothesis(
+    symbols: Sequence[str],
+    period: str,
+    horizon_days: int,
+    focus: Sequence[HypothesisFocus] = (),
+) -> HypothesisRun:
+    """Backtest a basket and, when ``focus`` is given, judge the hypothesis.
+
+    Args:
+        symbols: Tickers to replay.
+        period: History window.
+        horizon_days: Forward horizon in bars.
+        focus: Buckets the hypothesis is about; empty = plain backtest.
+
+    Returns:
+        A :class:`HypothesisRun`.
+
+    Raises:
+        InvalidPeriod: The period is not supported.
+    """
+    result = await backtest_many(symbols, period, horizon_days)
+    if not focus:
+        return HypothesisRun(result, None)
+    buckets = {
+        "signal": result.by_signal,
+        "category": result.by_category,
+        "strength": result.by_strength,
+    }
+    return HypothesisRun(result, evaluate_hypothesis(focus, buckets, result.up_rate))
 
 
 async def history(symbol: str, *, limit: int = 50, offset: int = 0) -> list[RunRecord]:
