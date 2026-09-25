@@ -129,15 +129,27 @@ def test_verdict_inconclusive_when_thin_and_no_data_when_missing() -> None:
     assert evaluate_hypothesis([HypothesisFocus("signal", "NOPE")], _buckets(thin), 0.5).status == "no_data"
 
 
-def test_multi_focus_headline_is_most_decisive() -> None:
+def test_multi_focus_one_side_clearing_chance_is_not_a_comparative_win() -> None:
     good = HitRateBucket("A", hits=80, total=100, bullish=100)
     meh = HitRateBucket("B", hits=52, total=100, bullish=0)
     buckets = {"signal": [good, meh], "category": [], "strength": []}
     v = evaluate_hypothesis(
         [HypothesisFocus("signal", "B"), HypothesisFocus("signal", "A")], buckets, 0.5
     )
-    assert v.status == "supported"
+    assert v.status == "inconclusive"
     assert [f.status for f in v.focuses] == ["inconclusive", "supported"]
+    assert "Per-focus evidence only" in v.message
+    assert "A cleared chance" in v.message
+
+
+def test_multi_focus_headline_supported_only_when_every_focus_agrees() -> None:
+    a = HitRateBucket("A", hits=80, total=100, bullish=100)
+    b = HitRateBucket("B", hits=78, total=100, bullish=100)
+    buckets = {"signal": [a, b], "category": [], "strength": []}
+    v = evaluate_hypothesis(
+        [HypothesisFocus("signal", "A"), HypothesisFocus("signal", "B")], buckets, 0.5
+    )
+    assert v.status == "supported"
 
 
 def test_specs_trimmed_to_max_symbols() -> None:

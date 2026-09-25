@@ -487,17 +487,18 @@ def evaluate_focus(
     return FocusVerdict(focus, status, bucket.hits, bucket.total, rate, lower, upper, baseline, msg)
 
 
-_STATUS_ORDER: dict[VerdictStatus, int] = {
-    "supported": 0, "contradicted": 1, "inconclusive": 2, "no_data": 3,
-}
-
-
 def evaluate_hypothesis(
     focus: Sequence[HypothesisFocus],
     buckets: Mapping[str, Sequence[HitRateBucket]],
     up_rate: float | None,
 ) -> HypothesisVerdict:
-    """Score every focus; the most decisive one sets the headline status.
+    """Score every focus and roll them up into one headline status.
+
+    A single focus sets the headline directly. Several foci (a strength or
+    conflict comparison) are scored independently, never against each other,
+    so one focus beating chance is not evidence for the comparison: the
+    headline is ``supported``/``contradicted`` only when every focus agrees,
+    and otherwise ``inconclusive`` with a message naming the per-focus result.
 
     Args:
         focus: The hypothesis's focus buckets.
@@ -510,5 +511,16 @@ def evaluate_hypothesis(
     verdicts = tuple(evaluate_focus(f, buckets, up_rate) for f in focus)
     if not verdicts:
         return HypothesisVerdict("no_data", (), "No focus buckets to evaluate.")
-    head = min(verdicts, key=lambda v: _STATUS_ORDER[v.status])
-    return HypothesisVerdict(head.status, verdicts, " · ".join(v.message for v in verdicts))
+    detail = " · ".join(v.message for v in verdicts)
+    if len(verdicts) == 1:
+        return HypothesisVerdict(verdicts[0].status, verdicts, detail)
+    statuses = {v.status for v in verdicts}
+    if len(statuses) == 1:
+        return HypothesisVerdict(verdicts[0].status, verdicts, detail)
+    cleared = [v.focus.key for v in verdicts if v.status == "supported"]
+    if cleared:
+        detail = (
+            f"Per-focus evidence only, not a direct comparison — {', '.join(cleared)} "
+            f"cleared chance on its own. {detail}"
+        )
+    return HypothesisVerdict("inconclusive", verdicts, detail)
