@@ -168,3 +168,15 @@ It names detectors (RSI Divergence, Pivot Point Breakout, Volatility
 Breakout…) that `get_default_detectors()` doesn't return. The in-app glossary
 (`web/src/lib/signalGlossary.ts`) and
 [entities/detector-catalog.md](../entities/detector-catalog.md) follow the code.
+
+### Data-quality tests were clock-dependent (fixed)
+`score_data_quality` measures last-bar age against `datetime.now(UTC)`, but the
+test fixtures were stamped with the local `date.today()`. Late in a US evening
+the local date lags UTC enough to exceed `DATA_QUALITY_STALE_HOURS` (26h), so
+two tests failed only at certain times of day. The tests now inject a fixed
+clock; the threshold is unchanged and widening it would have hidden the cause.
+
+### Ruff backlog: 243 findings remain
+Safe auto-fixes are applied. What's left is manual: E501 line length (176),
+E402 import placement (39), N806/N803 naming, and a few one-offs. Not
+auto-fixable without `--unsafe-fixes`, which was not used.
