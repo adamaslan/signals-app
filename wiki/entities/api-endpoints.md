@@ -81,3 +81,27 @@ route returns. `signals-analyze` is a deprecated shim that forwards to
 exist and are used internally/in tests, but neither has its own route yet —
 see [concepts/multi-timeframe.md](../concepts/multi-timeframe.md). A future
 `GET /signals/{symbol}/matrix` or similar would be the natural home.
+
+## `POST /backtest/run`
+
+Backtest a basket on the engine (every detector × every daily bar). Body:
+`symbols` (1–25), `period` (default `2y`), `horizon_days` (1–60, default 20),
+optional `focus` (`[{group: signal|category|strength, key}]`). Returns
+`by_signal` / `by_category` / `by_strength` buckets — each with Wilson
+`lower`/`upper` and a mix-weighted `baseline` — plus `up_rate` and, when
+`focus` is given, a `verdict`. Read-only. Errors as `/signals`: 400 bad period,
+otherwise per-symbol failures are reported in `symbols_failed`, not raised.
+See [concepts/backtest-lab.md](../concepts/backtest-lab.md).
+
+## `POST /backtest/suggest`
+
+Body: `symbols` (1–100), `period`, optional `horizon_days`, `max_suggestions`
+(1–20). Detects live signals (latest bar, no LLM) and returns
+`hypotheses` — each a ready-to-POST `/backtest/run` spec with a `title`,
+`rationale` and `kind` — plus `live_signals` per ticker.
+
+## `POST /scan`
+
+Manual real scan of ≤ 100 tickers, publishes to Supabase; the frontend's
+"Run real scan" button. Local backend only.
+

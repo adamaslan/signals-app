@@ -19,11 +19,12 @@
 - [Signal Schema](concepts/signal-schema.md) — the Pydantic contract (`Signal`, `Evidence`, validators)
 - [Signal Rendering](concepts/signal-rendering.md) — how `SignalCard`/`ConfluenceBar` visualize a signal
 - [Local Universes](concepts/local-universes.md) — device-local ticker baskets: Dexie v2 tables, `runUniverse` batched read, coverage, drift, freshness/data-quality/engine-health badges
+- [Backtest Lab](concepts/backtest-lab.md) — engine replay backtests from the frontend, engine-suggested hypotheses, verdicts vs a mix-weighted chance baseline
 
 ## Entities
 
 - [Detector Catalog](entities/detector-catalog.md) — full table: every detector, category, signal names, trigger
-- [API Endpoints](entities/api-endpoints.md) — `/signals/{symbol}`, `/history/{symbol}`, `/health`
+- [API Endpoints](entities/api-endpoints.md) — `/signals/{symbol}`, `/history/{symbol}`, `/backtest/*`, `/scan`, `/health`
 
 ## Decisions
 
