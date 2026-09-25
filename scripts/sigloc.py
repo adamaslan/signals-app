@@ -33,6 +33,7 @@ _PROJECT_ROOT = _SCRIPT_DIR.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 from dotenv import load_dotenv
+
 load_dotenv(_PROJECT_ROOT / ".env")
 
 # ── ANSI colours ─────────────────────────────────────────────────────────────
@@ -102,9 +103,10 @@ def _get_data(ticker: str, period: str = "3mo") -> Any:
 def test_detectors(ticker: str) -> None:
     _hdr(1, "18-Detector Pipeline with Fault Isolation")
 
-    from signals_app.detection.orchestrator import detect_all_signals, get_default_detectors
-    from signals_app.detection.base import SignalDetector, _run_detector_with_timeout
     import pandas as pd
+
+    from signals_app.detection.base import SignalDetector
+    from signals_app.detection.orchestrator import detect_all_signals, get_default_detectors
 
     data = _get_data(ticker)
     df = data["df"]
@@ -172,7 +174,7 @@ def test_confluence(ticker: str) -> None:
 def test_mtf(ticker: str) -> None:
     _hdr(3, "Multi-Timeframe Weighted Composite")
 
-    from signals_app.scoring.mtf import compute_multi_timeframe, TIMEFRAME_WEIGHTS
+    from signals_app.scoring.mtf import TIMEFRAME_WEIGHTS, compute_multi_timeframe
 
     # Use same 3mo dataset sliced to simulate multiple timeframes
     data = _get_data(ticker)
@@ -212,9 +214,8 @@ def test_mtf(ticker: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def test_llm_synthesis(ticker: str) -> None:
     _hdr(4, "LLM Synthesis + Graceful Fallback")
-    import asyncio
     from signals_app.config import get_settings
-    from signals_app.synthesis.mtf_llm import synthesize_single, _fallback_signal
+    from signals_app.synthesis.mtf_llm import synthesize_single
 
     settings = get_settings()
     notes = [_ok(f"llm_provider={settings.llm_provider}  llm_enabled={settings.llm_enabled}")]
@@ -261,9 +262,7 @@ def test_llm_synthesis(ticker: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def test_cache_ttl(ticker: str) -> None:
     _hdr(5, "Tiered Cache TTLs per Timeframe")
-    from signals_app.config import TIMEFRAME_CACHE_TTL_SECONDS
-    from signals_app.synthesis import mtf_llm
-    from signals_app.config import get_settings
+    from signals_app.config import TIMEFRAME_CACHE_TTL_SECONDS, get_settings
     from signals_app.schemas.signal_output import Signal
 
     notes = []
@@ -275,7 +274,7 @@ def test_cache_ttl(ticker: str) -> None:
     import dataclasses
     settings = get_settings()
     no_llm = dataclasses.replace(settings, gemini_api_key=None, openrouter_api_key=None)
-    from signals_app.synthesis.mtf_llm import _fallback_signal, _set_cached, _get_cached
+    from signals_app.synthesis.mtf_llm import _fallback_signal, _get_cached, _set_cached
     fake_dict = _fallback_signal("1M", {"confluence_score": 0.5, "change_pct": 2.0})
     fake_dict["timeframe"] = "1M"
     fake_signal = Signal.model_validate(fake_dict)
@@ -421,8 +420,9 @@ def test_lineage_tree(ticker: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def test_evidence_enforcement(ticker: str) -> None:
     _hdr(9, "Evidence Counter-Evidence Schema Enforcement")
-    from signals_app.schemas.signal_output import Signal
     from pydantic import ValidationError
+
+    from signals_app.schemas.signal_output import Signal
 
     # Valid signal: confidence > 0.6, has counter-evidence, weights sum to 1.0
     valid_payload = {
@@ -495,7 +495,8 @@ def test_evidence_enforcement(ticker: str) -> None:
 def test_no_llm_mode(ticker: str) -> None:
     _hdr(10, "No-LLM Mode + Prompt Version Auditability")
     import dataclasses
-    from signals_app.config import get_settings, LLM_PROMPT_VERSION
+
+    from signals_app.config import LLM_PROMPT_VERSION, get_settings
     from signals_app.synthesis.mtf_llm import synthesize_single
 
     settings = get_settings()

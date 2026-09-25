@@ -31,11 +31,9 @@ import argparse
 import csv
 import datetime
 import logging
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 _script_dir = Path(__file__).resolve().parent
 _project_root = _script_dir.parent
@@ -43,16 +41,16 @@ sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root))
 
 from scripts.calibrate import run_calibration  # noqa: E402
-from scripts.scan_universe import scan_one_symbol, load_symbols_from_csv  # noqa: E402
+from scripts.scan_universe import load_symbols_from_csv  # noqa: E402
 from signals_app.config import (  # noqa: E402
     DEFAULT_PERIOD,
     get_settings,
 )
 from signals_app.data.fetcher import DataFetcher  # noqa: E402
-from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.detection.orchestrator import detect_all_signals  # noqa: E402
-from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
+from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.scoring.calibration import load_strength_hit_rates  # noqa: E402
+from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

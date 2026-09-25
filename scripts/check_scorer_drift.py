@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -68,7 +68,7 @@ def main() -> int:
         print(f"Active model {model.model_version} has no positive backtest IC — cannot judge drift.")
         return 0
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=CALENDAR_MARGIN_DAYS)).isoformat()
+    cutoff = (datetime.now(UTC) - timedelta(days=CALENDAR_MARGIN_DAYS)).isoformat()
     with ScorerStore() as store:
         rows = [r for r in store.fetch_scored_signals(cutoff) if r.get("model_version") == model.model_version]
         if not rows:

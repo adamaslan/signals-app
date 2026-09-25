@@ -8,7 +8,7 @@ import pytest
 from signals_app.config import SignalCategory, SignalStrength
 from signals_app.detection.base import MutableSignal
 from signals_app.scoring.confluence import ConfluenceRanker, FamilyConfluenceRanker
-from signals_app.scoring.model import fit_logistic, purged_walk_forward_splits, LogisticScorer
+from signals_app.scoring.model import LogisticScorer, fit_logistic, purged_walk_forward_splits
 from signals_app.scoring.probability import (
     IsotonicCalibrator,
     max_reliability_gap,

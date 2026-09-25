@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 from enum import Enum
-from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -83,7 +82,7 @@ class Evidence(BaseModel):
     items: list[EvidenceItem]
 
     @model_validator(mode="after")
-    def weights_sum_to_one(self) -> "Evidence":
+    def weights_sum_to_one(self) -> Evidence:
         """Validate that supporting evidence weights sum to 1.0."""
         supporting = [e for e in self.items if not e.is_counter]
         total = sum(e.weight for e in supporting)
@@ -122,14 +121,14 @@ class Signal(BaseModel):
         return round(v, 4)
 
     @model_validator(mode="after")
-    def hold_confidence_cap(self) -> "Signal":
+    def hold_confidence_cap(self) -> Signal:
         """HOLD signals must not exceed 0.75 confidence."""
         if self.direction == SignalDirection.hold and self.confidence > 0.75:
             raise ValueError("hold signals must have confidence ≤ 0.75")
         return self
 
     @model_validator(mode="after")
-    def high_confidence_requires_counter(self) -> "Signal":
+    def high_confidence_requires_counter(self) -> Signal:
         """Confidence > 0.6 requires at least one counter-argument evidence item."""
         if self.confidence > 0.6:
             has_counter = any(e.is_counter for e in self.evidence.items)
@@ -171,7 +170,7 @@ class TimeframeMatrix(BaseModel):
     computed_at: str = ""
 
     @model_validator(mode="after")
-    def alignment_finite(self) -> "TimeframeMatrix":
+    def alignment_finite(self) -> TimeframeMatrix:
         """Validate alignment_score is finite."""
         if not math.isfinite(self.alignment_score):
             raise ValueError("alignment_score must be finite")
