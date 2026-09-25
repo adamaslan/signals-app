@@ -48,6 +48,16 @@ RETRY_BACKOFF_SECONDS: Final[float] = 1.0
 # should never fan out into hundreds of yfinance fetches + LLM calls.
 MAX_MANUAL_SCAN_SYMBOLS: Final[int] = 100
 
+# A frontend-triggered historical backtest (POST /backtest/run) replays every
+# detector over every bar per ticker — CPU-bound and synchronous, so capped
+# much lower than a scan. /backtest/suggest only reads the latest bar, so it
+# can take a larger basket.
+MAX_MANUAL_BACKTEST_SYMBOLS: Final[int] = 25
+MAX_SUGGEST_BACKTEST_SYMBOLS: Final[int] = 100
+# Window fetched to detect a ticker's *current* signals for suggestions —
+# must clear the SMA-200 warmup.
+SUGGEST_DETECT_PERIOD: Final[str] = "1y"
+
 FETCH_BACKOFF_MIN_SECONDS: Final[float] = 1.0
 FETCH_BACKOFF_MAX_SECONDS: Final[float] = 10.0
 STALE_FALLBACK_HOURS: Final[int] = 24

@@ -26,10 +26,21 @@ class HitRateBucket:
     key: str
     hits: int
     total: int
+    # How many of ``total`` were bullish calls (the rest bearish). Lets a
+    # caller compute the bucket's own chance baseline from the up-rate:
+    # a bucket of all-bullish calls in a rising market should hit often
+    # by default, so its hit-rate alone proves nothing.
+    bullish: int = 0
 
     @property
     def hit_rate(self) -> float:
         return self.hits / self.total if self.total else 0.0
+
+
+# Key of the single bucket in the "baseline" list: hits = scored bars whose
+# forward return was positive, total = scored bars. Kept as a HitRateBucket so
+# it merges across symbols with merge_hit_rate_buckets like every other list.
+BASELINE_UP_KEY = "UP"
 
 
 def _is_bullish(strength: str) -> bool:
@@ -100,13 +111,24 @@ def score_historical_signals(
             sign of the forward return is used (legacy label).
 
     Returns:
-        Dict with "by_category" and "by_strength" hit-rate bucket lists, plus
-        "by_strength_raw" (always the legacy raw-sign label, for comparison).
+        Dict with "by_category", "by_strength" and "by_signal" (detector
+        signal name, e.g. "GOLDEN CROSS") hit-rate bucket lists, plus
+        "by_strength_raw" (always the legacy raw-sign label, for comparison)
+        and "baseline" — one ``BASELINE_UP_KEY`` bucket counting how many
+        scored bars rose over the horizon, the chance rate every directional
+        bucket has to beat.
     """
     index_pos = {ts: pos for pos, ts in enumerate(df.index)}
     by_category: dict[str, list[bool]] = {}
     by_strength: dict[str, list[bool]] = {}
+    by_signal: dict[str, list[bool]] = {}
     by_strength_raw: dict[str, list[bool]] = {}
+    # Bullish-call counts per bucket key, parallel to the hit lists above.
+    bull_category: dict[str, int] = {}
+    bull_strength: dict[str, int] = {}
+    bull_signal: dict[str, int] = {}
+    up_bars = 0
+    scored_bars = 0
     benchmark_close = benchmark_df["Close"] if benchmark_df is not None else None
 
     skipped_unresolved = 0
@@ -133,11 +155,17 @@ def score_historical_signals(
                 continue
             label_return = forward_return - bench_return
 
+        scored_bars += 1
+        if label_return > 0:
+            up_bars += 1
+
         for sig in bar.signals:
             if _is_bullish(sig.strength):
+                bullish = True
                 hit = label_return > 0
                 raw_hit = forward_return > 0
             elif _is_bearish(sig.strength):
+                bullish = False
                 hit = label_return < 0
                 raw_hit = forward_return < 0
             else:
@@ -146,6 +174,11 @@ def score_historical_signals(
             by_strength_raw.setdefault(sig.strength, []).append(raw_hit)
             by_category.setdefault(sig.category, []).append(hit)
             by_strength.setdefault(sig.strength, []).append(hit)
+            by_signal.setdefault(sig.signal, []).append(hit)
+            if bullish:
+                bull_category[sig.category] = bull_category.get(sig.category, 0) + 1
+                bull_strength[sig.strength] = bull_strength.get(sig.strength, 0) + 1
+                bull_signal[sig.signal] = bull_signal.get(sig.signal, 0) + 1
 
     logger.info(
         "score_historical_signals: scored %d bars, skipped %d (unresolved horizon)",
@@ -154,17 +187,43 @@ def score_historical_signals(
     )
 
     return {
-        "by_category": [
-            HitRateBucket(key=k, hits=sum(v), total=len(v)) for k, v in sorted(by_category.items())
-        ],
-        "by_strength": [
-            HitRateBucket(key=k, hits=sum(v), total=len(v)) for k, v in sorted(by_strength.items())
-        ],
+        "by_category": _buckets(by_category, bull_category),
+        "by_strength": _buckets(by_strength, bull_strength),
+        "by_signal": _buckets(by_signal, bull_signal),
+        "baseline": [HitRateBucket(key=BASELINE_UP_KEY, hits=up_bars, total=scored_bars)],
         "by_strength_raw": [
             HitRateBucket(key=k, hits=sum(v), total=len(v))
             for k, v in sorted(by_strength_raw.items())
         ],
     }
+
+
+def _buckets(hits: dict[str, list[bool]], bullish: dict[str, int]) -> list[HitRateBucket]:
+    """Collapse per-key hit lists into sorted HitRateBuckets."""
+    return [
+        HitRateBucket(key=k, hits=sum(v), total=len(v), bullish=bullish.get(k, 0))
+        for k, v in sorted(hits.items())
+    ]
+
+
+def bucket_baseline(bucket: HitRateBucket, up_rate: float) -> float:
+    """Chance hit-rate for a bucket given its bullish/bearish mix.
+
+    A bullish call "hits" by chance with probability ``up_rate``; a bearish
+    call with ``1 - up_rate``. A bucket only shows skill when it beats this
+    mix-weighted rate, not a flat 50%.
+
+    Args:
+        bucket: The bucket to score.
+        up_rate: Fraction of scored bars that rose over the same horizon.
+
+    Returns:
+        The expected hit-rate of a direction-blind caller with the same mix.
+    """
+    if bucket.total == 0:
+        return 0.0
+    bearish = bucket.total - bucket.bullish
+    return (bucket.bullish * up_rate + bearish * (1.0 - up_rate)) / bucket.total
 
 
 def merge_hit_rate_buckets(bucket_lists: list[list[HitRateBucket]]) -> list[HitRateBucket]:
@@ -181,8 +240,13 @@ def merge_hit_rate_buckets(bucket_lists: list[list[HitRateBucket]]) -> list[HitR
     """
     hits: dict[str, int] = {}
     totals: dict[str, int] = {}
+    bullish: dict[str, int] = {}
     for buckets in bucket_lists:
         for b in buckets:
             hits[b.key] = hits.get(b.key, 0) + b.hits
             totals[b.key] = totals.get(b.key, 0) + b.total
-    return [HitRateBucket(key=k, hits=hits[k], total=totals[k]) for k in sorted(totals)]
+            bullish[b.key] = bullish.get(b.key, 0) + b.bullish
+    return [
+        HitRateBucket(key=k, hits=hits[k], total=totals[k], bullish=bullish[k])
+        for k in sorted(totals)
+    ]

@@ -13,6 +13,9 @@ import { WatchlistButton } from "@/components/WatchlistButton";
 import { RunRecorder } from "@/components/RunRecorder";
 import { SignalHistoryPanel } from "@/components/SignalHistoryPanel";
 import { SignalLineageTree } from "@/components/SignalLineageTree";
+import { SuggestedBacktests } from "@/components/SuggestedBacktests";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { labHref } from "@/lib/backtestLab";
 import { getPeriodOption, resolveBackendPeriod } from "@/lib/types";
 import type { SignalOutput } from "@/lib/types";
 
@@ -200,6 +203,27 @@ function SignalDashboard({ symbol, period, noLlm }: SignalDashboardProps) {
           Signal Lineage
         </h2>
         <SignalLineageTree ticker={ticker} />
+      </div>
+
+      <div className="rounded-xl bg-[#1a1a2e] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
+            Test these signals
+          </h2>
+          <Link
+            href={labHref({ symbols: [ticker] })}
+            className="text-xs text-gray-500 hover:text-gray-300 underline"
+          >
+            full backtest in the lab →
+          </Link>
+        </div>
+        <p className="text-xs text-gray-500">
+          The engine turns what&apos;s firing on {ticker} today into testable claims and replays
+          them on {ticker}&apos;s own history.
+        </p>
+        <ErrorBoundary label="Suggested backtests">
+          <SuggestedBacktests symbols={[ticker]} />
+        </ErrorBoundary>
       </div>
 
       <div className="rounded-xl bg-[#1a1a2e] p-4">

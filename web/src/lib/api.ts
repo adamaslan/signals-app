@@ -1,3 +1,4 @@
+import { postBackend } from "./backend";
 import { supabase, supabaseConfigured } from "./supabase";
 import type {
   EvidenceItem,
@@ -630,35 +631,16 @@ export async function triggerUniverseScan(
   if (tickers.length === 0) {
     throw new ApiError(400, "No tickers to scan");
   }
-  let res: Response;
-  try {
-    res = await fetch("/api/scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        symbols: tickers,
-        period: opts.period,
-        dry_run: opts.dryRun ?? false,
-        compute_matrix: opts.computeMatrix ?? false,
-      }),
-    });
-  } catch {
-    throw new ApiError(
-      503,
-      "Local backend not reachable at /api/scan — start it with " +
-        "`scripts/run_local.sh` (needs `next dev`, not the static export).",
-    );
-  }
-  const body = (await res.json().catch(() => null)) as
-    | ScanResponseRow
-    | { detail?: string }
-    | null;
-  if (!res.ok) {
-    const detail =
-      body && "detail" in body && body.detail ? body.detail : res.statusText;
-    throw new ApiError(res.status, `Scan failed: ${detail}`);
-  }
-  const row = body as ScanResponseRow;
+  const row = await postBackend<ScanResponseRow>(
+    "scan",
+    {
+      symbols: tickers,
+      period: opts.period,
+      dry_run: opts.dryRun ?? false,
+      compute_matrix: opts.computeMatrix ?? false,
+    },
+    "Scan",
+  );
   return {
     symbolsTotal: row.symbols_total,
     symbolsOk: row.symbols_ok,

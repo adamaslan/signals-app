@@ -43,6 +43,12 @@ export default function RootLayout({
             🗂 Universes
           </Link>
           <Link
+            href="/backtest/"
+            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            🧪 Backtest Lab
+          </Link>
+          <Link
             href="/admin"
             className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
