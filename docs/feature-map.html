@@ -1,0 +1,484 @@
+<!doctype html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signals Feature Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f3f5f8;
+    --surface: #ffffff;
+    --sunk: #e9edf3;
+    --ink: #16202e;
+    --ink-2: #4a5566;
+    --ink-3: #737f91;
+    --line: #d6dce5;
+    --device: #0f8a6e;
+    --device-soft: #dcf1ea;
+    --cloud: #4a4fd1;
+    --cloud-soft: #e3e4fb;
+    --machine: #a2620c;
+    --machine-soft: #f6ead6;
+    --bull: #0f8a6e;
+    --bear: #c2410c;
+    --warn-ink: #8a4b00;
+    --warn-bg: #fff4e0;
+    --warn-line: #f1cf95;
+    --crit-ink: #9f1d1d;
+    --crit-bg: #fdecec;
+    --crit-line: #f1b5b5;
+    --display: "Manrope", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0d121a;
+      --surface: #151c27;
+      --sunk: #1b2432;
+      --ink: #e6ebf2;
+      --ink-2: #aab4c3;
+      --ink-3: #7c8799;
+      --line: #273142;
+      --device: #3fcfa8;
+      --device-soft: #10312a;
+      --cloud: #8f93ff;
+      --cloud-soft: #1f2250;
+      --machine: #e2a54f;
+      --machine-soft: #3a2a12;
+      --bull: #3fcfa8;
+      --bear: #fb8a55;
+      --warn-ink: #f3c27a;
+      --warn-bg: #2d220f;
+      --warn-line: #5b4417;
+      --crit-ink: #f7a3a3;
+      --crit-bg: #2f1414;
+      --crit-line: #5e2626;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0d121a;
+    --surface: #151c27;
+    --sunk: #1b2432;
+    --ink: #e6ebf2;
+    --ink-2: #aab4c3;
+    --ink-3: #7c8799;
+    --line: #273142;
+    --device: #3fcfa8;
+    --device-soft: #10312a;
+    --cloud: #8f93ff;
+    --cloud-soft: #1f2250;
+    --machine: #e2a54f;
+    --machine-soft: #3a2a12;
+    --bull: #3fcfa8;
+    --bear: #fb8a55;
+    --warn-ink: #f3c27a;
+    --warn-bg: #2d220f;
+    --warn-line: #5b4417;
+    --crit-ink: #f7a3a3;
+    --crit-bg: #2f1414;
+    --crit-line: #5e2626;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 15px/1.6 var(--body);
+    padding-inline: 20px;
+    padding-block: 40px 64px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 56px; }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; line-height: 1.1; }
+  h2 { font-size: 24px; font-weight: 800; }
+  h3 { font-size: 16px; font-weight: 700; }
+  p { margin: 0; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+  a { color: var(--cloud); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--cloud); outline-offset: 2px; }
+  .eyebrow {
+    font: 600 11px/1 var(--body);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .lede { color: var(--ink-2); max-width: 64ch; font-size: 16px; }
+  .section-head { display: grid; gap: 8px; }
+
+  /* Header */
+  header { display: grid; gap: 14px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--ink-3); font-size: 13px; }
+  .meta span { display: inline-flex; gap: 6px; align-items: baseline; }
+  .meta b { color: var(--ink-2); font-weight: 500; font-family: var(--mono); font-size: 12px; }
+
+  /* Legend lanes */
+  .lanes-key { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600;
+    padding: 5px 12px 5px 10px; border-radius: 999px;
+  }
+  .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .chip.device { color: var(--device); background: var(--device-soft); }
+  .chip.cloud { color: var(--cloud); background: var(--cloud-soft); }
+  .chip.machine { color: var(--machine); background: var(--machine-soft); }
+
+  /* This PR */
+  .changes { display: grid; gap: 12px; }
+  .change {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 20px; padding: 18px 20px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .change .what { display: grid; gap: 6px; align-content: start; }
+  .change .where { display: flex; gap: 6px; flex-wrap: wrap; }
+  .change .where .chip { font-size: 11px; padding: 2px 9px 2px 8px; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ba > div { background: var(--sunk); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--ink-2); }
+  .ba .tag { display: block; font: 600 10px/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; }
+  .ba .before .tag { color: var(--bear); }
+  .ba .after .tag { color: var(--bull); }
+  .files { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  /* Flow */
+  .flow-scroll { overflow-x: auto; }
+  .flow {
+    display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 0; min-width: 780px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .step { padding: 16px; display: grid; gap: 6px; align-content: start; position: relative; }
+  .step + .step { border-left: 1px dashed var(--line); }
+  .step + .step::before {
+    content: "→"; position: absolute; left: -9px; top: 16px;
+    background: var(--surface); color: var(--ink-3); font-size: 13px; line-height: 1; padding: 2px 0;
+  }
+  .step .n { font: 500 11px/1 var(--mono); color: var(--ink-3); }
+  .step h3 { font-size: 14px; }
+  .step p { font-size: 13px; color: var(--ink-2); }
+  .step .chip { font-size: 11px; padding: 2px 9px 2px 8px; justify-self: start; }
+
+  /* Lanes */
+  .lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .lane { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .lane-head { padding: 16px 18px 14px; display: grid; gap: 4px; border-bottom: 1px solid var(--line); }
+  .lane.device .lane-head { background: var(--device-soft); }
+  .lane.cloud .lane-head { background: var(--cloud-soft); }
+  .lane.machine .lane-head { background: var(--machine-soft); }
+  .lane.device h3 { color: var(--device); }
+  .lane.cloud h3 { color: var(--cloud); }
+  .lane.machine h3 { color: var(--machine); }
+  .lane-head p { font-size: 13px; color: var(--ink-2); }
+  .lane ul { list-style: none; margin: 0; padding: 6px 0; }
+  .lane li { padding: 10px 18px; display: grid; gap: 2px; }
+  .lane li + li { border-top: 1px solid var(--line); }
+  .lane li b { font-weight: 600; font-size: 14px; }
+  .lane li span { font-size: 13px; color: var(--ink-2); }
+  .lane li .mono { color: var(--ink-3); font-size: 11.5px; }
+  .new {
+    font: 600 10px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--bull); margin-left: 6px; vertical-align: 2px;
+  }
+
+  /* Detector strip */
+  .families { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .fam { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 4px; }
+  .fam .count { font: 800 28px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .fam .name { font-weight: 600; font-size: 14px; }
+  .fam .desc { font-size: 12.5px; color: var(--ink-2); }
+  .fam .list { font: 400 11.5px/1.5 var(--mono); color: var(--ink-3); margin-top: 4px; }
+
+  /* Research */
+  .research { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .research .copy { display: grid; gap: 14px; }
+  .research .copy p { color: var(--ink-2); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font: 600 11px/1.2 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 13px; }
+  tr.cut td { background: var(--device-soft); font-weight: 600; }
+  .bar { display: block; height: 6px; border-radius: 3px; background: var(--device); margin-top: 4px; }
+
+  /* Issues */
+  .issues { display: grid; gap: 10px; }
+  .issue {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px;
+    padding: 14px 18px; border-radius: 10px; border: 1px solid;
+  }
+  .issue.crit { background: var(--crit-bg); border-color: var(--crit-line); }
+  .issue.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+  .sev { font: 600 10px/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; align-self: start; }
+  .crit .sev { color: var(--crit-ink); border: 1px solid var(--crit-line); }
+  .warn .sev { color: var(--warn-ink); border: 1px solid var(--warn-line); }
+  .issue h3 { font-size: 15px; }
+  .issue p { font-size: 13.5px; color: var(--ink-2); margin-top: 3px; }
+
+  footer { color: var(--ink-3); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+  @media (max-width: 900px) {
+    .lanes, .research { grid-template-columns: 1fr; }
+    .families { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .change { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    .ba { grid-template-columns: 1fr; }
+    .families { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">signals-app · feature map</p>
+    <h1>What runs where, and what this PR changes</h1>
+    <p class="lede">
+      signals-app splits its work three ways. The scan and the published signals
+      live in the <strong>cloud</strong>. Everything personal stays in
+      <strong>your browser</strong>. A full <strong>local pipeline</strong> runs
+      on a dev machine for free dry runs. This page maps each feature to one of
+      those places and summarises what branch <code>feat/landing-signal-guide</code>
+      adds.
+    </p>
+    <div class="meta">
+      <span>Updated <b>2026-09-24</b></span>
+      <span>Branch <b>feat/landing-signal-guide</b></span>
+      <span>Base <b>main @ 31f1b3a</b></span>
+    </div>
+    <div class="lanes-key" aria-label="Legend">
+      <span class="chip device">On your device</span>
+      <span class="chip cloud">In the cloud</span>
+      <span class="chip machine">Local dev machine</span>
+    </div>
+  </header>
+
+  <section class="section-head" aria-labelledby="pr-h">
+    <p class="eyebrow">This PR</p>
+    <h2 id="pr-h">Five changes</h2>
+    <p class="lede">Three fixes to what the landing page showed, one new section, and one research doc. All of it was checked against the running dev server and the 2026-09-23 scan data.</p>
+    <div class="changes" style="margin-top:10px">
+      <article class="change">
+        <div class="what">
+          <h3>"The signals, explained" section</h3>
+          <div class="where"><span class="chip device">Landing page</span></div>
+          <p class="files">landing/SignalGuide.tsx · lib/signalGlossary.ts (+test)</p>
+        </div>
+        <div class="ba">
+          <div class="before"><span class="tag">Before</span>The hero said "18 technical detectors vote" and never named one. <code>score</code>, <code>conf</code> and "Rule-Based" were never defined.</div>
+          <div class="after"><span class="tag">After</span>A card for each detector: what it watches, every label it can fire, how much each vote counts, the trigger rule, and where it misleads. Filters by family, plus a four-step "how a call is made" strip using the real thresholds.</div>
+        </div>
+      </article>
+      <article class="change">
+        <div class="what">
+          <h3>"Strongest signals" were alphabetical</h3>
+          <div class="where"><span class="chip device">Landing page</span></div>
+          <p class="files">lib/api.ts · lib/landing.ts (+tests)</p>
+        </div>
+        <div class="ba">
+          <div class="before"><span class="tag">Before</span>Every signal had the same 55% confidence, so the tie fell to ticker name: A, AA, ABBV, ACA, ADI.</div>
+          <div class="after"><span class="tag">After</span>Ties break on the size of the score, so the strongest votes come first: AA, AES, ALNY at 1.00. Same fix for the featured deep dive.</div>
+        </div>
+      </article>
+      <article class="change">
+        <div class="what">
+          <h3>Search was hidden behind a name form</h3>
+          <div class="where"><span class="chip device">Landing page</span></div>
+          <p class="files">components/TickerSearch.tsx</p>
+        </div>
+        <div class="ba">
+          <div class="before"><span class="tag">Before</span>A first-time visitor saw "What should we call you?" where the ticker box should be.</div>
+          <div class="after"><span class="tag">After</span>The search box is always there. A default on-device profile is created on the first analysis, so run history still records.</div>
+        </div>
+      </article>
+      <article class="change">
+        <div class="what">
+          <h3>2,000-ticker second universe: research</h3>
+          <div class="where"><span class="chip cloud">Scan + DB</span><span class="chip device">Universes</span></div>
+          <p class="files">docs/2000ticker.md · scripts/rank_next2000_prototype.py</p>
+        </div>
+        <div class="ba">
+          <div class="before"><span class="tag">Before</span>One 954-ticker seed, mostly large caps and ETFs.</div>
+          <div class="after"><span class="tag">After</span>A measured plan: rank Nasdaq-listed common stocks by dollar volume and keep the next 2,000. It lists the blockers and splits the build into four PRs. Nothing is built yet.</div>
+        </div>
+      </article>
+      <article class="change">
+        <div class="what">
+          <h3>This page</h3>
+          <div class="where"><span class="chip machine">Repo doc</span></div>
+          <p class="files">docs/feature-map.html</p>
+        </div>
+        <div class="ba">
+          <div class="before"><span class="tag">Before</span>The local/cloud split was spread across the app overview, the wiki and the features guide.</div>
+          <div class="after"><span class="tag">After</span>One map, kept with the code.</div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section-head" aria-labelledby="flow-h">
+    <p class="eyebrow">Path of one signal</p>
+    <h2 id="flow-h">From a price bar to your screen</h2>
+    <div class="flow-scroll" style="margin-top:10px">
+      <div class="flow">
+        <div class="step">
+          <span class="n">L1</span><h3>Fetch</h3>
+          <p>OHLCV from yfinance for every seed ticker, across the timeframe matrix.</p>
+          <span class="chip cloud">GitHub Actions</span>
+        </div>
+        <div class="step">
+          <span class="n">L2–L3</span><h3>Detect</h3>
+          <p>Indicators computed; 18 detectors fire labelled signals, each with a timeout.</p>
+          <span class="chip cloud">GitHub Actions</span>
+        </div>
+        <div class="step">
+          <span class="n">L4 · gate</span><h3>Vote &amp; gate</h3>
+          <p>Weighted vote → score −1…+1. Needs |score| ≥ 0.35, ≥ 3 agreeing signals, and ≥ 70% data quality. Otherwise HOLD, not published.</p>
+          <span class="chip cloud">GitHub Actions</span>
+        </div>
+        <div class="step">
+          <span class="n">L5</span><h3>Explain</h3>
+          <p>An LLM writes the evidence and counter-evidence (OpenRouter, then Gemini, then rule-based), only for signals that pass the gate.</p>
+          <span class="chip cloud">LLM API</span>
+        </div>
+        <div class="step">
+          <span class="n">L6</span><h3>Store &amp; read</h3>
+          <p>Written to Supabase. The static site reads it straight from the browser, with the anon key.</p>
+          <span class="chip cloud">Supabase</span><span class="chip device">Browser</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-head" aria-labelledby="lanes-h">
+    <p class="eyebrow">Feature inventory</p>
+    <h2 id="lanes-h">Every feature, by where it runs</h2>
+    <div class="lanes" style="margin-top:10px">
+      <div class="lane device">
+        <div class="lane-head">
+          <h3>On your device</h3>
+          <p>Browser IndexedDB (Dexie). Nothing leaves the device unless you sign in and sync.</p>
+        </div>
+        <ul>
+          <li><b>Landing showcase <span class="new">updated</span></b><span>Top signals, heatmap, pipeline funnel, track record, featured deep dive, and the new signal guide.</span><span class="mono">/</span></li>
+          <li><b>Ticker deep dive</b><span>Timeframe matrix, AI evidence and counter-evidence, freshness and data-quality badges.</span><span class="mono">/signal/?symbol=…</span></li>
+          <li><b>Profile &amp; run history</b><span>Name, default period, last ticker, and an append-only log of every analysis.</span><span class="mono">profile · history</span></li>
+          <li><b>Watchlist &amp; alerts</b><span>Starred tickers, target prices, and direction/confidence alert rules.</span><span class="mono">watchlist · alerts</span></li>
+          <li><b>Period presets</b><span>Saved period + rules-only combinations.</span><span class="mono">savedConfigs</span></li>
+          <li><b>Universes</b><span>Named ticker baskets, auto-seeded "All Symbols (954)", batched refresh, drift between runs.</span><span class="mono">universes · universeRuns · /universe</span></li>
+          <li><b>Universe backtests</b><span>Hit rates with Wilson intervals, cached per universe revision and horizon.</span><span class="mono">universeBacktests</span></li>
+          <li><b>Admin run history</b><span>Every scan and backtest on this device in one table.</span><span class="mono">/admin</span></li>
+          <li><b>Your data controls</b><span>Export everything as JSON, clear history, or "forget me" (also wipes cloud copies).</span><span class="mono">/settings</span></li>
+        </ul>
+      </div>
+
+      <div class="lane cloud">
+        <div class="lane-head">
+          <h3>In the cloud</h3>
+          <p>Shared by everyone. Runs on a schedule; the browser only reads from it.</p>
+        </div>
+        <ul>
+          <li><b>Static site hosting</b><span>Next.js static export on GitHub Pages, deployed on every push that touches <code>web/</code>.</span><span class="mono">deploy-pages.yml</span></li>
+          <li><b>Daily universe scan</b><span>Full 954-ticker seed, sharded 4 ways, weekdays after the close.</span><span class="mono">signals-scan.yml · cron 25 21 * * 1-5</span></li>
+          <li><b>LLM synthesis</b><span>Evidence for published signals only. OpenRouter, then Gemini, then a rule-based fallback.</span><span class="mono">synthesis/*</span></li>
+          <li><b>Signal database</b><span>Supabase Postgres: symbols, signals, detector_hits, engine_runs, forward_returns, calibration, profiles, watchlist.</span><span class="mono">8 tables · RLS on user tables</span></li>
+          <li><b>Weekly calibration</b><span>Joins realised forward returns to past signals to get hit rates.</span><span class="mono">calibrate.yml · Sat 06:00 UTC</span></li>
+          <li><b>Weekly scorer retrain</b><span>Retrains the learned scorer after calibration, with a drift check.</span><span class="mono">retrain.yml · Sat 07:00 UTC</span></li>
+          <li><b>Backfill</b><span>Historical signals for a ticker list, on demand.</span><span class="mono">backfill.yml · dispatch</span></li>
+          <li><b>CI</b><span>ruff, mypy, pytest; tsc, static build and Playwright against the export.</span><span class="mono">ci.yml</span></li>
+          <li><b>Optional account sync</b><span>Profile, watchlist and universes mirrored to Supabase once signed in.</span><span class="mono">lib/sync.ts</span></li>
+        </ul>
+      </div>
+
+      <div class="lane machine">
+        <div class="lane-head">
+          <h3>Local dev machine</h3>
+          <p>The same Python engine, run by hand. Free dry runs, no cloud needed.</p>
+        </div>
+        <ul>
+          <li><b>Universe scan CLI</b><span>Whole seed with <code>--dry-run</code>: gate and log only, no LLM calls, no writes (about 44 s).</span><span class="mono">scripts/scan_universe.py</span></li>
+          <li><b>Single-ticker engine</b><span>One symbol end to end, with or without the LLM.</span><span class="mono">scripts/sigloc.py · signals_engine_single.py</span></li>
+          <li><b>Local API</b><span>FastAPI serving <code>/signals/{symbol}</code>, <code>/history</code> and <code>/health</code> for <code>next dev</code>.</span><span class="mono">src/signals_app/api</span></li>
+          <li><b>SQLite cache</b><span>Local persistence when Supabase isn't configured.</span><span class="mono">signals_local.db</span></li>
+          <li><b>MCP server</b><span>Exposes the engine as tools to an AI client.</span><span class="mono">src/signals_app/mcp</span></li>
+          <li><b>CLI universes</b><span>Ticker baskets as plain CSV, in the same JSON format as the browser's export.</span><span class="mono">~/.signals/universes/*.csv</span></li>
+          <li><b>Research scripts <span class="new">new</span></b><span>Liquidity ranking for a second 2,000-ticker universe.</span><span class="mono">scripts/rank_next2000_prototype.py</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-head" aria-labelledby="det-h">
+    <p class="eyebrow">What the new section explains</p>
+    <h2 id="det-h">18 detectors in five families</h2>
+    <p class="lede">The families come from the scorer (<code>scoring/families.py</code>). Detectors in a family measure the same underlying fact, so agreement across families counts for more than agreement within one.</p>
+    <div class="families" style="margin-top:10px">
+      <div class="fam"><span class="count">4</span><span class="name">Trend</span><span class="desc">Is price moving in a sustained direction?</span><span class="list">MA crosses &amp; stack · MA cross grid · ADX · Ichimoku</span></div>
+      <div class="fam"><span class="count">7</span><span class="name">Momentum</span><span class="desc">Is the move speeding up or fading?</span><span class="list">RSI · multi-RSI · MACD · MACD variants · stochastic ×2 · large move</span></div>
+      <div class="fam"><span class="count">3</span><span class="name">Mean reversion</span><span class="desc">Has price stretched far from its average?</span><span class="list">Bollinger touch · Bollinger breakout grid · distance from SMA</span></div>
+      <div class="fam"><span class="count">3</span><span class="name">Volume &amp; flow</span><span class="desc">Is real money behind the move?</span><span class="list">Volume spike · volume divergence · OBV &amp; CMF</span></div>
+      <div class="fam"><span class="count">1</span><span class="name">Structure</span><span class="desc">Where is price in its range?</span><span class="list">Near the 20–252-bar high / low</span></div>
+    </div>
+  </section>
+
+  <section class="section-head" aria-labelledby="res-h">
+    <p class="eyebrow">Research · docs/2000ticker.md</p>
+    <h2 id="res-h">A second universe of 2,000 tickers</h2>
+    <div class="research" style="margin-top:10px">
+      <div class="copy">
+        <p>Start from the free Nasdaq Trader symbol lists. Keep US-listed common stock, and drop ETFs, warrants, units, preferreds and anything already in the 954 seed. <strong>4,653 candidates</strong> remain. Rank them by 20-day median dollar volume and keep the top 2,000.</p>
+        <p>The whole pool downloaded from yfinance in <strong>271 seconds</strong>, so fetching isn't the constraint. The cost is LLM calls: about <strong>660–840 more per daily run</strong> at today's 33–42% publish rate.</p>
+        <p>The build is split into four PRs: fix the landing truncation, add a seed builder and file, add a separate 8-shard CI scan job, and add a second auto-seeded browser universe.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="eyebrow" style="text-align:left;padding:12px 14px 0">Liquidity at each rank, measured 2026-09-24</caption>
+          <thead><tr><th>Rank</th><th>Ticker</th><th style="text-align:right">$ vol / day</th></tr></thead>
+          <tbody>
+            <tr><td class="num">500</td><td>RYN</td><td class="num">$67.7M<span class="bar" style="width:100%"></span></td></tr>
+            <tr><td class="num">1,000</td><td>DRS</td><td class="num">$31.4M<span class="bar" style="width:46%"></span></td></tr>
+            <tr><td class="num">1,500</td><td>WDS</td><td class="num">$14.6M<span class="bar" style="width:22%"></span></td></tr>
+            <tr class="cut"><td class="num">2,000</td><td>BVS · cut-off</td><td class="num">$6.5M<span class="bar" style="width:9.6%"></span></td></tr>
+            <tr><td class="num">2,500</td><td>HBB</td><td class="num">$2.6M<span class="bar" style="width:3.8%"></span></td></tr>
+            <tr><td class="num">3,000</td><td>ALTG</td><td class="num">$1.1M<span class="bar" style="width:1.6%"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-head" aria-labelledby="iss-h">
+    <p class="eyebrow">Found along the way · not fixed in this PR</p>
+    <h2 id="iss-h">Open issues</h2>
+    <div class="issues" style="margin-top:10px">
+      <div class="issue crit">
+        <span class="sev">Critical</span>
+        <div>
+          <h3>The AI explanation step is failing on almost every signal</h3>
+          <p>The 2026-09-23 scan shows every published signal at exactly 55% confidence. The rule-based fallback hard-codes that value (<code>synthesis/mtf_llm.py</code>). The app overview already lists <code>OPENROUTER_API_KEY</code> as unset (P0). Until this is fixed, every deep dive reads "Rule-Based" and the landing page shows a degraded banner.</p>
+        </div>
+      </div>
+      <div class="issue warn">
+        <span class="sev">Before scaling</span>
+        <div>
+          <h3>The landing page reads at most 1,000 rows, in no set order</h3>
+          <p><code>fetchLandingSignals</code> uses <code>limit(1000)</code> with no ordering on the view. Fine at 954 tickers; with a second universe the landing page would compute from an arbitrary subset without any error.</p>
+        </div>
+      </div>
+      <div class="issue warn">
+        <span class="sev">Docs drift</span>
+        <div>
+          <h3>COMPLETE_FEATURES_GUIDE lists detectors that don't exist</h3>
+          <p>It names "RSI Divergence", "Pivot Point Breakout" and "Volatility Breakout", none of which appear in <code>get_default_detectors()</code>. The new glossary follows the code; the guide needs a pass.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Sources: <code>web/src/lib/db.ts</code>, <code>.github/workflows/*</code>, <code>docs/app-overview.md</code>, <code>src/signals_app/detection/*</code>, <code>src/signals_app/config.py</code>, and a live dev-server render on 2026-09-24. Not financial advice.
+  </footer>
+</div>

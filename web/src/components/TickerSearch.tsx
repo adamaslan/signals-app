@@ -14,7 +14,6 @@ export function TickerSearch() {
   const [symbol, setSymbol] = useState("");
   const [period, setPeriod] = useState("3mo");
   const [noLlm, setNoLlm] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
 
   // Apply profile defaults once it loads.
   useEffect(() => {
@@ -30,55 +29,31 @@ export function TickerSearch() {
     [],
   );
 
-  function go(ticker: string) {
+  async function go(ticker: string) {
     const t = ticker.trim().toUpperCase();
     if (!t) return;
+    // No name gate in front of search: a default on-device profile is created
+    // on the first analysis so run history still records.
+    // ensureProfile is idempotent, so also cover a submit that beats `ready`.
+    if (!ready || !profile) {
+      try {
+        await initWithName("");
+      } catch {
+        // Profile persistence must never block search.
+      }
+    }
     router.push(`/signal/?symbol=${t}&period=${period}&no_llm=${noLlm}`);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    go(symbol);
-  }
-
-  async function handleNameSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!nameDraft.trim()) return;
-    await initWithName(nameDraft);
+    void go(symbol);
   }
 
   async function handleSaveConfig() {
     const opt = getPeriodOption(period);
     const name = `${opt?.label ?? period}${noLlm ? " · rules" : ""}`;
     await saveConfig(name, period, noLlm);
-  }
-
-  // First-run onboarding: ask for a name (stored on-device only).
-  if (ready && !profile) {
-    return (
-      <div className="w-full max-w-md">
-        <form onSubmit={handleNameSubmit} className="space-y-3">
-          <p className="text-gray-400 text-sm">
-            What should we call you? (saved only on this device)
-          </p>
-          <input
-            type="text"
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            placeholder="Your name"
-            className="w-full rounded-xl bg-[#1a1a2e] border border-white/10 px-4 py-3 text-white text-lg placeholder-gray-600 focus:outline-none focus:border-white/30"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={!nameDraft.trim()}
-            className="w-full rounded-xl bg-green-700 hover:bg-green-600 disabled:opacity-40 text-white font-semibold py-3 transition-colors"
-          >
-            Continue
-          </button>
-        </form>
-      </div>
-    );
   }
 
   return (

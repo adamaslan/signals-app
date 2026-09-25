@@ -50,6 +50,18 @@ describe("pickTopSignals", () => {
     expect(bullish[bullish.length - 1].ticker).toBe("FFF");
     expect(pickTopSignals(rows, 1).bullish).toHaveLength(1);
   });
+
+  it("breaks confidence ties by |confluence score|, not alphabetically", () => {
+    const tied = [
+      { ...sig("AAA", "buy", 0.55), confluenceScore: 0.4 },
+      { ...sig("ZZZ", "buy", 0.55), confluenceScore: 1.0 },
+      { ...sig("MMM", "sell", 0.55), confluenceScore: -0.38 },
+      { ...sig("NNN", "sell", 0.55), confluenceScore: -1.0 },
+    ];
+    const { bullish, bearish } = pickTopSignals(tied, 2);
+    expect(bullish.map((r) => r.ticker)).toEqual(["ZZZ", "AAA"]);
+    expect(bearish.map((r) => r.ticker)).toEqual(["NNN", "MMM"]);
+  });
 });
 
 describe("buildFunnel", () => {

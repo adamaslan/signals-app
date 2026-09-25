@@ -140,3 +140,31 @@ enforces they stay aligned.
 **Proper fix (not yet applied)**: generate `types.ts` from the Pydantic
 models (e.g. via an OpenAPI/JSON-schema export), or add a CI contract check
 that fails on drift.
+
+### Landing "strongest signals" ranked alphabetically under a confidence tie
+**Fixed on `feat/landing-signal-guide`.** `pickTopSignals` / `pickFeatured`
+sorted by `confidence` then ticker. When LLM synthesis is down, every published
+signal carries the rule-based fallback's flat `0.55`
+(`synthesis/mtf_llm.py`), so "strongest" collapsed to A, AA, ABBV…
+Ties now break on `|confluence_score|`.
+
+### LLM synthesis degraded on nearly every published signal
+Observed on the 2026-09-23 scan: every landing signal at exactly 55%
+confidence, which is the hard-coded rule-based fallback value. Consistent with
+the P0 in `docs/app-overview.md` (`OPENROUTER_API_KEY` unset).
+**Impact**: deep dives show "Rule-Based" and no narrative; the landing shows the
+degraded banner.
+**Verify**: count landing signals with `confidence = 0.55` — near 100% means
+the LLM step isn't running.
+
+### Landing read caps at 1,000 rows with no ordering
+`fetchLandingSignals` reads `latest_signals … .limit(1000)` with no `order()`
+on the view path. Harmless at 954 tickers; once a second universe lands
+(see `docs/2000ticker.md` §5.1) the landing would aggregate an arbitrary
+subset without error. Fix before scaling the seed.
+
+### `COMPLETE_FEATURES_GUIDE.md` detector list is stale
+It names detectors (RSI Divergence, Pivot Point Breakout, Volatility
+Breakout…) that `get_default_detectors()` doesn't return. The in-app glossary
+(`web/src/lib/signalGlossary.ts`) and
+[entities/detector-catalog.md](../entities/detector-catalog.md) follow the code.

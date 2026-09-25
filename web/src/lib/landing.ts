@@ -49,7 +49,14 @@ export function pickFeatured(signals: LandingSignal[]): LandingSignal | null {
   let best: LandingSignal | null = null;
   for (const s of signals) {
     if (s.direction === "hold") continue;
-    if (!best || (s.confidence ?? -1) > (best.confidence ?? -1)) best = s;
+    const conf = s.confidence ?? -1;
+    const bestConf = best?.confidence ?? -1;
+    const stronger =
+      !best ||
+      conf > bestConf ||
+      (conf === bestConf &&
+        Math.abs(s.confluenceScore ?? 0) > Math.abs(best.confluenceScore ?? 0));
+    if (stronger) best = s;
   }
   return best;
 }

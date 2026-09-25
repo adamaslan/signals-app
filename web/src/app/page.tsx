@@ -6,6 +6,7 @@ import { LandingDataProvider } from "@/components/landing/LandingData";
 import { Hero } from "@/components/landing/Hero";
 import { ExampleChips } from "@/components/landing/ExampleChips";
 import { TopSignals } from "@/components/landing/TopSignals";
+import { SignalGuide } from "@/components/landing/SignalGuide";
 import { HeatmapPreview } from "@/components/landing/HeatmapPreview";
 import { PipelineFunnel } from "@/components/landing/PipelineFunnel";
 import { TrackRecord } from "@/components/landing/TrackRecord";
@@ -25,6 +26,7 @@ export default function HomePage() {
         </div>
 
         <TopSignals />
+        <SignalGuide />
         <HeatmapPreview />
         <PipelineFunnel />
         <TrackRecord />

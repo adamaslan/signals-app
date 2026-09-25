@@ -44,3 +44,9 @@ narrative version and orchestration details.
 returns all 18 in this fixed order (trend, then momentum, then volume).
 `detect_all_signals()` runs them with per-detector timeout isolation — see
 [concepts/signal-detectors.md](../concepts/signal-detectors.md#orchestration--robustness).
+
+**User-facing copy**: the landing page's "The signals, explained" section
+renders a plain-English version of this catalogue from
+`web/src/lib/signalGlossary.ts`, grouped by the five scoring families. It is a
+hand-maintained mirror; `signalGlossary.test.ts` pins the count (18) and the
+family split (4/7/3/3/1) so drift is at least visible.

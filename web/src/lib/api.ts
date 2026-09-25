@@ -794,8 +794,11 @@ export function pickTopSignals(
   rows: LandingSignal[],
   perDirection: number,
 ): TopSignals {
+  // Confidence ties are the norm (rule-based fallback emits one flat value),
+  // so |confluence score| breaks them — otherwise "strongest" is alphabetical.
   const rank = (a: LandingSignal, b: LandingSignal) =>
     (b.confidence ?? -1) - (a.confidence ?? -1) ||
+    Math.abs(b.confluenceScore ?? 0) - Math.abs(a.confluenceScore ?? 0) ||
     a.ticker.localeCompare(b.ticker);
   const bullish = rows
     .filter((r) => r.direction === "strong_buy" || r.direction === "buy")
