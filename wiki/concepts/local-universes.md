@@ -21,7 +21,7 @@ lineage drill-down (#20).
 | Migration | What |
 |---|---|
 | `latest_signals` view | `distinct on (ticker, period) *` from `signals`, `security_invoker = on` so it inherits the `public read` RLS. `fetchUniverseSignals` reads it (one indexed query, no client Map de-dup) and falls back to the raw table if absent. |
-| `detector_outcomes` view + `universe_hit_rates(text[], int, text)` + `universe_backtest_meta(text[], int)` | Aggregate-only keyhole into `detector_hits ⋈ forward_returns` (which stay unexposed). `security definer`, 500-ticker cap, buckets by strength/category/ticker/detector; meta returns `tickers_scored` / `hits_total` / `signals_total` / unconditional `baseline_up_rate`. `backtestUniverse` is now RPC-backed and caches by `[universeId+revision+horizonDays]`. |
+| `detector_outcomes` view + `universe_hit_rates(text[], int, text)` + `universe_backtest_meta(text[], int)` | Aggregate-only keyhole into `detector_hits ⋈ forward_returns` (which stay unexposed). `security definer`, 1000-ticker cap (raised from 500 in 20260925000001), buckets by strength/category/ticker/detector; meta returns `tickers_scored` / `hits_total` / `signals_total` / unconditional `baseline_up_rate`. `backtestUniverse` is now RPC-backed and caches by `[universeId+revision+horizonDays]`. |
 | `universes` sync table | Cloud mirror for signed-in cross-device sync. Owner-only RLS, `authenticated` only, **no** `symbols` FK on `tickers` (uncovered tickers must be storable). |
 | `coverage_requests` table | Insert-own + read-own demand queue — a signed-in user queues an uncovered ticker; the operator reads `pending` rows. |
 

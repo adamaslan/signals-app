@@ -287,6 +287,9 @@ export interface UniverseBacktestMeta {
   baselineUpRate: number | null;
 }
 
+/** Must match the cap in the `universe_hit_rates` / `universe_backtest_meta` RPCs. */
+export const MAX_BACKTEST_TICKERS = 1000;
+
 /** Call `universe_hit_rates` for one bucketing. */
 export async function fetchUniverseHitRates(
   tickers: string[],
@@ -296,8 +299,11 @@ export async function fetchUniverseHitRates(
   if (!supabaseConfigured || !supabase) {
     throw new ApiError(503, "Supabase is not configured");
   }
-  if (tickers.length > 500) {
-    throw new ApiError(400, "Universe backtest supports at most 500 tickers");
+  if (tickers.length > MAX_BACKTEST_TICKERS) {
+    throw new ApiError(
+      400,
+      `Universe backtest supports at most ${MAX_BACKTEST_TICKERS} tickers`,
+    );
   }
   const { data, error } = await supabase.rpc("universe_hit_rates", {
     p_tickers: tickers,
