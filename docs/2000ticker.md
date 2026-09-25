@@ -269,7 +269,7 @@ Expect: about 5 minutes, then a summary line with the pool size and the rank-200
 > placeholder `Unclassified`; replace it with the real sector mapping before
 > relying on sector grouping.
 > ```bash
-> cd ~/code/signals-app && S=$(mktemp -d) && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt -o "$S/nasdaqlisted.txt" && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt -o "$S/otherlisted.txt" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python scripts/rank_next2000_prototype.py "$S" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python -c "import pandas as pd, sys; d = pd.read_csv(sys.argv[1] + '/liquidity_ranked.csv').head(2000); pd.DataFrame({'ticker': d.ticker, 'name': d.name, 'asset_type': 'Equity', 'sector_group': 'Unclassified'}).to_csv('seed/universe_next2000.csv', index=False)" "$S" && echo "wrote seed/universe_next2000.csv"
+> cd ~/code/signals-app && S=$(mktemp -d) && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt -o "$S/nasdaqlisted.txt" && curl -s https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt -o "$S/otherlisted.txt" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python scripts/rank_next2000_prototype.py "$S" && /opt/homebrew/Caskroom/miniforge/base/envs/signals-app/bin/python -c "import pandas as pd, sys; d = pd.read_csv(sys.argv[1] + '/liquidity_ranked.csv').head(2000); assert len(d) == 2000, f'only {len(d)} rows ranked; not writing a partial seed'; pd.DataFrame({'ticker': d.ticker, 'name': d.name, 'asset_type': 'Equity', 'sector_group': 'Unclassified'}).to_csv('seed/universe_next2000.csv', index=False)" "$S" && echo "wrote seed/universe_next2000.csv"
 > ```
 > (The appendix script is committed as `scripts/rank_next2000_prototype.py`.)
 
@@ -354,7 +354,7 @@ for i in range(0, len(tickers), BATCH):
             sub = df[t].dropna()
         except KeyError:
             failed += 1; continue
-        if len(sub) < 10:
+        if len(sub) < 20:
             failed += 1; continue
         dv = (sub["Close"] * sub["Volume"]).tail(20).median()
         rows.append((t, pool[t], float(sub["Close"].iloc[-1]), float(dv), len(sub)))

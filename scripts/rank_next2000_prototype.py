@@ -31,7 +31,7 @@ for i in range(0, len(tickers), BATCH):
             sub = df[t].dropna()
         except KeyError:
             failed += 1; continue
-        if len(sub) < 10:
+        if len(sub) < 20:
             failed += 1; continue
         dv = (sub["Close"] * sub["Volume"]).tail(20).median()
         rows.append((t, pool[t], float(sub["Close"].iloc[-1]), float(dv), len(sub)))

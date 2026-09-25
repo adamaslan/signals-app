@@ -35,7 +35,7 @@ const STEPS = [
   },
   {
     title: "Gate",
-    body: `BUY needs a score of +${SCORING_RULES.buyThreshold} or more and at least ${SCORING_RULES.minAgreeingSignals} agreeing signals. SELL is the mirror image. Anything weaker is HOLD, and so is anything with under ${Math.round(SCORING_RULES.minDataQuality * 100)}% data quality. HOLDs are never published.`,
+    body: `The rule-based BUY needs a score of +${SCORING_RULES.buyThreshold} or more and at least ${SCORING_RULES.minAgreeingSignals} same-side signals. SELL is the mirror image. Otherwise the rule-based action is HOLD. Publication is a separate gate: the score must clear the same threshold, with at least ${SCORING_RULES.minAgreeingSignals} total signals and at least ${Math.round(SCORING_RULES.minDataQuality * 100)}% data quality.`,
   },
   {
     title: "Explain",
