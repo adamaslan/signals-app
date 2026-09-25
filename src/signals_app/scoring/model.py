@@ -9,9 +9,10 @@ import json
 import logging
 import math
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -123,7 +124,7 @@ class LogisticScorer:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "LogisticScorer":
+    def from_dict(cls, data: dict[str, Any]) -> LogisticScorer:
         cal = data.get("calibrator")
         exm = data.get("excess_map")
         return cls(
@@ -142,7 +143,7 @@ class LogisticScorer:
 
     def with_calibration(
         self, calibrator: IsotonicCalibrator, excess_map: IsotonicCalibrator | None, metrics: dict[str, Any]
-    ) -> "LogisticScorer":
+    ) -> LogisticScorer:
         return replace(self, calibrator=calibrator, excess_map=excess_map, metrics=metrics)
 
     def save(self, path: Path | str = DEFAULT_MODEL_PATH) -> None:

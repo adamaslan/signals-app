@@ -37,7 +37,6 @@ from scripts.scan_universe import (
     build_matrix_for_symbol,
     load_symbols_from_csv,
     parse_shard_spec,
-    passes_publication_gate,
 )
 from signals_app.config import get_settings
 from signals_app.data.fetcher import DataFetcher
@@ -48,7 +47,6 @@ from signals_app.db.supabase import (
     confluence_result_to_signal_record,
 )
 from signals_app.detection.historical import scan_historical
-from signals_app.detection.orchestrator import detect_all_signals
 from signals_app.indicators.compute import compute_indicators
 from signals_app.indicators.data_quality import score_data_quality
 from signals_app.scoring.calibration import load_strength_hit_rates

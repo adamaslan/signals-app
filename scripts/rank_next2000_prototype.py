@@ -1,5 +1,9 @@
 """Rank non-seed US common stocks by 20-day median dollar volume (research prototype)."""
-import csv, re, sys, time
+import csv
+import re
+import sys
+import time
+
 import pandas as pd
 import yfinance as yf
 

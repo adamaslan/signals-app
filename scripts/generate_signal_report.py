@@ -21,7 +21,7 @@ import argparse
 import re
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,13 +30,13 @@ _project_root = _script_dir.parent
 sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root))
 
+from scripts.scan_universe import load_symbols_from_csv  # noqa: E402
 from signals_app.config import DEFAULT_PERIOD  # noqa: E402
 from signals_app.data.fetcher import DataFetcher  # noqa: E402
 from signals_app.detection.orchestrator import detect_all_signals  # noqa: E402
 from signals_app.indicators.compute import compute_indicators  # noqa: E402
 from signals_app.indicators.data_quality import score_data_quality  # noqa: E402
 from signals_app.scoring.confluence import ConfluenceRanker  # noqa: E402
-from scripts.scan_universe import load_symbols_from_csv  # noqa: E402
 
 TOP_N_SIGNALS = 15
 _SAFE_TICKER_RE = re.compile(r"[^A-Za-z0-9_.-]")
@@ -160,7 +160,7 @@ def generate_report_for_symbol(
     ranker = ConfluenceRanker()
     confluence = ranker.rank_signals(list(signal_list))
 
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     report = _render_report(
         ticker=ticker,
         period=period,
@@ -173,7 +173,7 @@ def generate_report_for_symbol(
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     safe_ticker = _safe_filename_component(ticker)
     out_path = out_dir / f"{safe_ticker}_{ts}_optimal.md"
     out_path.write_text(report)
