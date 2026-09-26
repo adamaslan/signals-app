@@ -73,6 +73,10 @@ def recent_legs(df: pd.DataFrame, atr: float, max_legs: int = MAX_LEGS) -> list[
     pivots = _alternating_pivots(precompute_pivots(df, max_levels=_PIVOT_POOL))
     legs: list[FibLeg] = []
     for earlier, later in zip(reversed(pivots[:-1]), reversed(pivots[1:])):
+        # A wide outside bar can be both a pivot high and a pivot low; a "leg"
+        # between them has no elapsed swing.
+        if earlier.bar_index == later.bar_index:
+            continue
         is_up = later.kind == "resistance"
         low, high = (earlier.price, later.price) if is_up else (later.price, earlier.price)
         if high - low < MIN_LEG_ATR * atr:

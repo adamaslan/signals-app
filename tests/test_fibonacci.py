@@ -58,6 +58,20 @@ class TestLegMath:
         assert len(legs) == 1
         assert legs[0].is_up and legs[0].low == 99.0 and legs[0].high == 201.0
 
+    def test_same_bar_pivot_pair_is_not_a_leg(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A wide outside bar that is both pivot high and low must not become the newest leg."""
+        import signals_app.indicators.fibonacci as fibmath
+        from signals_app.indicators.pivots import PivotLevel
+
+        pivots = [
+            PivotLevel(100.0, 10, "support", 3), PivotLevel(200.0, 30, "resistance", 3),
+            PivotLevel(160.0, 40, "support", 3), PivotLevel(210.0, 50, "resistance", 3),
+            PivotLevel(150.0, 50, "support", 3),
+        ]
+        monkeypatch.setattr(fibmath, "precompute_pivots", lambda _df, max_levels=20: pivots)
+        leg = recent_legs(_frame(_path()), ATR)[0]
+        assert leg.is_up and (leg.low, leg.high) == (160.0, 210.0)
+
     def test_small_legs_are_filtered(self) -> None:
         assert recent_legs(_frame(_path()), atr=50.0) == []
 
@@ -75,7 +89,14 @@ class TestDefaultDetector:
     def test_bullish_volume_confirmed_hold_is_emitted(self) -> None:
         signals = FibonacciDetector().detect(
             _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0))
-        assert [(s.signal, s.strength) for s in signals] == [("FIB GOLDEN POCKET HOLD", "STRONG BULLISH")]
+        assert [(s.signal, s.strength) for s in signals] == [
+            ("FIB GOLDEN POCKET HOLD", "STRONG BULLISH")]
+
+    def test_bar_that_breaches_through_the_pocket_is_not_a_hold(self) -> None:
+        # Pocket is about 134.7-138.0; this bar trades far below it before closing back above.
+        df = _with_last_bar(low=110.0, open=137.0, close=141.0, high=142.0)
+        assert FibonacciDetector().detect(df) == []
+        assert not any("HOLD" in s.signal for s in FibonacciDetector(experimental=True).detect(df))
 
     def test_light_volume_hold_is_not_emitted(self) -> None:
         df = _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0)
@@ -85,10 +106,12 @@ class TestDefaultDetector:
     def test_breaks_and_targets_are_experimental_only(self) -> None:
         df = _with_last_bar(low=118.0, open=139.0, close=120.0, high=140.0)
         assert FibonacciDetector().detect(df) == []
-        assert any(s.signal == "FIB 0.786 BREAK" for s in FibonacciDetector(experimental=True).detect(df))
+        experimental = FibonacciDetector(experimental=True).detect(df)
+        assert any(s.signal == "FIB 0.786 BREAK" for s in experimental)
 
     def test_down_leg_reaction_is_experimental_only(self) -> None:
-        closes = [200 - 2 * i for i in range(11)] + [180 - 5 * i for i in range(1, 21)] + [80 + 3 * i for i in range(1, 21)]
+        closes = ([200 - 2 * i for i in range(11)] + [180 - 5 * i for i in range(1, 21)]
+                  + [80 + 3 * i for i in range(1, 21)])
         df = _frame(closes + [140.0])
         df.loc[df.index[-1], ["Open", "High", "Low", "Close"]] = [143.0, 145.0, 139.0, 139.5]
         assert FibonacciDetector().detect(df) == []
@@ -125,7 +148,8 @@ class TestFibonacciDetector:
 
     def test_insufficient_or_missing_columns_return_empty(self) -> None:
         assert FibonacciDetector(experimental=True).detect(_frame([100.0] * 10)) == []
-        assert FibonacciDetector(experimental=True).detect(_frame(_path()).drop(columns=["ATR"])) == []
+        no_atr = _frame(_path()).drop(columns=["ATR"])
+        assert FibonacciDetector(experimental=True).detect(no_atr) == []
 
     def test_at_most_two_signals(self) -> None:
         signals = FibonacciDetector(experimental=True).detect(

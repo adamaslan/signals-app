@@ -53,11 +53,14 @@ def _signal(label: str, description: str, strength: SignalStrength) -> MutableSi
 class FibonacciDetector:
     """Golden-pocket holds (and, opt-in, confluence holds, breaks, targets) on confirmed legs.
 
-    By default only the signal with a measured edge is emitted: a bullish
-    0.618-0.65 hold on above-average volume. On 197 tickers x 5 years of daily
-    bars it beat the 21-day baseline hit rate by about +5.6pp, the same in both
-    independent ticker halves. Non-Fibonacci control zones showed +1 to +4pp, so
-    the edge is not proven to be specific to the Fibonacci ratios (see
+    By default only the best-measured signal is emitted: a bullish 0.618-0.65
+    hold on above-average volume. The edge is small. On the full seed universe
+    (940 tickers x 5 years, ``scripts/eval_fibonacci.py``) it beats the 21-day
+    baseline hit rate by +1.2pp (z = 1.8, 5659 events), about the same with the
+    63-bar history the scheduled scan fetches. The +4.4pp first reported came
+    from the 200-ticker sample the rule was selected on and did not hold up.
+    Non-Fibonacci control zones showed similar edges, so it is not proven to be
+    specific to the Fibonacci ratios (see
     docs/fibonacci-signal-evaluation-2026-09-26.md). Every other signal here
     was at or below baseline and is emitted only with ``experimental=True``.
     """
@@ -115,16 +118,25 @@ class FibonacciDetector:
     @staticmethod
     def _reacted(leg: FibLeg, zone_lo: float, zone_hi: float, tol: float,
                  low: float, high: float, open_: float, close: float) -> bool:
-        """Touched the zone this bar and closed back out of it in the leg's direction."""
+        """Touched the zone this bar and closed back out of it in the leg's direction.
+
+        The bar's extreme must stay within the zone (plus tolerance) on both
+        sides: a bar that trades clean through the zone and closes back has
+        breached it, not held it.
+        """
         if leg.is_up:
-            return low <= zone_hi + tol and close > zone_hi and close > open_
-        return high >= zone_lo - tol and close < zone_lo and close < open_
+            touched = zone_lo - tol <= low <= zone_hi + tol
+            return touched and close > zone_hi and close > open_
+        touched = zone_lo - tol <= high <= zone_hi + tol
+        return touched and close < zone_lo and close < open_
 
     @staticmethod
     def _graded(leg: FibLeg, rank: int) -> SignalStrength:
         """rank 0..2 -> BULLISH..EXTREME (mirrored for down-legs)."""
-        bull = (SignalStrength.BULLISH, SignalStrength.STRONG_BULLISH, SignalStrength.EXTREME_BULLISH)
-        bear = (SignalStrength.BEARISH, SignalStrength.STRONG_BEARISH, SignalStrength.EXTREME_BEARISH)
+        bull = (SignalStrength.BULLISH, SignalStrength.STRONG_BULLISH,
+                SignalStrength.EXTREME_BULLISH)
+        bear = (SignalStrength.BEARISH, SignalStrength.STRONG_BEARISH,
+                SignalStrength.EXTREME_BEARISH)
         return (bull if leg.is_up else bear)[rank]
 
     def _golden_pocket_hold(self, leg: FibLeg, tol: float, low: float, high: float,

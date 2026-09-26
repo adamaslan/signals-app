@@ -1,13 +1,15 @@
 # Fibonacci signal evaluation (2026-09-26)
 
-What the `FibonacciDetector` signals actually predict, measured out of sample before deciding what ships in the default detector set.
+What the `FibonacciDetector` signals actually predict, measured before deciding what ships in the default detector set.
+
+> **Re-evaluated the same day on the full universe; read that section first.** The +4.4pp headline below came from the 200-ticker sample the rule was selected on. On all 940 usable seed tickers the shipped signal's edge is **+1.2pp (z = 1.8)**. The first study's sections are kept as written, relabelled where they overstated the method.
 
 ## Method
 - **Universe:** random sample (fixed seed) of 200 tickers from `seed/universe_symbols.csv`; 197 had enough history. 5 years of daily bars, `compute_indicators` output.
 - **Causal:** at bar `i` the detector sees only `df.iloc[: i + 1]`. First evaluated bar is 200 (indicator warm-up); last is `len - 21`.
 - **Outcome:** close-to-close return 21 bars ahead. A bullish signal "hits" if that return is > 0, a bearish one if < 0. The baseline is the unconditional hit rate over every bar of the same tickers (P(up) = 54.1%, mean 21-day return +1.8%).
 - **No overlap:** at most one event per ticker per signal per 21 bars.
-- **Out of sample:** tickers split into two halves by sorted order (A/B); a result only counts if it holds in both.
+- **Split-sample robustness check (not out-of-sample validation):** tickers split into two halves by sorted order (A/B); a result only counts if it holds in both. Both halves took part in choosing among the variants below, so neither is a holdout. The full-universe re-evaluation is the closest thing to one.
 - **Variants tried:** tolerance 0.15 / 0.25 / 0.40 ATR, minimum leg 2 / 3 / 5 ATR.
 
 ## Results (default parameters: 0.25 ATR, 3 ATR legs), edge = hit rate minus baseline
@@ -41,8 +43,37 @@ Same event, same volume condition, but the zone moved to non-Fibonacci retraceme
 ## What shipped
 `FibonacciDetector()` emits only the bullish, volume-confirmed golden pocket hold. Confluence holds, the 0.786 break, the 1.618 target, and the normal-volume and bearish holds are behind `FibonacciDetector(experimental=True)`, following the rule that a signal earns its place by beating baseline instead of being tuned until it does.
 
+## Re-evaluation on the full universe (2026-09-26)
+
+Reproducible with `scripts/eval_fibonacci.py`, which runs the shipped `FibonacciDetector()` bar by bar and causally (first bar 200, 21-bar horizon, one event per ticker per 21 bars). Pivots are computed once per ticker and filtered per bar; a check over 3,600 sampled bars found zero differences from calling the detector on each real prefix or window. The baseline is each group's own unconditional hit rate.
+
+```bash
+python scripts/eval_fibonacci.py --cache /tmp/fibcache --sample-size 0 --window 0
+python scripts/eval_fibonacci.py --cache /tmp/fibcache --sample-size 0 --window 63
+```
+
+| Run | Tickers | Events | Edge pooled (pp) | z | Halves A / B (pp) | Excess 21d return |
+|---|---|---|---|---|---|---|
+| First study (selection sample) | 197 | 1603 | +4.4 | 3.5 | not kept | +0.9% |
+| As first shipped, new 200-ticker sample (seed 20260926) | 198 | 1611 | +1.0 | 0.8 | +1.5 / +0.5 | -0.19% |
+| As first shipped, full universe | 940 | 7751 | +1.6 | 2.8 | +1.8 / +1.4 | +0.30% |
+| As first shipped, full universe, 63-bar window | 940 | 7703 | +1.4 | 2.6 | +1.6 / +1.3 | +0.29% |
+| **Current (review fixes), full universe** | 940 | 5659 | **+1.2** | 1.8 | +1.5 / +0.9 | +0.26% |
+| Current, full universe, 63-bar window | 940 | 5633 | +1.1 | 1.7 | +1.4 / +0.8 | +0.27% |
+
+The full universe includes the first study's 200 tickers; that sampling seed was not recorded, so they cannot be excluded. Treating the rest as a holdout puts the edge at roughly +1pp.
+
+**Review fixes in the current row**, both applied as specified before re-measuring, not chosen by result:
+- A hold now requires the bar's low (its high, for down-legs) to stay within the zone plus the 0.25 ATR tolerance on both sides. Before, a bar that traded far through the zone, even below the leg's low, and closed back above it counted as a hold. This removed about 27% of events, which were slightly positive (a flush-and-reclaim pattern). The difference, +1.6 vs +1.2pp, is within one standard error (about 0.6pp).
+- A high/low pivot pair on the same bar (a wide outside bar) is no longer treated as a leg.
+
+**Production window:** the scheduled scan fetches `--period 3mo` (about 63 bars), so the detector sees far less history than in the study. The edge barely moves (+1.2 to +1.1pp).
+
+**Reading:** the volume-confirmed bullish golden pocket hold has a small positive edge that does not reach conventional significance on its own. It stays the default because it is still the only fib signal above baseline, and it enters scoring as one technical vote among many, not as a standalone trade signal. Its `STRONG BULLISH` grade overstates the evidence; downgrading it is a scoring decision left open.
+
 ## Caveats
 - One 5-year window, dominated by a rising market (baseline 54% up); a bear regime could differ. Regime split not done.
 - Context filters (RSI < 45, close vs. SMA) looked stronger in a scan of about a dozen filters but that is a multiple-comparisons search; none were built into the detector.
 - No transaction costs, no position sizing: this is a hit-rate and mean-return study, not a strategy backtest.
 - Sample is the seed universe, which includes thin and low-priced names.
+- 14 of the 954 seed tickers lacked enough history and were skipped in the re-evaluation.

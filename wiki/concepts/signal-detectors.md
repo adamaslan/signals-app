@@ -102,17 +102,23 @@ Sources: [`detection/fibonacci.py`](../../src/signals_app/detection/fibonacci.py
 (events) and [`indicators/fibonacci.py`](../../src/signals_app/indicators/fibonacci.py)
 (leg/level math, no signals).
 
-- `FibonacciDetector` — anchors on the last 3 *confirmed* pivots
+- `FibonacciDetector` — builds legs from *confirmed* pivots
   (`precompute_pivots`, so there is a built-in 3-bar confirmation lag and no
-  repainting), keeps only legs >= 3 ATR, and measures retracements
+  repainting). `recent_legs` takes up to the 60 most recent pivots, collapses
+  runs of same-kind pivots to the most extreme one, skips same-bar high/low
+  pairs, and walks back from the newest pair keeping up to 3 legs of at least
+  3 ATR. The newest qualifying leg drives the signal. Retracements are
   direction-aware. **Default mode emits one signal**: `FIB GOLDEN POCKET HOLD`
-  (STRONG BULLISH), a bullish reaction at the 0.618-0.65 zone (0.25 ATR
-  tolerance) on above-average volume. Measured on 197 tickers x 5y it beat the
-  21-day baseline hit rate by ~+4.4pp; every other fib signal (confluence
+  (STRONG BULLISH), a bullish bar whose low stays within the 0.618-0.65 zone
+  (0.25 ATR tolerance either side) and closes back above it, on above-average
+  volume. On the full seed universe (940 tickers x 5y) it beats the 21-day
+  baseline hit rate by only +1.2pp (z = 1.8); the +4.4pp first reported was
+  from the sample it was selected on. Every other fib signal (confluence
   holds, 0.786 break, 1.618 target, normal-volume and bearish holds) was at
   baseline and is behind `experimental=True`. Non-Fibonacci control zones
-  showed +1 to +4pp, so the edge is not proven Fibonacci-specific. Full
-  method and tables: [`docs/fibonacci-signal-evaluation-2026-09-26.md`](../../docs/fibonacci-signal-evaluation-2026-09-26.md).
+  showed similar edges, so it is not proven Fibonacci-specific. Full method,
+  tables and the re-evaluation: [`docs/fibonacci-signal-evaluation-2026-09-26.md`](../../docs/fibonacci-signal-evaluation-2026-09-26.md);
+  reproduce with `scripts/eval_fibonacci.py`.
   Category `FIBONACCI` maps to the `structure` family. Not done: ML `fib_*`
   features (would change the trained scorer's input schema).
 
