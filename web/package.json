@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp public/404.html out/404.html",
+    "build": "next build && node scripts/postbuild.mjs",
     "start": "next start",
     "start:static": "node scripts/serve-static.mjs",
     "test": "vitest run",
@@ -18,9 +18,9 @@
     "@supabase/supabase-js": "^2.112.3",
     "dexie": "^4.0.8",
     "dexie-react-hooks": "^1.1.7",
-    "next": "15.3.3",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "next": "15.3.9",
+    "react": "19.0.8",
+    "react-dom": "19.0.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

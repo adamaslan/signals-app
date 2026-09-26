@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
 
-// Repo name = subpath on GitHub Pages: https://adamaslan.github.io/signals-app/
-const BASE_PATH = "/signals-app";
+// Vercel sets VERCEL=1 at build time. There the site is served from the
+// domain root; on GitHub Pages it lives under the repo-name subpath
+// (https://adamaslan.github.io/signals-app/).
+const isVercel = Boolean(process.env.VERCEL);
+const isDev = process.env.NODE_ENV === "development";
+const BASE_PATH = isVercel ? "" : "/signals-app";
 
 const nextConfig: NextConfig = {
-  // Static export for GitHub Pages deployment.
+  // Static export for GitHub Pages and Vercel.
   // `next dev` ignores this — it always runs a dev server regardless.
   output: "export",
 
@@ -14,22 +18,25 @@ const nextConfig: NextConfig = {
   // rewrite sources are basePath-relative, so a bare "/api/..." 404s.
   env: { NEXT_PUBLIC_BASE_PATH: BASE_PATH },
 
-  // GitHub Pages doesn't support Next.js image optimisation (server-side).
+  // Static export can't use Next.js image optimisation (server-side).
   images: { unoptimized: true },
 
   // Trailing slash produces index.html files GitHub Pages can serve.
   trailingSlash: true,
 
   // Dev-only proxy: `next dev` uses this to forward /api/* to localhost:8000.
-  // Ignored during `next build` (static export).
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${process.env.BACKEND_URL ?? "http://localhost:8000"}/:path*`,
-      },
-    ];
-  },
+  // Only registered in dev — static export can't serve rewrites and warns
+  // if they're defined during `next build`.
+  ...(isDev && {
+    async rewrites() {
+      return [
+        {
+          source: "/api/:path*",
+          destination: `${process.env.BACKEND_URL ?? "http://localhost:8000"}/:path*`,
+        },
+      ];
+    },
+  }),
 };
 
 export default nextConfig;

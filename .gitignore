@@ -57,3 +57,6 @@ supabase/.temp/
 
 # Local SQLite DB created by `signals` CLI / the API in local mode
 signals_local.db
+
+# Vercel CLI link
+.vercel
