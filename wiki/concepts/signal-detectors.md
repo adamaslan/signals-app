@@ -1,6 +1,6 @@
 # Signal Detectors
 
-18 detector classes across 3 categories, all implementing the
+19 detector classes across 4 categories, all implementing the
 `SignalDetector` Protocol ([`detection/base.py`](../../src/signals_app/detection/base.py)):
 
 ```python
@@ -20,7 +20,7 @@ Full per-detector breakdown: [entities/detector-catalog.md](../entities/detector
 
 `get_default_detectors()` in
 [`detection/orchestrator.py`](../../src/signals_app/detection/orchestrator.py)
-returns the fixed list of 18. `detect_all_signals(df)` runs each one via
+returns the fixed list of 19. `detect_all_signals(df)` runs each one via
 `_run_detector_with_timeout()`, which wraps `detector.detect(df)` in a
 `ThreadPoolExecutor(max_workers=1)` and calls `future.result(timeout=...)`.
 
@@ -95,6 +95,32 @@ Source: [`detection/volume.py`](../../src/signals_app/detection/volume.py).
   (accumulation/distribution), OBV crossing its own 20-period EMA, and
   Chaikin Money Flow (CMF) strong buying/selling (`|CMF| > 0.1`) plus
   zero-line crosses.
+
+## Category 4 — Structure (1 detector)
+
+Sources: [`detection/fibonacci.py`](../../src/signals_app/detection/fibonacci.py)
+(events) and [`indicators/fibonacci.py`](../../src/signals_app/indicators/fibonacci.py)
+(leg/level math, no signals).
+
+- `FibonacciDetector` — builds legs from *confirmed* pivots
+  (`precompute_pivots`, so there is a built-in 3-bar confirmation lag and no
+  repainting). `recent_legs` takes up to the 60 most recent pivots, collapses
+  runs of same-kind pivots to the most extreme one, skips same-bar high/low
+  pairs, and walks back from the newest pair keeping up to 3 legs of at least
+  3 ATR. The newest qualifying leg drives the signal. Retracements are
+  direction-aware. **Default mode emits one signal**: `FIB GOLDEN POCKET HOLD`
+  (STRONG BULLISH), a bullish bar whose low stays within the 0.618-0.65 zone
+  (0.25 ATR tolerance either side) and closes back above it, on above-average
+  volume. On the full seed universe (940 tickers x 5y) it beats the 21-day
+  baseline hit rate by only +1.2pp (z = 1.8); the +4.4pp first reported was
+  from the sample it was selected on. Every other fib signal (confluence
+  holds, 0.786 break, 1.618 target, normal-volume and bearish holds) was at
+  baseline and is behind `experimental=True`. Non-Fibonacci control zones
+  showed similar edges, so it is not proven Fibonacci-specific. Full method,
+  tables and the re-evaluation: [`docs/fibonacci-signal-evaluation-2026-09-26.md`](../../docs/fibonacci-signal-evaluation-2026-09-26.md);
+  reproduce with `scripts/eval_fibonacci.py`.
+  Category `FIBONACCI` maps to the `structure` family. Not done: ML `fib_*`
+  features (would change the trained scorer's input schema).
 
 ## Downstream
 
