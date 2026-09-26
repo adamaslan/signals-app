@@ -36,6 +36,7 @@ FAMILY_BY_CATEGORY: Final[dict[str, str]] = {
     SignalCategory.OBV_CMF.value: "volume_flow",
     SignalCategory.SUPPORT_RESISTANCE.value: "structure",
     SignalCategory.RANGE.value: "structure",
+    SignalCategory.FIBONACCI.value: "structure",
 }
 
 # Categories whose bearish votes are "extension" calls (price stretched above

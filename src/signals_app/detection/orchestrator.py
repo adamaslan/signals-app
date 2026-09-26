@@ -19,6 +19,7 @@ from signals_app.detection.base import (
     SignalList,
     _run_detector_with_timeout,
 )
+from signals_app.detection.fibonacci import FibonacciDetector
 from signals_app.detection.momentum import (
     MACDSignalDetector,
     MultiMACDDetector,
@@ -44,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_default_detectors() -> list[SignalDetector]:
-    """Build and return the default list of all 18 signal detectors.
+    """Build and return the default list of all 19 signal detectors.
 
     Returns:
         List of SignalDetector instances covering all signal categories.
@@ -71,6 +72,8 @@ def get_default_detectors() -> list[SignalDetector]:
         VolumeSignalDetector(),
         VolumeDivergenceDetector(),
         OBVCMFDetector(),
+        # Structure
+        FibonacciDetector(),
     ]
 
 
@@ -88,7 +91,7 @@ def detect_all_signals(
 
     Args:
         df: DataFrame with calculated indicators (output of compute_indicators).
-        detectors: Detectors to run. Defaults to all 18 standard detectors.
+        detectors: Detectors to run. Defaults to all 19 standard detectors.
         timeout_ms: Per-detector wall-clock budget in milliseconds.
         max_failures: Number of detector failures that marks the result degraded.
 

@@ -1,6 +1,6 @@
 # Signal Detectors
 
-18 detector classes across 3 categories, all implementing the
+19 detector classes across 4 categories, all implementing the
 `SignalDetector` Protocol ([`detection/base.py`](../../src/signals_app/detection/base.py)):
 
 ```python
@@ -20,7 +20,7 @@ Full per-detector breakdown: [entities/detector-catalog.md](../entities/detector
 
 `get_default_detectors()` in
 [`detection/orchestrator.py`](../../src/signals_app/detection/orchestrator.py)
-returns the fixed list of 18. `detect_all_signals(df)` runs each one via
+returns the fixed list of 19. `detect_all_signals(df)` runs each one via
 `_run_detector_with_timeout()`, which wraps `detector.detect(df)` in a
 `ThreadPoolExecutor(max_workers=1)` and calls `future.result(timeout=...)`.
 
@@ -95,6 +95,29 @@ Source: [`detection/volume.py`](../../src/signals_app/detection/volume.py).
   (accumulation/distribution), OBV crossing its own 20-period EMA, and
   Chaikin Money Flow (CMF) strong buying/selling (`|CMF| > 0.1`) plus
   zero-line crosses.
+
+## Category 4 — Structure (1 detector)
+
+Sources: [`detection/fibonacci.py`](../../src/signals_app/detection/fibonacci.py)
+(events) and [`indicators/fibonacci.py`](../../src/signals_app/indicators/fibonacci.py)
+(leg/level math, no signals).
+
+- `FibonacciDetector` — anchors on the last 3 *confirmed* pivots
+  (`precompute_pivots`, so there is a built-in 3-bar confirmation lag and no
+  repainting), keeps only legs >= 3 ATR, and measures retracements
+  direction-aware (up-leg: down from the high; down-leg: up from the low).
+  It fires on a reaction on the last bar, never on proximity alone:
+  `FIB GOLDEN POCKET HOLD` (0.618-0.65, tolerance 0.25 ATR),
+  `FIB CONFLUENCE HOLD` (a zone where >=2 legs agree within 0.5 ATR),
+  `FIB 0.786 BREAK` and `FIB 1.618 TARGET`. Volume above its 20-bar average
+  upgrades a hold one grade. Emits at most 2 signals per bar. Category
+  `FIBONACCI` maps to the `structure` family, so a fib hold and a pivot S/R
+  hit count as one vote. `1.618 TARGET` is `SIGNIFICANT`, not `BEARISH`,
+  because fib is not in the up-trend extension gate in `scoring/families.py`.
+  Not yet done: ML features (`fib_*` columns would change the trained
+  scorer's input schema) and the before/after backtest that decides which
+  signals stay in the defaults. See `docs/fibonacci-signals-playbook.md`
+  in the homebase repo.
 
 ## Downstream
 

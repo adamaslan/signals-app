@@ -111,3 +111,5 @@ analysis in docs/universe-scan-improvements.md.
 
 ## [2026-09-24] ingest | PR #33 landing signal guide + 2000-ticker universe research | pages touched: 2
 ## [2026-09-25] ingest | feat/frontend-backtests — Backtest Lab, engine-suggested hypotheses, /backtest/run + /backtest/suggest | pages touched: 3
+
+## [2026-09-25] ingest | feat/fibonacci-detector — FibonacciDetector (19th detector), FIBONACCI category, structure family | pages touched: 1
