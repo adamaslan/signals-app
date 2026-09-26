@@ -119,3 +119,5 @@ analysis in docs/universe-scan-improvements.md.
 ## [2026-09-26] ingest | feat/fibonacci-detector — review fixes (breach-through is not a hold, same-bar pivots skipped) + full-universe re-evaluation: edge +1.2pp not +4.4pp; eval script added | pages touched: 1
 
 ## [2026-09-25] ingest | fix time-dependent data-quality tests + ruff safe auto-fixes | pages touched: 1
+
+## [2026-09-25] ingest | PR #37 Vercel deploy alongside GitHub Pages | pages touched: 2
