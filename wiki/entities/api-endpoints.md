@@ -1,6 +1,6 @@
 # API Endpoints
 
-All defined in [`src/signals_app/api/routes.py`](../../src/signals_app/api/routes.py).
+Legacy routes are defined in [`src/signals_app/api/routes.py`](../../src/signals_app/api/routes.py); the versioned `/v1` surface is in [`v1.py`](../../src/signals_app/api/v1.py) (see below).
 
 > **As of PR #21** the routes are a thin adapter over
 > [`signals_app.service`](../../src/signals_app/service.py) — the pipeline
@@ -64,6 +64,39 @@ Liveness probe. Returns `{"status": "ok"}`, no params, no failure modes
 beyond the process not running at all. (Distinct from the richer
 `signals health` CLI command / `service.health()`, which probes yfinance
 reachability and reports which LLM provider is configured.)
+
+## `/v1` — the integration API
+
+Defined in [`src/signals_app/api/v1.py`](../../src/signals_app/api/v1.py), for
+machine consumers (the portal's council grounding, the mobile RAG council's
+vector store, scripts) rather than this repo's own UI. The unversioned routes
+above are unchanged and keep their `{"detail": ...}` error shape.
+
+| Route | Purpose |
+|---|---|
+| `GET /v1/signals/{symbol}` | `SignalOutput`, now with a deterministic `state` block (confluence, bias, action, RSI/ADX/ATR/MACD, close, as-of date) |
+| `POST /v1/signals/batch` | Basket; partial success is a 200 with `ok` + `failed`. LLM batches capped lower than rule-based ones |
+| `GET /v1/backtest/{symbol}` | Same body as `GET /backtest/{symbol}`; cached in-process ~6h |
+| `POST /v1/backtest/batch` | Weighted-merged hit-rates across a basket |
+| `GET /v1/brief/{symbol}` | Signal + state + hit-rates as one grounding brief (JSON, or `format=text` for a prompt block); a failed backtest is reported in `omitted`, not raised |
+| `POST /v1/briefs` | Briefs for a basket |
+| `POST /v1/rag/documents` | One vector-store document per ticker with a stable per-bar id; `shape=chroma` returns `{ids, documents, metadatas}` for `collection.upsert` |
+| `GET /v1/history/{symbol}`, `POST /v1/scan`, `GET /v1/detectors` | Typed counterparts of the existing routes |
+| `GET /v1/meta`, `GET /v1/health` | Versions/limits/auth flag; deep health (503 when yfinance is unreachable) |
+
+- **Errors** are `{"error": {"type", "message"}}`; `InsufficientData` is 422 here
+  (400 on the legacy routes).
+- **Auth** is opt-in: when `SIGNALS_API_KEY` is set, every `/v1` route except
+  `meta` and `health` needs `Authorization: Bearer` or `X-API-Key`. The legacy
+  routes, including `POST /scan`, are not covered by it.
+- Every response carries `X-Request-ID` (echoed or minted) and
+  `X-Signals-Code-Version`.
+
+Two fixes ship with it: the backtest now fetches daily bars (`fetch` maps 2y/5y
+to weekly, ~105 bars, under the 200-bar warmup, so the default period failed
+for every symbol), and `analyze` runs its blocking pipeline in a worker thread
+(`synthesize_single` creates its own event loop, which raised inside the server
+loop and silently degraded every HTTP/MCP call to the rule-based fallback).
 
 ## The `signals` CLI — same `service`, different surface
 
