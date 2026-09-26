@@ -63,6 +63,10 @@ def stub_fetch(monkeypatch: pytest.MonkeyPatch):
             return OHLCVResult(symbol.upper(), period, df, from_cache=False, bar_count=len(df))
 
         monkeypatch.setattr("signals_app.data.fetcher.DataFetcher.fetch", _fetch)
+        monkeypatch.setattr(
+            "signals_app.data.fetcher.DataFetcher.fetch_daily_history",
+            lambda self, symbol, period="10y": _fetch(self, symbol, period).df,
+        )
 
     return install
 
@@ -188,6 +192,10 @@ async def test_health_reports_yfinance_unreachable_without_raising(
         raise RuntimeError("network down")
 
     monkeypatch.setattr("signals_app.data.fetcher.DataFetcher.fetch", _boom)
+    monkeypatch.setattr(
+        "signals_app.data.fetcher.DataFetcher.fetch_daily_history",
+        lambda self, symbol, period="10y": _boom(self, symbol, period).df,
+    )
     report = await service.health()
     assert report.yfinance_ok is False
     assert report.ok is False

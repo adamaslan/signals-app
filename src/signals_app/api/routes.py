@@ -21,7 +21,9 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from backtests.engine import HitRateBucket, bucket_baseline
 from signals_app import service
+from signals_app.api.serializers import backtest_to_dict, scan_to_dict
 from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
@@ -30,7 +32,6 @@ from signals_app.config import (
     MAX_SUGGEST_BACKTEST_SYMBOLS,
     VALID_PERIODS,
 )
-from backtests.engine import HitRateBucket, bucket_baseline
 from signals_app.hypotheses import (
     BacktestHypothesis,
     FocusVerdict,
@@ -190,20 +191,7 @@ async def get_backtest(
     except Exception as exc:  # noqa: BLE001
         raise _raise_http(exc) from exc
 
-    return {
-        "symbol": result.symbol,
-        "period": result.period,
-        "horizon_days": result.horizon_days,
-        "bars_scanned": result.bars_scanned,
-        "by_category": [
-            {"key": b.key, "hits": b.hits, "total": b.total, "hit_rate": round(b.hit_rate, 4)}
-            for b in result.by_category
-        ],
-        "by_strength": [
-            {"key": b.key, "hits": b.hits, "total": b.total, "hit_rate": round(b.hit_rate, 4)}
-            for b in result.by_strength
-        ],
-    }
+    return backtest_to_dict(result)
 
 
 class ScanRequest(BaseModel):
@@ -260,24 +248,7 @@ async def post_scan(body: ScanRequest) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         raise _raise_http(exc) from exc
 
-    return {
-        "symbols_total": result.symbols_total,
-        "symbols_ok": result.symbols_ok,
-        "symbols_failed": result.symbols_failed,
-        "symbols_published": result.symbols_published,
-        "dry_run": result.dry_run,
-        "trigger": result.trigger,
-        "elapsed_seconds": round(result.elapsed_seconds, 2),
-        "outcomes": [
-            {
-                "ticker": o.ticker,
-                "ok": o.ok,
-                "published": o.published,
-                "reason": o.reason,
-            }
-            for o in result.outcomes
-        ],
-    }
+    return scan_to_dict(result)
 
 
 # ---------------------------------------------------------------------------

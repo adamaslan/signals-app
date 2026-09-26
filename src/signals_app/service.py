@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,8 +49,6 @@ from signals_app.db.ops import RunRecord, get_ticker_history, record_run
 from signals_app.detection.base import MutableSignal
 from signals_app.detection.historical import scan_historical
 from signals_app.detection.orchestrator import detect_all_signals, get_default_detectors
-from signals_app.indicators.compute import compute_indicators
-from signals_app.indicators.data_quality import score_data_quality
 from signals_app.hypotheses import (
     BacktestHypothesis,
     HypothesisFocus,
@@ -57,7 +56,9 @@ from signals_app.hypotheses import (
     evaluate_hypothesis,
     suggest_hypotheses,
 )
-from signals_app.schemas.signal_output import Signal, SignalOutput
+from signals_app.indicators.compute import compute_indicators
+from signals_app.indicators.data_quality import score_data_quality
+from signals_app.schemas.signal_output import Signal, SignalOutput, SignalState
 from signals_app.scoring.calibration import load_strength_hit_rates
 from signals_app.scoring.confluence import ConfluenceRanker
 from signals_app.synthesis.mtf_llm import synthesize_single
@@ -85,6 +86,12 @@ __all__ = [
     "analyze_many",
     "backtest",
     "backtest_many",
+    "brief",
+    "brief_many",
+    "brief_to_rag_document",
+    "rag_documents",
+    "TickerBrief",
+    "RagDocument",
     "history",
     "detectors",
     "health",
@@ -107,6 +114,43 @@ _PERIOD_TO_TIMEFRAME: dict[str, str] = {
     "6mo": "6M",
     "1y": "1Y",
 }
+
+
+class _TTLCache:
+    """Small bounded in-process TTL cache (per Cloud Run instance, best-effort)."""
+
+    def __init__(self, ttl_seconds: float, max_entries: int) -> None:
+        self._ttl = ttl_seconds
+        self._max = max_entries
+        self._data: dict[Any, tuple[float, Any]] = {}
+
+    def get(self, key: Any) -> Any | None:
+        hit = self._data.get(key)
+        if hit is None:
+            return None
+        expires_at, value = hit
+        if time.monotonic() >= expires_at:
+            self._data.pop(key, None)
+            return None
+        return value
+
+    def set(self, key: Any, value: Any) -> None:
+        if len(self._data) >= self._max:
+            oldest = min(self._data, key=lambda k: self._data[k][0])
+            self._data.pop(oldest, None)
+        self._data[key] = (time.monotonic() + self._ttl, value)
+
+    def clear(self) -> None:
+        self._data.clear()
+
+
+# Backtests replay ~2y of daily bars per symbol — seconds of CPU — and their
+# answer only moves once per trading day. Consumers like the portal's council
+# grounding call with an 8s timeout, so a warm cache is the difference between
+# grounding and "omitted".
+_BACKTEST_CACHE_TTL_SECONDS = 6 * 60 * 60
+_BACKTEST_CACHE_MAX_ENTRIES = 1024
+_backtest_cache = _TTLCache(_BACKTEST_CACHE_TTL_SECONDS, _BACKTEST_CACHE_MAX_ENTRIES)
 
 
 # ---------------------------------------------------------------------------
@@ -349,6 +393,30 @@ def _build_features(
     return features
 
 
+def _build_state(confluence_result: Any, features: dict[str, Any], df: pd.DataFrame) -> SignalState:
+    """Expose the deterministic pipeline numbers that feed synthesis."""
+    as_of: str | None = None
+    if len(df) > 0 and hasattr(df.index[-1], "strftime"):
+        as_of = df.index[-1].strftime("%Y-%m-%d")
+    return SignalState(
+        as_of=as_of,
+        confluence_score=features.get("confluence_score"),
+        bias=features.get("bias"),
+        action=features.get("action"),
+        confidence_label=getattr(confluence_result, "confidence_label", None),
+        bull_count=features.get("bull_count"),
+        bear_count=features.get("bear_count"),
+        total_signals=features.get("total_signals"),
+        close=features.get("close"),
+        price_change=features.get("price_change"),
+        rsi=features.get("rsi"),
+        macd=features.get("macd"),
+        adx=features.get("adx"),
+        atr=features.get("atr"),
+        volume=features.get("volume"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # The service functions
 # ---------------------------------------------------------------------------
@@ -386,6 +454,42 @@ async def analyze(
 
     logger.info("service.analyze symbol=%s period=%s no_llm=%s", symbol, period, no_llm)
 
+    # The pipeline is synchronous (yfinance, pandas, and synthesize_single's
+    # private event loop). Running it on the caller's loop blocked every other
+    # request and made synthesize_single raise "Cannot run the event loop while
+    # another loop is running", silently degrading every API/MCP call to rules.
+    output = await asyncio.to_thread(_analyze_sync, symbol, period, no_llm, settings)
+    primary_signal = output.signal
+
+    # Persist (fire-and-forget — a DB failure must not fail the request path).
+    # init_db() is idempotent; the API path already calls it in its lifespan,
+    # but a CLI / MCP consumer has no lifespan, so ensure it here.
+    try:
+        from signals_app.db.session import init_db
+
+        await init_db()
+        await record_run(
+            ticker=symbol,
+            period=period,
+            resolved_period=period,
+            direction=(
+                primary_signal.direction.value
+                if primary_signal.direction is not None
+                else None
+            ),
+            confidence=primary_signal.confidence,
+            ai_degraded=primary_signal.ai_degraded,
+            no_llm=no_llm,
+            prompt_version=primary_signal.prompt_version,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("service.analyze: failed to record run ticker=%s: %s", symbol, exc)
+
+    return output
+
+
+def _analyze_sync(symbol: str, period: str, no_llm: bool, settings: Any) -> SignalOutput:
+    """L1–L5 for one already-normalized symbol; blocking, run off the event loop."""
     # L1: fetch
     try:
         fetcher = DataFetcher(settings=settings)
@@ -465,30 +569,6 @@ async def analyze(
             primary_signal = Signal.model_validate(fallback_dict)
             unavailable.append("synthesis_error")
 
-    # Persist (fire-and-forget — a DB failure must not fail the request path).
-    # init_db() is idempotent; the API path already calls it in its lifespan,
-    # but a CLI / MCP consumer has no lifespan, so ensure it here.
-    try:
-        from signals_app.db.session import init_db
-
-        await init_db()
-        await record_run(
-            ticker=symbol,
-            period=period,
-            resolved_period=period,
-            direction=(
-                primary_signal.direction.value
-                if primary_signal.direction is not None
-                else None
-            ),
-            confidence=primary_signal.confidence,
-            ai_degraded=primary_signal.ai_degraded,
-            no_llm=no_llm,
-            prompt_version=primary_signal.prompt_version,
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("service.analyze: failed to record run ticker=%s: %s", symbol, exc)
-
     return SignalOutput(
         ticker=symbol,
         signal=primary_signal,
@@ -498,6 +578,7 @@ async def analyze(
         code_version=SIGNALS_APP_CODE_VERSION,
         data_quality_score=data_quality.score,
         data_quality_reasons=data_quality.reasons,
+        state=_build_state(confluence_result, features, df),
     )
 
 
@@ -583,12 +664,29 @@ async def backtest(
         "service.backtest symbol=%s period=%s horizon_days=%d", symbol, period, horizon_days
     )
 
+    key = (symbol, period, horizon_days)
+    cached = _backtest_cache.get(key)
+    if cached is not None:
+        return cached
+    result = await asyncio.to_thread(_backtest_sync, symbol, period, horizon_days, settings)
+    _backtest_cache.set(key, result)
+    return result
+
+
+def _backtest_sync(symbol: str, period: str, horizon_days: int, settings: Any) -> BacktestResult:
+    """Blocking backtest body for one normalized symbol; run off the event loop.
+
+    Always daily bars: ``fetch`` maps 2y/5y to weekly bars, which left a 2y
+    backtest ~105 bars short of the 200-bar warmup (so every default request
+    failed) and would have measured ``horizon_days`` in weeks. Calibration
+    (``scripts/calibrate.py``) already measures on daily bars; this matches it.
+    """
     try:
         # Daily bars regardless of period: fetch() maps 2y/5y to *weekly*
         # bars, which both starves the 200-bar warmup and makes
         # horizon_days mean weeks.
         fetcher = DataFetcher(settings=settings)
-        df_raw = await asyncio.to_thread(fetcher.fetch_daily_history, symbol, period)
+        df_raw = fetcher.fetch_daily_history(symbol, period)
     except ValueError as exc:
         raise SymbolNotFound(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
@@ -601,15 +699,10 @@ async def backtest(
             f"need > {MIN_HISTORICAL_LOOKBACK + horizon_days} (warmup + horizon)"
         )
 
-    def _replay() -> tuple[int, dict[str, list[HitRateBucket]]]:
+    try:
         df = compute_indicators(df_raw)
         bars = scan_historical(df)
-        return len(bars), score_historical_signals(df, bars, horizon_days=horizon_days)
-
-    try:
-        # The replay is pure CPU (every detector x every bar); off the event
-        # loop so a basket backtest doesn't stall concurrent requests.
-        bars_scanned, scored = await asyncio.to_thread(_replay)
+        scored = score_historical_signals(df, bars, horizon_days=horizon_days)
     except Exception as exc:  # noqa: BLE001
         logger.error("service.backtest: failed for %s: %s", symbol, exc, exc_info=True)
         raise UpstreamUnavailable(f"Backtest error: {exc}") from exc
@@ -621,7 +714,7 @@ async def backtest(
         symbol=symbol,
         period=period,
         horizon_days=horizon_days,
-        bars_scanned=bars_scanned,
+        bars_scanned=len(bars),
         by_category=list(scored["by_category"]),
         by_strength=list(scored["by_strength"]),
         by_signal=list(scored.get("by_signal", [])),
@@ -842,6 +935,248 @@ async def run_hypothesis(
         "strength": result.by_strength,
     }
     return HypothesisRun(result, evaluate_hypothesis(focus, buckets, result.up_rate))
+
+
+# ---------------------------------------------------------------------------
+# Grounding briefs + RAG documents — the LLM-consumer surface
+# ---------------------------------------------------------------------------
+
+_BRIEF_BACKTEST_PERIOD = "2y"
+_BRIEF_MAX_EVIDENCE_LINES = 5
+_BRIEF_MAX_HIT_RATE_LINES = 6
+RagMetadataValue = str | int | float | bool
+
+
+@dataclass(frozen=True)
+class TickerBrief:
+    """Everything an LLM needs to reason about one ticker, pre-joined.
+
+    ``text`` is deterministic and number-first so it can be pasted straight
+    into a prompt; the structured fields are there for code that wants to key
+    on values (council seat slicing, graders) instead of parsing the text.
+    """
+
+    ticker: str
+    period: str
+    generated_at: str
+    signal: SignalOutput
+    backtest: BacktestResult | None
+    omitted: list[str]
+    text: str
+
+
+@dataclass(frozen=True)
+class RagDocument:
+    """One vector-store-ready document: stable id, text, flat scalar metadata.
+
+    Metadata values are str/int/float/bool only and never None — the lowest
+    common denominator ChromaDB, pgvector and LightRAG all accept.
+    """
+
+    id: str
+    text: str
+    metadata: dict[str, RagMetadataValue]
+
+
+def _fmt_num(value: float | None, digits: int = 2, signed: bool = False) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:+.{digits}f}" if signed else f"{value:.{digits}f}"
+
+
+def _format_brief_text(
+    signal: SignalOutput, backtest: BacktestResult | None, omitted: list[str]
+) -> str:
+    st = signal.state or SignalState()
+    sig = signal.signal
+    rule_based = sig.ai_degraded or "synthesis_skipped" in signal.feature_unavailable
+    source = "rule-based" if rule_based else "LLM"
+    lines = [
+        f"TICKER {signal.ticker} — signals-app brief "
+        f"(as of {st.as_of or 'n/a'}, code {signal.code_version or 'n/a'})",
+        f"Signal: {sig.direction.value.upper()} (confidence {sig.confidence:.2f}, "
+        f"timeframe {sig.timeframe.value}, {source})",
+        (
+            f"Confluence: {_fmt_num(st.confluence_score, signed=True)} {st.bias or 'n/a'} · "
+            f"action {st.action or 'n/a'} · confidence {st.confidence_label or 'n/a'} · "
+            f"{st.bull_count if st.bull_count is not None else '?'} bull / "
+            f"{st.bear_count if st.bear_count is not None else '?'} bear of "
+            f"{st.total_signals if st.total_signals is not None else '?'} signals"
+        ),
+        (
+            f"Indicators: close {_fmt_num(st.close)} · "
+            f"1-bar change {_fmt_num(st.price_change, signed=True)}% · "
+            f"RSI {_fmt_num(st.rsi, 1)} · ADX {_fmt_num(st.adx, 1)} · ATR {_fmt_num(st.atr)} · "
+            f"MACD {_fmt_num(st.macd, 3, signed=True)}"
+        ),
+    ]
+    supporting = [e for e in sig.evidence.items if not e.is_counter]
+    counter = [e for e in sig.evidence.items if e.is_counter]
+    if supporting:
+        lines.append("Evidence:")
+        lines += [
+            f"- [{e.source.value} {e.weight:.2f}] {e.summary}"
+            for e in supporting[:_BRIEF_MAX_EVIDENCE_LINES]
+        ]
+    if counter:
+        lines.append("Counter-evidence:")
+        lines += [
+            f"- [{e.source.value}] {e.summary}" for e in counter[:_BRIEF_MAX_EVIDENCE_LINES]
+        ]
+    if backtest is not None:
+        buckets = [("strength", b) for b in backtest.by_strength] + [
+            ("category", b) for b in backtest.by_category
+        ]
+        buckets = sorted((kb for kb in buckets if kb[1].total > 0), key=lambda kb: -kb[1].total)
+        if buckets:
+            lines.append(
+                f"Historical hit-rates ({backtest.period}, {backtest.horizon_days}-bar horizon, "
+                f"{backtest.bars_scanned} bars scanned):"
+            )
+            lines += [
+                f"- {kind}/{b.key}: {round(b.hit_rate * 100)}% (n={b.total})"
+                for kind, b in buckets[:_BRIEF_MAX_HIT_RATE_LINES]
+            ]
+    if signal.data_quality_score is not None:
+        reasons = (
+            f" ({', '.join(signal.data_quality_reasons)})" if signal.data_quality_reasons else ""
+        )
+        lines.append(f"Data quality: {signal.data_quality_score:.2f}{reasons}")
+    if omitted:
+        lines.append(f"Omitted: {'; '.join(omitted)}")
+    return "\n".join(lines)
+
+
+async def brief(
+    symbol: str,
+    period: str = DEFAULT_PERIOD,
+    *,
+    include_backtest: bool = True,
+    no_llm: bool = True,
+    horizon_days: int = BACKTEST_FORWARD_HORIZON_DAYS,
+) -> TickerBrief:
+    """Signal + state + historical hit-rates for one ticker, as one grounding brief.
+
+    The backtest is best-effort: if it fails the brief still returns, with the
+    reason in ``omitted``. A failure of the signal itself raises, like
+    :func:`analyze`.
+
+    Args:
+        symbol: Ticker symbol.
+        period: Analysis period for the live signal.
+        include_backtest: Attach 2y hit-rates (cached; slow only when cold).
+        no_llm: Default True — grounding wants numbers, not another model's prose.
+        horizon_days: Forward-return horizon for the hit-rates.
+
+    Returns:
+        A :class:`TickerBrief`.
+    """
+    from datetime import UTC, datetime
+
+    symbol = _normalize_symbol(symbol)
+    period = _normalize_period(period)
+    omitted: list[str] = []
+
+    if include_backtest:
+        signal_out, bt = await asyncio.gather(
+            analyze(symbol, period, no_llm=no_llm),
+            backtest(symbol, _BRIEF_BACKTEST_PERIOD, horizon_days),
+            return_exceptions=True,
+        )
+        if isinstance(signal_out, BaseException):
+            raise signal_out
+        backtest_result: BacktestResult | None
+        if isinstance(bt, BaseException):
+            backtest_result = None
+            omitted.append(f"backtest ({type(bt).__name__})")
+        else:
+            backtest_result = bt
+    else:
+        signal_out = await analyze(symbol, period, no_llm=no_llm)
+        backtest_result = None
+        omitted.append("backtest (not requested)")
+
+    return TickerBrief(
+        ticker=symbol,
+        period=period,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        signal=signal_out,
+        backtest=backtest_result,
+        omitted=omitted,
+        text=_format_brief_text(signal_out, backtest_result, omitted),
+    )
+
+
+async def brief_many(
+    symbols: Sequence[str],
+    period: str = DEFAULT_PERIOD,
+    *,
+    include_backtest: bool = True,
+    no_llm: bool = True,
+    max_concurrent: int = _DEFAULT_BATCH_CONCURRENCY,
+) -> tuple[list[TickerBrief], list[BatchFailure]]:
+    """Fan :func:`brief` out over a basket; one bad symbol never fails the batch."""
+    period = _normalize_period(period)
+    unique = sorted({_normalize_symbol(s) for s in symbols})
+    sem = asyncio.Semaphore(max(1, max_concurrent))
+
+    async def _one(sym: str) -> TickerBrief | BatchFailure:
+        async with sem:
+            try:
+                return await brief(sym, period, include_backtest=include_backtest, no_llm=no_llm)
+            except SignalsError as exc:
+                return BatchFailure(sym, type(exc).__name__, str(exc))
+            except Exception as exc:  # noqa: BLE001 — batch must survive any single failure
+                logger.warning("brief_many: %s failed unexpectedly: %s", sym, exc)
+                return BatchFailure(sym, "UnexpectedError", str(exc))
+
+    results = await asyncio.gather(*(_one(s) for s in unique))
+    briefs = [r for r in results if isinstance(r, TickerBrief)]
+    failed = [r for r in results if isinstance(r, BatchFailure)]
+    return briefs, failed
+
+
+def brief_to_rag_document(b: TickerBrief) -> RagDocument:
+    """Convert a brief into one upsertable vector-store document.
+
+    The id is stable per (ticker, bar date, period, code version), so re-ingesting
+    the same day upserts instead of duplicating, and a new trading day or a
+    new engine version produces a new document.
+    """
+    st = b.signal.state or SignalState()
+    as_of = st.as_of or b.generated_at[:10]
+    raw: dict[str, RagMetadataValue | None] = {
+        "source": "signals-app",
+        "doc_type": "signal_brief",
+        "ticker": b.ticker,
+        "as_of": as_of,
+        "period": b.period,
+        "direction": b.signal.signal.direction.value,
+        "confidence": b.signal.signal.confidence,
+        "confluence_score": st.confluence_score,
+        "bias": st.bias,
+        "action": st.action,
+        "rsi": st.rsi,
+        "adx": st.adx,
+        "close": st.close,
+        "has_backtest": b.backtest is not None,
+        "code_version": b.signal.code_version,
+        "generated_at": b.generated_at,
+    }
+    metadata = {k: v for k, v in raw.items() if v is not None}
+    doc_id = f"signals-app:{b.ticker}:{as_of}:{b.period}:{b.signal.code_version or 'dev'}"
+    return RagDocument(id=doc_id, text=b.text, metadata=metadata)
+
+
+async def rag_documents(
+    symbols: Sequence[str],
+    period: str = DEFAULT_PERIOD,
+    *,
+    include_backtest: bool = True,
+) -> tuple[list[RagDocument], list[BatchFailure]]:
+    """Vector-store-ready documents for a basket (one per ticker)."""
+    briefs, failed = await brief_many(symbols, period, include_backtest=include_backtest)
+    return [brief_to_rag_document(b) for b in briefs], failed
 
 
 async def history(symbol: str, *, limit: int = 50, offset: int = 0) -> list[RunRecord]:

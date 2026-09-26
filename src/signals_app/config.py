@@ -58,6 +58,20 @@ MAX_SUGGEST_BACKTEST_SYMBOLS: Final[int] = 100
 # must clear the SMA-200 warmup.
 SUGGEST_DETECT_PERIOD: Final[str] = "1y"
 
+# /v1 batch endpoints. Rule-based batches are cheap (one yfinance fetch each);
+# LLM batches cost a model call per symbol, so they get a much lower ceiling.
+MAX_API_BATCH_SYMBOLS: Final[int] = 50
+MAX_API_LLM_BATCH_SYMBOLS: Final[int] = 10
+
+
+def get_api_key() -> str | None:
+    """Shared secret for /v1 (``SIGNALS_API_KEY``); None leaves /v1 open.
+
+    Read per request rather than at import so a rotated secret or a test's
+    monkeypatched env takes effect without a restart.
+    """
+    return os.getenv("SIGNALS_API_KEY") or None
+
 FETCH_BACKOFF_MIN_SECONDS: Final[float] = 1.0
 FETCH_BACKOFF_MAX_SECONDS: Final[float] = 10.0
 STALE_FALLBACK_HOURS: Final[int] = 24
