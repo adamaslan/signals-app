@@ -51,7 +51,19 @@ def _signal(label: str, description: str, strength: SignalStrength) -> MutableSi
 
 
 class FibonacciDetector:
-    """Golden-pocket / confluence holds, 0.786 breaks, and 1.618 targets on confirmed legs."""
+    """Golden-pocket holds (and, opt-in, confluence holds, breaks, targets) on confirmed legs.
+
+    By default only the signal with a measured edge is emitted: a bullish
+    0.618-0.65 hold on above-average volume. On 197 tickers x 5 years of daily
+    bars it beat the 21-day baseline hit rate by about +5.6pp, the same in both
+    independent ticker halves. Non-Fibonacci control zones showed +1 to +4pp, so
+    the edge is not proven to be specific to the Fibonacci ratios (see
+    docs/fibonacci-signal-evaluation-2026-09-26.md). Every other signal here
+    was at or below baseline and is emitted only with ``experimental=True``.
+    """
+
+    def __init__(self, experimental: bool = False) -> None:
+        self._experimental = experimental
 
     def detect(self, df: pd.DataFrame) -> list[MutableSignal]:
         """Detect Fibonacci reaction events on the last bar.
@@ -78,8 +90,11 @@ class FibonacciDetector:
         leg = legs[0]
         tol = TOLERANCE_ATR * atr
         above_avg_volume = self._above_average_volume(bar)
-        signals: list[MutableSignal] = []
+        if not self._experimental:
+            hold = self._golden_pocket_hold(leg, tol, low, high, open_, close, True)
+            return [hold] if hold and leg.is_up and above_avg_volume else []
 
+        signals: list[MutableSignal] = []
         hold = self._confluence_hold(legs, leg, atr, tol, low, high, open_, close, above_avg_volume)
         hold = hold or self._golden_pocket_hold(leg, tol, low, high, open_, close, above_avg_volume)
         if hold:

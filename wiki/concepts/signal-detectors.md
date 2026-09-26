@@ -105,19 +105,16 @@ Sources: [`detection/fibonacci.py`](../../src/signals_app/detection/fibonacci.py
 - `FibonacciDetector` — anchors on the last 3 *confirmed* pivots
   (`precompute_pivots`, so there is a built-in 3-bar confirmation lag and no
   repainting), keeps only legs >= 3 ATR, and measures retracements
-  direction-aware (up-leg: down from the high; down-leg: up from the low).
-  It fires on a reaction on the last bar, never on proximity alone:
-  `FIB GOLDEN POCKET HOLD` (0.618-0.65, tolerance 0.25 ATR),
-  `FIB CONFLUENCE HOLD` (a zone where >=2 legs agree within 0.5 ATR),
-  `FIB 0.786 BREAK` and `FIB 1.618 TARGET`. Volume above its 20-bar average
-  upgrades a hold one grade. Emits at most 2 signals per bar. Category
-  `FIBONACCI` maps to the `structure` family, so a fib hold and a pivot S/R
-  hit count as one vote. `1.618 TARGET` is `SIGNIFICANT`, not `BEARISH`,
-  because fib is not in the up-trend extension gate in `scoring/families.py`.
-  Not yet done: ML features (`fib_*` columns would change the trained
-  scorer's input schema) and the before/after backtest that decides which
-  signals stay in the defaults. See `docs/fibonacci-signals-playbook.md`
-  in the homebase repo.
+  direction-aware. **Default mode emits one signal**: `FIB GOLDEN POCKET HOLD`
+  (STRONG BULLISH), a bullish reaction at the 0.618-0.65 zone (0.25 ATR
+  tolerance) on above-average volume. Measured on 197 tickers x 5y it beat the
+  21-day baseline hit rate by ~+4.4pp; every other fib signal (confluence
+  holds, 0.786 break, 1.618 target, normal-volume and bearish holds) was at
+  baseline and is behind `experimental=True`. Non-Fibonacci control zones
+  showed +1 to +4pp, so the edge is not proven Fibonacci-specific. Full
+  method and tables: [`docs/fibonacci-signal-evaluation-2026-09-26.md`](../../docs/fibonacci-signal-evaluation-2026-09-26.md).
+  Category `FIBONACCI` maps to the `structure` family. Not done: ML `fib_*`
+  features (would change the trained scorer's input schema).
 
 ## Downstream
 

@@ -69,9 +69,34 @@ class TestLegMath:
         assert max(n for _, n in confluence_zones(near, ATR)) == 2
 
 
+class TestDefaultDetector:
+    """Default mode emits only the signal with a measured edge."""
+
+    def test_bullish_volume_confirmed_hold_is_emitted(self) -> None:
+        signals = FibonacciDetector().detect(
+            _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0))
+        assert [(s.signal, s.strength) for s in signals] == [("FIB GOLDEN POCKET HOLD", "STRONG BULLISH")]
+
+    def test_light_volume_hold_is_not_emitted(self) -> None:
+        df = _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0)
+        df["Volume"] = 100.0
+        assert FibonacciDetector().detect(df) == []
+
+    def test_breaks_and_targets_are_experimental_only(self) -> None:
+        df = _with_last_bar(low=118.0, open=139.0, close=120.0, high=140.0)
+        assert FibonacciDetector().detect(df) == []
+        assert any(s.signal == "FIB 0.786 BREAK" for s in FibonacciDetector(experimental=True).detect(df))
+
+    def test_down_leg_reaction_is_experimental_only(self) -> None:
+        closes = [200 - 2 * i for i in range(11)] + [180 - 5 * i for i in range(1, 21)] + [80 + 3 * i for i in range(1, 21)]
+        df = _frame(closes + [140.0])
+        df.loc[df.index[-1], ["Open", "High", "Low", "Close"]] = [143.0, 145.0, 139.0, 139.5]
+        assert FibonacciDetector().detect(df) == []
+
+
 class TestFibonacciDetector:
     def test_golden_pocket_hold_fires_on_reaction(self) -> None:
-        signals = FibonacciDetector().detect(
+        signals = FibonacciDetector(experimental=True).detect(
             _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0))
         hold = [s for s in signals if s.signal == "FIB GOLDEN POCKET HOLD"]
         assert len(hold) == 1
@@ -81,29 +106,29 @@ class TestFibonacciDetector:
     def test_hold_grade_drops_on_light_volume(self) -> None:
         df = _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0)
         df["Volume"] = 100.0
-        hold = [s for s in FibonacciDetector().detect(df) if "HOLD" in s.signal]
+        hold = [s for s in FibonacciDetector(experimental=True).detect(df) if "HOLD" in s.signal]
         assert hold[0].strength == "BULLISH"
 
     def test_proximity_without_reversal_emits_nothing(self) -> None:
-        signals = FibonacciDetector().detect(
+        signals = FibonacciDetector(experimental=True).detect(
             _with_last_bar(low=135.0, open=138.0, close=136.5, high=138.5))
         assert signals == []
 
     def test_break_below_0786_is_bearish(self) -> None:
-        signals = FibonacciDetector().detect(
+        signals = FibonacciDetector(experimental=True).detect(
             _with_last_bar(low=118.0, open=139.0, close=120.0, high=140.0))
         breaks = [s for s in signals if s.signal == "FIB 0.786 BREAK"]
         assert [s.strength for s in breaks] == ["BEARISH"]
 
     def test_no_signal_far_from_levels(self) -> None:
-        assert FibonacciDetector().detect(_frame(_path() + [140.0])) == []
+        assert FibonacciDetector(experimental=True).detect(_frame(_path() + [140.0])) == []
 
     def test_insufficient_or_missing_columns_return_empty(self) -> None:
-        assert FibonacciDetector().detect(_frame([100.0] * 10)) == []
-        assert FibonacciDetector().detect(_frame(_path()).drop(columns=["ATR"])) == []
+        assert FibonacciDetector(experimental=True).detect(_frame([100.0] * 10)) == []
+        assert FibonacciDetector(experimental=True).detect(_frame(_path()).drop(columns=["ATR"])) == []
 
     def test_at_most_two_signals(self) -> None:
-        signals = FibonacciDetector().detect(
+        signals = FibonacciDetector(experimental=True).detect(
             _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0))
         assert len(signals) <= 2
 
@@ -119,8 +144,8 @@ class TestPointInTime:
         full = _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0)
         future = pd.concat([full, _frame([150.0] * 10)], ignore_index=True)
         sliced = future.iloc[: len(full)]
-        assert ([s.signal for s in FibonacciDetector().detect(sliced)]
-                == [s.signal for s in FibonacciDetector().detect(full)])
+        assert ([s.signal for s in FibonacciDetector(experimental=True).detect(sliced)]
+                == [s.signal for s in FibonacciDetector(experimental=True).detect(full)])
 
 
 class TestIntegration:
@@ -131,5 +156,5 @@ class TestIntegration:
         closes = [100 + (i % 40) * 2 + (i // 40) for i in range(500)]
         df = _frame(closes)
         start = time.perf_counter()
-        FibonacciDetector().detect(df)
+        FibonacciDetector(experimental=True).detect(df)
         assert (time.perf_counter() - start) * 1000 < DETECTOR_TIMEOUT_MS / 2
