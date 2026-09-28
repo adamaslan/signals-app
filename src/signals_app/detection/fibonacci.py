@@ -56,8 +56,9 @@ class FibonacciDetector:
     By default only the best-measured signal is emitted: a bullish 0.618-0.65
     hold on above-average volume. The edge is small. On the full seed universe
     (940 tickers x 5 years, ``scripts/eval_fibonacci.py``) it beats the 21-day
-    baseline hit rate by +1.2pp (z = 1.8, 5659 events), about the same with the
-    63-bar history the scheduled scan fetches. The +4.4pp first reported came
+    baseline hit rate by +1.2pp (z = 1.8, 5659 events), and about the same when
+    limited to 63 bars of history. Measured on daily bars only; other intervals
+    are untested. The +4.4pp first reported came
     from the 200-ticker sample the rule was selected on and did not hold up.
     Non-Fibonacci control zones showed similar edges, so it is not proven to be
     specific to the Fibonacci ratios (see

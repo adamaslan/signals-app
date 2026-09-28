@@ -67,11 +67,39 @@ The full universe includes the first study's 200 tickers; that sampling seed was
 - A hold now requires the bar's low (its high, for down-legs) to stay within the zone plus the 0.25 ATR tolerance on both sides. Before, a bar that traded far through the zone, even below the leg's low, and closed back above it counted as a hold. This removed about 27% of events, which were slightly positive (a flush-and-reclaim pattern). The difference, +1.6 vs +1.2pp, is within one standard error (about 0.6pp).
 - A high/low pivot pair on the same bar (a wide outside bar) is no longer treated as a leg.
 
-**Production window:** the scheduled scan fetches `--period 3mo` (about 63 bars), so the detector sees far less history than in the study. The edge barely moves (+1.2 to +1.1pp).
+**History length:** limiting the detector to 63 bars barely moves the edge (+1.2 to +1.1pp). *Corrected 2026-09-28:* an earlier version of this paragraph said the scheduled scan fetches 63 bars. It asks for `"3mo"`, but `data/fetcher.py` `_WARMUP_PERIOD_OVERRIDE` widens that to `"1y"` (~252 bars). The 63-bar run is a stricter lower bound, and production falls between the two measured windows.
 
 **Reading:** the volume-confirmed bullish golden pocket hold has a small positive edge that does not reach conventional significance on its own. It stays the default because it is still the only fib signal above baseline, and it enters scoring as one technical vote among many, not as a standalone trade signal. Its `STRONG BULLISH` grade overstates the evidence; downgrading it is a scoring decision left open.
 
+## Other timeframes: not evaluated (added 2026-09-28)
+
+Every number above is **daily bars**. Nothing here says the signal works on hourly or weekly bars, and nothing in the app computes fib on them yet. The scan matrix's 1D–6M columns are lookbacks, and `_WARMUP_PERIOD_OVERRIDE` turns all five into the same year of daily bars.
+
+**Why the daily result doesn't transfer.**
+- *What carries over:* the level math. A 0.618 retracement is a fraction of the leg on any interval.
+- *What doesn't:*
+  - volatility, which scales with time;
+  - intraday volume, which follows a U-shape through the day, so a 20-bar average compares the open with lunch;
+  - which traders watch which chart. Under the heterogeneous-market view, a weekly level is watched by slower, larger capital than a daily one.
+
+  So the golden-pocket edge could be bigger, smaller or absent on another interval.
+
+**How to evaluate another interval with this script** (proposed, not built). Weekly needs no new data, because it can be resampled from the cached daily bars:
+1. Add `--interval 1wk`. Resample daily bars to W-FRI, using only completed weeks.
+2. Run the unchanged detector. Its ATR, 0.25-ATR tolerance, 3-ATR minimum leg and `Volume_MA_20` are all then in weekly units.
+3. Pre-register the horizon as about 13 weekly bars rather than 21. A 21-bar weekly horizon is about 5 months, which is a different question.
+4. Use 10 years of history. Weekly bars give roughly a fifth as many events, so 5 years is underpowered.
+5. Count it as a new variant. It earns its own place in the default set or doesn't; it doesn't inherit the daily result.
+
+Hypotheses worth testing first, with pre-registered goal and kill lines:
+- **Daily hold inside a weekly pocket:** goal +1.5pp over the plain daily hold, kill ≤ +0.5pp.
+- **Daily hold only when the latest completed weekly leg is up:** goal +1.0pp, kill ≤ +0.3pp.
+- **Weekly depth distribution:** does it show more excess mass at 0.618 than daily? This directly tests whether the golden pocket works because traders watch it.
+
+Theory, causal rules and the full hypothesis list are in the homebase harness doc `FIBONACCI.md` §12.
+
 ## Caveats
+- **Daily bars only.** See the section above.
 - One 5-year window, dominated by a rising market (baseline 54% up); a bear regime could differ. Regime split not done.
 - Context filters (RSI < 45, close vs. SMA) looked stronger in a scan of about a dozen filters but that is a multiple-comparisons search; none were built into the detector.
 - No transaction costs, no position sizing: this is a hit-rate and mean-return study, not a strategy backtest.

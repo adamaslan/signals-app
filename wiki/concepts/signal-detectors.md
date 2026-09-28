@@ -119,6 +119,12 @@ Sources: [`detection/fibonacci.py`](../../src/signals_app/detection/fibonacci.py
   showed similar edges, so it is not proven Fibonacci-specific. Full method,
   tables and the re-evaluation: [`docs/fibonacci-signal-evaluation-2026-09-26.md`](../../docs/fibonacci-signal-evaluation-2026-09-26.md);
   reproduce with `scripts/eval_fibonacci.py`.
+  **Timeframes:** all of this is measured and computed on daily bars only. The
+  scan matrix's 1D–6M columns are lookbacks, and all of them are widened to a
+  year of daily bars, so they don't give fib at different intervals. Other
+  intervals need their own ATR, horizon and volume baseline, and completed
+  higher-timeframe bars only. Each one is a new variant that has to pass the
+  evaluator on its own; see the evaluation doc's "Other timeframes" section.
   Category `FIBONACCI` maps to the `structure` family. Not done: ML `fib_*`
   features (would change the trained scorer's input schema).
 

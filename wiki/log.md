@@ -117,3 +117,5 @@ analysis in docs/universe-scan-improvements.md.
 ## [2026-09-26] ingest | feat/fibonacci-detector — out-of-sample evaluation; default narrowed to the volume-confirmed bullish golden pocket hold, rest behind experimental | pages touched: 1
 
 ## [2026-09-26] ingest | feat/fibonacci-detector — review fixes (breach-through is not a hold, same-bar pivots skipped) + full-universe re-evaluation: edge +1.2pp not +4.4pp; eval script added | pages touched: 1
+
+## [2026-09-28] ingest | feat/fibonacci-detector — timeframe limits documented (daily only; matrix columns are lookbacks widened to 1y); 63-bar "production window" wording corrected | pages touched: 1
