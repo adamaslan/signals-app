@@ -297,6 +297,16 @@ export const DETECTORS: DetectorEntry[] = [
     ],
     readIt: "Near a 52-week high counts as strength, not resistance. Stocks making new highs tend to keep making them.",
   },
+  {
+    id: "FibonacciDetector",
+    name: "Fibonacci golden pocket",
+    family: "structure",
+    watches: "Whether price pulled back into the 0.618–0.65 retracement of the latest confirmed swing and reacted there.",
+    signals: [
+      { label: "FIB GOLDEN POCKET HOLD", when: "Bullish reversal bar into the 0.618–0.65 zone of a confirmed up-leg, on above-average volume", side: "bull", weight: 2 },
+    ],
+    readIt: "One signal by design: it was the only Fibonacci pattern that beat baseline in testing, and only slightly (about +1pp over the 21-day hit rate). Swing anchors are confirmed pivots, so it lags a few bars and never repaints. Treat it as one vote, not a trigger.",
+  },
 ];
 
 /** Paired labels ("X / Y") describe both sides; the stored side is the first one. */

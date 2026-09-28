@@ -11,7 +11,7 @@ A comprehensive technical-analysis signal engine with full-stack AI synthesis, r
 1. [System Overview](#system-overview)
 2. [Core Architecture](#core-architecture)
 3. [Signal Calculation Pipeline](#signal-calculation-pipeline)
-4. [18 Technical Detectors](#18-technical-detectors)
+4. [19 Technical Detectors](#19-technical-detectors)
 5. [The Publication Gate](#the-publication-gate)
 6. [Frontend Features](#frontend-features)
 7. [Backend Infrastructure](#backend-infrastructure)
@@ -28,7 +28,7 @@ A comprehensive technical-analysis signal engine with full-stack AI synthesis, r
 
 The Signals App is a **technical analysis engine** that:
 - Scans **954 tickers** (equities, ETFs, leveraged/inverse, limited crypto)
-- Runs **18 independent detectors** across trend, momentum, volume, and price-action categories
+- Runs **19 independent detectors** across trend, momentum, volume, and structure categories
 - Filters signals through a **publication gate** (rejects ~58% without LLM cost)
 - Synthesizes survivors with **AI** (LLM writes evidence-backed narratives)
 - Stores results in **Supabase** and serves via **Next.js static export**
@@ -40,7 +40,7 @@ The Signals App is a **technical analysis engine** that:
 |--------|-------|
 | **Universe Size** | 954 tickers |
 | **Cadence** | Weekdays 21:25 UTC (after US close) |
-| **Detectors** | 18 independent signal sources |
+| **Detectors** | 19 independent signal sources |
 | **Timeframes** | 1D, 5D, 1M, 3M, 6M, 1Y, 5Y, MAX |
 | **Potential Signals/Scan** | ~158,364 (166 × 954, theoretical) |
 | **Published/Scanned** | ~30% (288/954 in recent run) |
@@ -58,7 +58,7 @@ L1: FETCH           yfinance OHLCV data (3mo default, <20 bars → insufficient_
       ↓
 L2: INDICATORS      RSI, MACD, ADX, ATR, Bollinger, Ichimoku, Stochastic, OBV/CMF, pivots
       ↓
-L3: DETECT          18 detectors run in isolation (one failure → degraded flag, not abort)
+L3: DETECT          19 detectors run in isolation (one failure → degraded flag, not abort)
       ↓
 L4: SCORE           Confluence: strength-weighted bull/bear vote → score, bias, action
       ↓
@@ -148,12 +148,12 @@ Each timeframe receives a **0–1 data quality score** based on:
 
 Timeframes with score < 0.7 **fail the publication gate**.
 
-### Layer 3: Signal Detection (18 Detectors)
+### Layer 3: Signal Detection (19 Detectors)
 
 **Input:** Indicators + OHLCV bars  
 **Output:** Per-detector signal firings (often multiple per detector)
 
-#### The 18 Detectors
+#### The 19 Detectors
 
 Organized by category:
 
@@ -352,7 +352,7 @@ Result: **LLM trouble degrades output, not the run.**
 
 ---
 
-## 18 Technical Detectors
+## 19 Technical Detectors
 
 ### Detailed Detector Specs
 
@@ -463,6 +463,12 @@ Result: **LLM trouble degrades output, not the run.**
 - **Parameters:** ATR period 14; lookback 20 bars
 - **Fire Strength:** ATR ratio
 - **Use Case:** Volatility expansion trade entry
+
+#### 19. Fibonacci Golden Pocket
+- **Rule:** Bullish reversal bar into the 0.618–0.65 retracement of the latest confirmed swing leg, on above-average volume (`FIB GOLDEN POCKET HOLD`)
+- **Parameters:** Confirmed pivots (3-bar lag, no repainting); legs of at least 3 ATR; zone tolerance 0.25 ATR
+- **Fire Strength:** Strong bullish (2-vote weight); other Fibonacci patterns are behind `experimental=True`
+- **Use Case:** Pullback entries. The measured edge is small (about +1pp over the 21-day baseline hit rate), so it is one vote among many
 
 ---
 
@@ -1013,7 +1019,7 @@ elif hit_rate(strength) < 0.50:
 **Single Ticker (Full Pipeline)**
 - Fetch: ~0.5s (yfinance)
 - Indicators: ~0.1s (pandas)
-- Detect: ~0.05s (18 detectors)
+- Detect: ~0.05s (19 detectors)
 - Score: ~0.01s (confluence)
 - **Total (L1–L4):** ~0.66s
 
@@ -1100,7 +1106,7 @@ The live page is a title, `Greeting`, `TickerSearch`, `RecentRunsTable`, and `Wa
 
 ### Design principles
 
-1. **Show real output, not descriptions.** Every claim on the page ("18 detectors", "gate rejects ~58%", "calibrated hit rates") is backed by a live number from Supabase, with the bar date and run time shown.
+1. **Show real output, not descriptions.** Every claim on the page ("19 detectors", "gate rejects ~58%", "calibrated hit rates") is backed by a live number from Supabase, with the bar date and run time shown.
 2. **Empty-safe.** Each section renders a clear state (skeleton → data → "engine hasn't run yet" / "Supabase not configured") and never breaks the page. Follow the `fetchEngineHealth` pattern: return `null`, don't throw.
 3. **Cheap on a static export.** Use the anon key, RLS-readable tables and views (`latest_signals`, `engine_runs`, `calibration`), `.in()` batching, and a handful of queries at most.
 4. **Personal state goes below shared state.** Recent runs and watchlist are useful to returning users; move them under the shared showcase instead of removing them.
@@ -1109,11 +1115,11 @@ The live page is a title, `Greeting`, `TickerSearch`, `RecentRunsTable`, and `Wa
 
 | # | Section | Feature it showcases | Data source | Reuses |
 |---|---------|---------------------|-------------|--------|
-| 1 | **Hero + live proof line**: one-sentence pitch, then `954 tickers · 18 detectors · 8 timeframes · last run <time> (<ok>/<total> ok)` | Scale, cadence, reliability | `fetchEngineHealth()` | `EngineHealthStrip` data, `FreshnessBadge` |
+| 1 | **Hero + live proof line**: one-sentence pitch, then `954 tickers · 19 detectors · 8 timeframes · last run <time> (<ok>/<total> ok)` | Scale, cadence, reliability | `fetchEngineHealth()` | `EngineHealthStrip` data, `FreshnessBadge` |
 | 2 | **Ticker search** (keep, but add 3–4 example chips such as `SPY` `NVDA` `XOM` `BTC-USD` that deep-link) | Deep dive, 8-timeframe matrix | none (links) | `TickerSearch` |
 | 3 | **Today's top signals**: the 5 strongest bullish and 5 strongest bearish published signals, each with confluence score, direction and freshness | Confluence scoring, LLM synthesis | new `fetchTopSignals(period, n)` on `latest_signals`, ordered by confidence | `ConfluenceBar`, `SignalCard` (compact variant) |
 | 4 | **Market heatmap preview**: mini `UniverseHeatmap` of the full default universe, grouped by direction, click-through to `/universe/` | Universe scanning at scale | `fetchUniverseSignals(all, "3mo")` | `UniverseHeatmap` (dense mode) |
-| 5 | **"How a signal is made" pipeline strip**: L1 fetch → L2 indicators → L3 18 detectors → L4 vote → L5 gate → LLM → L6 store, with **that run's real counts** at each stage (e.g. 954 → 405 scanned → 288 published) | Gate-before-spend, cost discipline | `engine_runs` + counts from `latest_signals` | new, static SVG with live numbers |
+| 5 | **"How a signal is made" pipeline strip**: L1 fetch → L2 indicators → L3 19 detectors → L4 vote → L5 gate → LLM → L6 store, with **that run's real counts** at each stage (e.g. 954 → 405 scanned → 288 published) | Gate-before-spend, cost discipline | `engine_runs` + counts from `latest_signals` | new, static SVG with live numbers |
 | 6 | **Track record / calibration**: hit rate per direction bucket with Wilson intervals, sample size `n`, and thin-bucket warnings | Calibration feedback loop, honesty about results | `loadCalibration()` | `CalibrationHint`, `stats.ts` (`wilsonLowerBound`, `THIN_BUCKET_N`) |
 | 7 | **Featured deep dive**: one ticker's 8-timeframe `SignalMatrixRow` plus 2–3 evidence bullets and counter-evidence | Multi-timeframe matrix, evidence and counter-evidence | `fetchSignal()` for the top-ranked ticker | `SignalMatrixRow`, `EvidenceList` |
 | 8 | **Build your own universe**: CTA to save a basket, run a scan, backtest and diff runs | Local Universes, backtest, drift, timeline | `listUniverses()` (local) | `UniverseListPanel` |
@@ -1198,7 +1204,7 @@ Signals App Structure:
 │   │   ├── data_quality.py          # Staleness + gaps score
 │   │   └── divergence.py            # Technical divergences
 │   ├── detection/
-│   │   ├── orchestrator.py          # Registers 18 detectors
+│   │   ├── orchestrator.py          # Registers 19 detectors
 │   │   ├── trend.py                 # MA, ADX, Ichimoku, etc.
 │   │   ├── momentum.py              # RSI, MACD, Stochastic
 │   │   ├── volume.py                # OBV, CMF, VWAP
@@ -1260,7 +1266,7 @@ Signals App Structure:
 
 The Signals App is a **full-stack technical analysis engine** combining:
 
-- **Backend:** 18 independent detectors, confluence scoring, multi-timeframe weighting, publication gate, LLM synthesis
+- **Backend:** 19 independent detectors, confluence scoring, multi-timeframe weighting, publication gate, LLM synthesis
 - **Frontend:** Real-time universe viewer, deep-dive explorer, watchlist management, responsive heatmaps/tables/timelines
 - **Infrastructure:** Supabase storage, GitHub Actions automation, RLS-protected user data, static export to GitHub Pages
 - **Intelligence:** Weekly calibration feedback loop, strength-weighted vote adjustment, degraded-mode resilience

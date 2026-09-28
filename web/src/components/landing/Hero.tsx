@@ -2,9 +2,10 @@
 
 import { TIMEFRAMES } from "@/lib/types";
 import { formatEt, aiDegradedShare, AI_DEGRADED_BANNER_SHARE, newestBarTs } from "@/lib/landing";
+import { DETECTORS } from "@/lib/signalGlossary";
 import { useLandingData } from "./LandingData";
 
-const DETECTOR_COUNT = 18;
+const DETECTOR_COUNT = DETECTORS.length;
 
 export function Hero() {
   const { loaded, funnel, health, signals } = useLandingData();

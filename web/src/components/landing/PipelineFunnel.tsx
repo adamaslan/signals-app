@@ -1,6 +1,7 @@
 "use client";
 
 import { formatEt } from "@/lib/landing";
+import { DETECTORS } from "@/lib/signalGlossary";
 import { useLandingData } from "./LandingData";
 import { EmptyState, Section, SkeletonBlock } from "./Shared";
 
@@ -14,7 +15,7 @@ export function PipelineFunnel() {
     ? [
         { label: "L1 Fetch", note: "yfinance OHLCV", count: funnel.total },
         { label: "L2 Indicators", note: "RSI, MACD, ADX, Bollinger…", count: funnel.scanned },
-        { label: "L3 Detect", note: "18 detectors", count: funnel.scanned },
+        { label: "L3 Detect", note: `${DETECTORS.length} detectors`, count: funnel.scanned },
         { label: "L4 Vote", note: "confluence score", count: funnel.scanned },
         { label: "Gate", note: "no LLM spend on rejects", count: funnel.published },
         { label: "L5 LLM", note: "evidence + counter-evidence", count: funnel.published },
