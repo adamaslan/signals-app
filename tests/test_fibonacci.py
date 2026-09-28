@@ -89,8 +89,10 @@ class TestDefaultDetector:
     def test_bullish_volume_confirmed_hold_is_emitted(self) -> None:
         signals = FibonacciDetector().detect(
             _with_last_bar(low=136.0, open=137.0, close=141.0, high=142.0))
+        # SA2: default grade downgraded STRONG BULLISH -> BULLISH (owner
+        # decision applied) until SA23's quality-graded version is measured.
         assert [(s.signal, s.strength) for s in signals] == [
-            ("FIB GOLDEN POCKET HOLD", "STRONG BULLISH")]
+            ("FIB GOLDEN POCKET HOLD", "BULLISH")]
 
     def test_bar_that_breaches_through_the_pocket_is_not_a_hold(self) -> None:
         # Pocket is about 134.7-138.0; this bar trades far below it before closing back above.

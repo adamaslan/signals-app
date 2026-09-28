@@ -78,3 +78,55 @@ jobs:
 
       - name: Run E2E tests (Playwright)
         run: npm run test:e2e
+
+  fib-guard:
+    # SA6 (FIBONACCI.md §13.1/§7 invariant 7): a change under the fib paths
+    # (detection, indicators, and their pivots) must bump pyproject.toml's
+    # version — the release the portal's CANONICAL_SOURCE names — and the PR
+    # description must say whether nuwrrrld-portal's golden fixture
+    # (__tests__/fixtures/fib-golden.json, PO4) was regenerated against it.
+    # Advisory only, same as the ruff/mypy steps above: this repo's CI
+    # convention is to warn, not block, until the underlying debt/process is
+    # actually enforced end to end.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check whether fib paths changed
+        id: fib-diff
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD -- \
+            'src/signals_app/detection/fibonacci.py' \
+            'src/signals_app/indicators/fibonacci.py' \
+            'src/signals_app/indicators/pivots.py' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "$CHANGED"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check version bump
+        if: steps.fib-diff.outputs.changed == 'true'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          OLD_VERSION=$(git show "origin/${{ github.base_ref }}:pyproject.toml" | grep -m1 '^version' || true)
+          NEW_VERSION=$(grep -m1 '^version' pyproject.toml || true)
+          echo "base: $OLD_VERSION"
+          echo "head: $NEW_VERSION"
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "::warning::This PR touches Fibonacci detection/indicator paths but pyproject.toml's version was not bumped. Bump it (SIGNALS_APP_CODE_VERSION / the release nuwrrrld-portal's CANONICAL_SOURCE names), and say in the PR body whether the portal's fib golden fixture (PO4) was regenerated."
+          fi
+
+      - name: Check PR body mentions the portal fixture
+        if: steps.fib-diff.outputs.changed == 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! printf '%s' "$PR_BODY" | grep -qi 'fixture'; then
+            echo "::warning::This PR touches Fibonacci detection/indicator paths but its description doesn't mention whether nuwrrrld-portal's golden fixture (PO4, __tests__/fixtures/fib-golden.json) was regenerated. State that explicitly in the PR body."
+          fi

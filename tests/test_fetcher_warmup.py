@@ -113,3 +113,52 @@ class TestWarmupOverride:
 
         called_period = ticker.history.call_args.kwargs["period"]
         assert called_period == "1y"
+
+
+class TestMatrixColumnsAreRealIntervals:
+    """SA1 (FIBONACCI.md §13.1, §12.1): the 5-timeframe matrix
+    (`scanner.build_matrix_for_symbol`) used to call `fetch()` with the
+    default `widen_for_indicators=True`, so every one of
+    1d/5d/1mo/3mo/6mo was silently rewritten to the same "1y" yfinance
+    request — all five matrix columns returned identical bars. With
+    `widen_for_indicators=False` each period is fetched as itself."""
+
+    def _mock_ticker_by_period(self, bars_by_period: dict[str, int]) -> MagicMock:
+        ticker = MagicMock()
+
+        def _history(*_args: object, **kwargs: object) -> pd.DataFrame:
+            requested = kwargs["period"]
+            return _make_ohlcv(bars_by_period[requested])  # type: ignore[index]
+
+        ticker.history.side_effect = _history
+        return ticker
+
+    def test_two_periods_request_their_own_interval_not_the_override(self):
+        """Two different matrix settings must ask yfinance for two different
+        periods — not both silently become the warmup override's "1y"."""
+        ticker = self._mock_ticker_by_period({"1d": 1, "6mo": 126})
+        with patch("signals_app.data.fetcher.yf.Ticker", return_value=ticker):
+            fetcher = DataFetcher()
+            short = fetcher.fetch("AAPL", "1d", widen_for_indicators=False)
+            long = fetcher.fetch("AAPL", "6mo", widen_for_indicators=False)
+
+        periods_requested = [c.kwargs["period"] for c in ticker.history.call_args_list]
+        assert periods_requested == ["1d", "6mo"]
+        assert "1y" not in periods_requested
+
+        assert len(short.df) != len(long.df)
+        assert not short.df.equals(long.df)
+
+    def test_widened_and_narrow_fetch_do_not_share_a_cache_slot(self):
+        """The default (widened) fetch and the matrix's narrow fetch for the
+        same (symbol, period) are genuinely different data and must not
+        collide in the in-memory cache."""
+        ticker = self._mock_ticker_by_period({"3mo": 63, "1y": 252})
+        with patch("signals_app.data.fetcher.yf.Ticker", return_value=ticker):
+            fetcher = DataFetcher()
+            widened = fetcher.fetch("AAPL", "3mo")
+            narrow = fetcher.fetch("AAPL", "3mo", widen_for_indicators=False)
+
+        assert len(widened.df) == 252  # widened to "1y" per _WARMUP_PERIOD_OVERRIDE
+        assert len(narrow.df) == 63  # real "3mo" bar count
+        assert widened.period == narrow.period == "3mo"

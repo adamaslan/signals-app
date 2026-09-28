@@ -113,19 +113,25 @@ def score_historical_signals(
     Returns:
         Dict with "by_category", "by_strength" and "by_signal" (detector
         signal name, e.g. "GOLDEN CROSS") hit-rate bucket lists, plus
-        "by_strength_raw" (always the legacy raw-sign label, for comparison)
-        and "baseline" — one ``BASELINE_UP_KEY`` bucket counting how many
-        scored bars rose over the horizon, the chance rate every directional
-        bucket has to beat.
+        "by_strength_raw" (always the legacy raw-sign label, for comparison),
+        "by_category_strength" (SA3, FIBONACCI.md §13.1/§11.13 change 1: keyed
+        as ``f"{category}|{strength}"``, e.g. "FIBONACCI|STRONG BULLISH" —
+        calibrating by strength alone mixes every detector's version of
+        "STRONG BULLISH" into one bucket, which hides a detector-specific
+        miscalibration like fib's), and "baseline" — one ``BASELINE_UP_KEY``
+        bucket counting how many scored bars rose over the horizon, the
+        chance rate every directional bucket has to beat.
     """
     index_pos = {ts: pos for pos, ts in enumerate(df.index)}
     by_category: dict[str, list[bool]] = {}
     by_strength: dict[str, list[bool]] = {}
+    by_category_strength: dict[str, list[bool]] = {}
     by_signal: dict[str, list[bool]] = {}
     by_strength_raw: dict[str, list[bool]] = {}
     # Bullish-call counts per bucket key, parallel to the hit lists above.
     bull_category: dict[str, int] = {}
     bull_strength: dict[str, int] = {}
+    bull_category_strength: dict[str, int] = {}
     bull_signal: dict[str, int] = {}
     up_bars = 0
     scored_bars = 0
@@ -171,13 +177,18 @@ def score_historical_signals(
             else:
                 continue
 
+            cat_strength_key = f"{sig.category}|{sig.strength}"
             by_strength_raw.setdefault(sig.strength, []).append(raw_hit)
             by_category.setdefault(sig.category, []).append(hit)
             by_strength.setdefault(sig.strength, []).append(hit)
+            by_category_strength.setdefault(cat_strength_key, []).append(hit)
             by_signal.setdefault(sig.signal, []).append(hit)
             if bullish:
                 bull_category[sig.category] = bull_category.get(sig.category, 0) + 1
                 bull_strength[sig.strength] = bull_strength.get(sig.strength, 0) + 1
+                bull_category_strength[cat_strength_key] = (
+                    bull_category_strength.get(cat_strength_key, 0) + 1
+                )
                 bull_signal[sig.signal] = bull_signal.get(sig.signal, 0) + 1
 
     logger.info(
@@ -189,6 +200,7 @@ def score_historical_signals(
     return {
         "by_category": _buckets(by_category, bull_category),
         "by_strength": _buckets(by_strength, bull_strength),
+        "by_category_strength": _buckets(by_category_strength, bull_category_strength),
         "by_signal": _buckets(by_signal, bull_signal),
         "baseline": [HitRateBucket(key=BASELINE_UP_KEY, hits=up_bars, total=scored_bars)],
         "by_strength_raw": [

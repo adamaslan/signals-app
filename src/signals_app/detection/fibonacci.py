@@ -94,7 +94,17 @@ class FibonacciDetector:
         tol = TOLERANCE_ATR * atr
         above_avg_volume = self._above_average_volume(bar)
         if not self._experimental:
-            hold = self._golden_pocket_hold(leg, tol, low, high, open_, close, True)
+            # SA2 (FIBONACCI.md §13.1/§8.1, owner decision applied as the
+            # recommended default): the default hold used to be hardcoded to
+            # `heavy=True` -> STRONG_BULLISH/STRONG_BEARISH regardless of the
+            # bar's own conditions, overstating a +1.2-point, z=1.8 edge.
+            # `heavy=False` grades it plain BULLISH/BEARISH (rank 0) until
+            # SA23's quality-graded version (relative volume >= 1.5 + trend
+            # alignment, thresholds from evaluator deciles) exists and is
+            # measured. Easily reversible: flip this back to `True` once
+            # SA23 lands. ⇄ portal fixture (PO4) and
+            # lib/engine/detectors/fibonacci.ts must follow.
+            hold = self._golden_pocket_hold(leg, tol, low, high, open_, close, False)
             return [hold] if hold and leg.is_up and above_avg_volume else []
 
         signals: list[MutableSignal] = []

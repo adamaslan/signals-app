@@ -61,6 +61,7 @@ def run_calibration(
     """
     settings = get_settings()
     by_strength_lists = []
+    by_category_strength_lists = []
     fetcher = DataFetcher(settings=settings)
     benchmark_df = fetcher.fetch_daily_history(BENCHMARK_SYMBOL, period)
 
@@ -77,6 +78,7 @@ def run_calibration(
                 df, bars, horizon_days=horizon_days, benchmark_df=benchmark_df
             )
             by_strength_lists.append(result["by_strength"])
+            by_category_strength_lists.append(result["by_category_strength"])
             logger.info("calibrate: %s — scanned %d bars", symbol, len(bars))
         except Exception as exc:
             logger.warning("calibrate: %s failed, skipping: %s", symbol, exc)
@@ -89,6 +91,18 @@ def run_calibration(
 
     merged = merge_hit_rate_buckets(by_strength_lists)
     rates = derive_strength_hit_rates(merged)
+
+    # SA3 (FIBONACCI.md §13.1/§11.13 change 1): calibrate by (category,
+    # strength) first — "FIBONACCI|STRONG BULLISH" instead of plain
+    # "STRONG BULLISH" — so one detector's miscalibration doesn't get
+    # averaged away inside a strength-only bucket. Composite keys use the
+    # same CALIBRATION_MIN_BUCKET_SIZE=30 floor and live in the *same* rates
+    # dict as the plain-strength keys (disjoint key namespaces — "A|B" never
+    # collides with "B") so scoring/confluence.py can look up the composite
+    # key first and fall back to the plain-strength key below 30 events.
+    merged_cat_strength = merge_hit_rate_buckets(by_category_strength_lists)
+    rates.update(derive_strength_hit_rates(merged_cat_strength))
+
     save_strength_hit_rates(rates, path=output_path)
     return rates
 

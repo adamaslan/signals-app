@@ -68,6 +68,19 @@ SCORE_PSEUDO_COUNT: Final[float] = 4.0
 # |score| required before a calibrated hit rate may promote a label to HIGH.
 _HIGH_MIN_ABS_SCORE: Final[float] = 0.55
 
+# SA4 (FIBONACCI.md §13.1/§11.13 change 2): the "structure" family
+# (support/resistance, range, fibonacci — see scoring/families.py) measures
+# one underlying fact (price reacting to a level), so several structure
+# detectors firing the same bar in the same direction must count as one
+# vote, not one-per-detector. Without this, a lone fib golden-pocket hold
+# (or two/three structure signals agreeing) could multiply its own weight
+# and turn a HOLD into a BUY on what is really a single observation.
+_STRUCTURE_FAMILY: Final[str] = "structure"
+# Small reward for genuine multi-signal structure agreement, capped so it
+# can never approach what an uncapped per-signal vote would have added.
+_STRUCTURE_AGREEMENT_BONUS_PER_EXTRA: Final[float] = 0.15
+_STRUCTURE_AGREEMENT_BONUS_CAP: Final[float] = 0.5
+
 
 @dataclass
 class ConfluenceResult:
@@ -124,6 +137,62 @@ class ConfluenceResult:
             "agreeing_families": self.agreeing_families,
             "regime": self.regime,
         }
+
+
+def _collapse_structure_votes(
+    signals: list[MutableSignal],
+) -> tuple[list[MutableSignal], float, float]:
+    """SA4: collapse same-direction "structure" family signals to one vote.
+
+    Keeps the single strongest bullish structure signal and the single
+    strongest bearish structure signal (each family member measures the
+    same underlying reaction, so extra agreeing detectors shouldn't multiply
+    the vote), and returns a small, capped agreement bonus per side when
+    more than one structure signal agreed.
+
+    Args:
+        signals: Raw signals for the bar.
+
+    Returns:
+        (collapsed_signals, bull_agreement_bonus, bear_agreement_bonus) —
+        collapsed_signals has at most one bullish and one bearish structure
+        signal; every non-structure signal passes through unchanged.
+    """
+    other: list[MutableSignal] = []
+    bull_structure: list[MutableSignal] = []
+    bear_structure: list[MutableSignal] = []
+
+    for signal in signals:
+        if family_of(signal) != _STRUCTURE_FAMILY:
+            other.append(signal)
+            continue
+        base_vote = _STRENGTH_BULL_WEIGHT.get(signal.strength, 0.0)
+        if base_vote > 0:
+            bull_structure.append(signal)
+        elif base_vote < 0:
+            bear_structure.append(signal)
+        else:
+            other.append(signal)  # direction-less structure signal, nothing to collapse
+
+    collapsed = list(other)
+    bull_bonus = 0.0
+    bear_bonus = 0.0
+    for group, is_bull in ((bull_structure, True), (bear_structure, False)):
+        if not group:
+            continue
+        strongest = max(group, key=lambda s: abs(_STRENGTH_BULL_WEIGHT.get(s.strength, 0.0)))
+        collapsed.append(strongest)
+        if len(group) > 1:
+            bonus = min(
+                _STRUCTURE_AGREEMENT_BONUS_CAP,
+                _STRUCTURE_AGREEMENT_BONUS_PER_EXTRA * (len(group) - 1),
+            )
+            if is_bull:
+                bull_bonus = bonus
+            else:
+                bear_bonus = bonus
+
+    return collapsed, bull_bonus, bear_bonus
 
 
 class ConfluenceRanker:
@@ -188,8 +257,18 @@ class ConfluenceRanker:
         bull_count = 0
         bear_count = 0
         neutral_count = 0
-        bull_strengths: list[str] = []
-        bear_strengths: list[str] = []
+        # (category, strength) pairs — SA3 needs both to build the composite
+        # "CATEGORY|STRENGTH" calibration key, not strength alone.
+        bull_strengths: list[tuple[str, str]] = []
+        bear_strengths: list[tuple[str, str]] = []
+
+        # SA4: collapse same-direction structure-family signals to one vote
+        # before scoring, so a fib hold agreeing with support/resistance
+        # doesn't count twice. total_signals below still reports the raw,
+        # pre-collapse count — it's a diagnostic of how many detectors
+        # actually fired, not a scoring input.
+        total_raw_signals = len(signals)
+        signals, structure_bull_bonus, structure_bear_bonus = _collapse_structure_votes(signals)
 
         for signal in signals:
             base_vote = _STRENGTH_BULL_WEIGHT.get(signal.strength, 0.0)
@@ -200,16 +279,26 @@ class ConfluenceRanker:
                 weighted_bull += vote
                 max_weight += vote
                 bull_count += 1
-                bull_strengths.append(signal.strength)
+                bull_strengths.append((signal.category, signal.strength))
             elif base_vote < 0:
                 vote = abs(base_vote) + category_bonus
                 weighted_bear += vote
                 max_weight += vote
                 bear_count += 1
-                bear_strengths.append(signal.strength)
+                bear_strengths.append((signal.category, signal.strength))
             else:
                 neutral_count += 1
                 max_weight += 0.1  # neutral signals have minimal weight
+
+        # SA4: apply the capped structure-agreement bonus once per side,
+        # after the main loop — it rewards genuine multi-signal agreement
+        # without letting the number of agreeing detectors multiply the vote.
+        if structure_bull_bonus:
+            weighted_bull += structure_bull_bonus
+            max_weight += structure_bull_bonus
+        if structure_bear_bonus:
+            weighted_bear += structure_bear_bonus
+            max_weight += structure_bear_bonus
 
         if max_weight > 0:
             raw_score = (weighted_bull - weighted_bear) / (max_weight + SCORE_PSEUDO_COUNT)
@@ -238,8 +327,18 @@ class ConfluenceRanker:
 
         if strength_hit_rates and bias != "neutral":
             winning_strengths = bull_strengths if bias == "bullish" else bear_strengths
+            # SA3: look up the composite "CATEGORY|STRENGTH" key first (a
+            # detector-specific calibration, e.g. "FIBONACCI|STRONG
+            # BULLISH"); fall back to the plain-strength key when the
+            # composite bucket doesn't exist (below CALIBRATION_MIN_BUCKET_SIZE
+            # events, or not yet calibrated) — never drop the signal from
+            # calibration just because its composite bucket is thin.
             known_rates = [
-                strength_hit_rates[s] for s in winning_strengths if s in strength_hit_rates
+                strength_hit_rates[f"{cat}|{s}"]
+                if f"{cat}|{s}" in strength_hit_rates
+                else strength_hit_rates[s]
+                for cat, s in winning_strengths
+                if f"{cat}|{s}" in strength_hit_rates or s in strength_hit_rates
             ]
             if known_rates:
                 avg_hit_rate = sum(known_rates) / len(known_rates)
@@ -272,7 +371,7 @@ class ConfluenceRanker:
             bull_count=bull_count,
             bear_count=bear_count,
             neutral_count=neutral_count,
-            total_signals=len(signals),
+            total_signals=total_raw_signals,
             bull_weight=round(weighted_bull, 3),
             bear_weight=round(weighted_bear, 3),
             max_weight=round(max_weight, 3),
