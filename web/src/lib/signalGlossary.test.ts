@@ -8,16 +8,16 @@ import {
 } from "./signalGlossary";
 
 describe("signal glossary", () => {
-  it("documents all 18 default detectors exactly once", () => {
+  it("documents all 19 default detectors exactly once", () => {
     // Mirrors signals_app.detection.orchestrator.get_default_detectors().
-    expect(DETECTORS).toHaveLength(18);
-    expect(new Set(DETECTORS.map((d) => d.id)).size).toBe(18);
+    expect(DETECTORS).toHaveLength(19);
+    expect(new Set(DETECTORS.map((d) => d.id)).size).toBe(19);
   });
 
   it("groups detectors into the five scoring families", () => {
     const counts = FAMILY_ORDER.map((f) => detectorsByFamily(f).length);
-    expect(counts).toEqual([4, 7, 3, 3, 1]);
-    expect(detectorsByFamily("all")).toHaveLength(18);
+    expect(counts).toEqual([4, 7, 3, 3, 2]);
+    expect(detectorsByFamily("all")).toHaveLength(19);
   });
 
   it("gives every detector at least one fired signal and a reading", () => {
