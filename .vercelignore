@@ -1,0 +1,27 @@
+# CLI deploys upload from the repo root; Vercel builds only web/.
+# Leading "/" anchors to the repo root — unanchored names (e.g. "src")
+# would also match web/src and break the build.
+.git
+.mypy_cache
+.pytest_cache
+.ruff_cache
+*.egg-info
+*.db
+/.env
+/backtests
+/calibration
+/scans3
+/seed
+/file-archive
+/src
+/tests
+/scripts
+/supabase
+/wiki
+/docs
+/web/node_modules
+/web/.next
+/web/out
+/web/test-results
+/web/playwright-report
+/web/.env.local
