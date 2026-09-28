@@ -11,7 +11,7 @@ A comprehensive technical-analysis signal engine with full-stack AI synthesis, r
 1. [System Overview](#system-overview)
 2. [Core Architecture](#core-architecture)
 3. [Signal Calculation Pipeline](#signal-calculation-pipeline)
-4. [18 Technical Detectors](#18-technical-detectors)
+4. [19 Technical Detectors](#19-technical-detectors)
 5. [The Publication Gate](#the-publication-gate)
 6. [Frontend Features](#frontend-features)
 7. [Backend Infrastructure](#backend-infrastructure)
@@ -28,7 +28,7 @@ A comprehensive technical-analysis signal engine with full-stack AI synthesis, r
 
 The Signals App is a **technical analysis engine** that:
 - Scans **954 tickers** (equities, ETFs, leveraged/inverse, limited crypto)
-- Runs **18 independent detectors** across trend, momentum, volume, and price-action categories
+- Runs **19 independent detectors** across trend, momentum, volume, and structure categories
 - Filters signals through a **publication gate** (rejects ~58% without LLM cost)
 - Synthesizes survivors with **AI** (LLM writes evidence-backed narratives)
 - Stores results in **Supabase** and serves via **Next.js static export**
@@ -40,7 +40,7 @@ The Signals App is a **technical analysis engine** that:
 |--------|-------|
 | **Universe Size** | 954 tickers |
 | **Cadence** | Weekdays 21:25 UTC (after US close) |
-| **Detectors** | 18 independent signal sources |
+| **Detectors** | 19 independent signal sources |
 | **Timeframes** | 1D, 5D, 1M, 3M, 6M, 1Y, 5Y, MAX |
 | **Potential Signals/Scan** | ~158,364 (166 × 954, theoretical) |
 | **Published/Scanned** | ~30% (288/954 in recent run) |
@@ -148,12 +148,12 @@ Each timeframe receives a **0–1 data quality score** based on:
 
 Timeframes with score < 0.7 **fail the publication gate**.
 
-### Layer 3: Signal Detection (18 Detectors)
+### Layer 3: Signal Detection (19 Detectors)
 
 **Input:** Indicators + OHLCV bars  
 **Output:** Per-detector signal firings (often multiple per detector)
 
-#### The 18 Detectors
+#### The 19 Detectors
 
 Organized by category:
 
@@ -352,7 +352,7 @@ Result: **LLM trouble degrades output, not the run.**
 
 ---
 
-## 18 Technical Detectors
+## 19 Technical Detectors
 
 ### Detailed Detector Specs
 
@@ -1266,7 +1266,7 @@ Signals App Structure:
 
 The Signals App is a **full-stack technical analysis engine** combining:
 
-- **Backend:** 18 independent detectors, confluence scoring, multi-timeframe weighting, publication gate, LLM synthesis
+- **Backend:** 19 independent detectors, confluence scoring, multi-timeframe weighting, publication gate, LLM synthesis
 - **Frontend:** Real-time universe viewer, deep-dive explorer, watchlist management, responsive heatmaps/tables/timelines
 - **Infrastructure:** Supabase storage, GitHub Actions automation, RLS-protected user data, static export to GitHub Pages
 - **Intelligence:** Weekly calibration feedback loop, strength-weighted vote adjustment, degraded-mode resilience
