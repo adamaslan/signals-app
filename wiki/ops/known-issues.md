@@ -115,6 +115,17 @@ render is empty/placeholder until a route populates `matrix`.
 **Verify**: `grep -rn "build_timeframe_matrix\|compute_multi_timeframe" src/signals_app/api/`
 returns no hits from the request handlers.
 
+**2026-09-28 update (PR #41, SA1)**: the matrix's underlying data-fetch bug
+is now fixed even though it's still not wired to a live route. Before #41,
+`scanner.build_matrix_for_symbol` fetched every one of the 5 timeframes
+through `DataFetcher.fetch()`'s default `widen_for_indicators=True`, which
+silently rewrote 1d/5d/1mo/3mo/6mo to the same `"1y"` yfinance request — so
+even once wired up, all 5 matrix columns would have returned identical
+bars. `fetch(..., widen_for_indicators=False)` (new) makes each timeframe a
+real, distinct interval. This doesn't change the "unused on the live route"
+finding above — it fixes a second, independent defect in the same
+dead-for-now code path.
+
 ### No deployed backend behind the deployed frontend
 The frontend is live on GitHub Pages
 (see [decisions/2026-06-28-github-pages-deploy.md](../decisions/2026-06-28-github-pages-deploy.md)),
