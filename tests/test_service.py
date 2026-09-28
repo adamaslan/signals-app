@@ -178,7 +178,7 @@ async def test_detectors_lists_all_registered() -> None:
     infos = await service.detectors()
     names = {d.name for d in infos}
     assert "RSISignalDetector" in names
-    assert len(infos) == 18
+    assert len(infos) == 19
 
 
 async def test_health_reports_yfinance_unreachable_without_raising(

@@ -222,7 +222,7 @@ class TestDetection:
 
     def test_default_detectors_count(self) -> None:
         detectors = get_default_detectors()
-        assert len(detectors) == 18, f"Expected 18 detectors, got {len(detectors)}"
+        assert len(detectors) == 19, f"Expected 19 detectors, got {len(detectors)}"
 
     def test_not_degraded_on_good_data(self, df_up: pd.DataFrame) -> None:
         df = compute_indicators(df_up)

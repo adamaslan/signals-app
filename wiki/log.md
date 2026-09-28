@@ -111,3 +111,9 @@ analysis in docs/universe-scan-improvements.md.
 
 ## [2026-09-24] ingest | PR #33 landing signal guide + 2000-ticker universe research | pages touched: 2
 ## [2026-09-25] ingest | feat/frontend-backtests — Backtest Lab, engine-suggested hypotheses, /backtest/run + /backtest/suggest | pages touched: 3
+
+## [2026-09-25] ingest | feat/fibonacci-detector — FibonacciDetector (19th detector), FIBONACCI category, structure family | pages touched: 1
+
+## [2026-09-26] ingest | feat/fibonacci-detector — out-of-sample evaluation; default narrowed to the volume-confirmed bullish golden pocket hold, rest behind experimental | pages touched: 1
+
+## [2026-09-26] ingest | feat/fibonacci-detector — review fixes (breach-through is not a hold, same-bar pivots skipped) + full-universe re-evaluation: edge +1.2pp not +4.4pp; eval script added | pages touched: 1
