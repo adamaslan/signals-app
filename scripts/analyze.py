@@ -13,9 +13,7 @@ Runs through L1-L5 of the pipeline and prints a JSON result.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import os
 import sys
 from pathlib import Path
 

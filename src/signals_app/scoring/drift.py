@@ -6,7 +6,8 @@ straight weeks — a sustained decay, not one bad week.
 from __future__ import annotations
 
 import math
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pandas as pd
 

@@ -8,13 +8,13 @@ import pandas as pd
 import pytest
 
 from backtests.dataset import build_symbol_panel
+from backtests.evaluate import EvalReport
 from backtests.stacking import (
     attach_interval_probabilities,
     build_interval_panel,
     interval_oof,
     stack_beats_base,
 )
-from backtests.evaluate import EvalReport
 from signals_app.scoring.mtf import (
     STACK_FEATURES,
     compute_multi_timeframe,

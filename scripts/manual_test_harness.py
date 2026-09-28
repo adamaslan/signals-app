@@ -22,19 +22,16 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 _script_dir = Path(__file__).resolve().parent
 _project_root = _script_dir.parent
 sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root))
 
-import httpx
 from fastapi.testclient import TestClient
 
 from signals_app.api.routes import router
-from signals_app.config import PUBLISH_MIN_CONFLUENCE_SCORE, get_settings
-from signals_app.db.supabase import EngineRun, SignalRecord, SignalWriter
+from signals_app.db.supabase import EngineRun, SignalRecord
 
 logger = logging.getLogger(__name__)
 
@@ -175,12 +172,11 @@ def test_direction_flag() -> TestResult:
     """Test that --direction flag threads through correctly (via CLI parsing)."""
     feature = "scan_universe.py --direction flag parsing"
     try:
-        import argparse
-        from scripts.scan_universe import main
-
         # We can't easily test the full CLI, but verify the argparse setup accepts --direction
         # by importing and checking the flag exists in the code
         import inspect
+
+        from scripts.scan_universe import main
         source = inspect.getsource(main)
         if "--direction" in source and "bullish" in source and "bearish" in source:
             return TestResult(feature, "PASS")
