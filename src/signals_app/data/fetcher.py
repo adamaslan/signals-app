@@ -166,16 +166,23 @@ def _mem_cache_get(symbol: str, period: str) -> pd.DataFrame | None:
     return df
 
 
-def _mem_cache_set(symbol: str, period: str, df: pd.DataFrame) -> None:
+def _mem_cache_set(symbol: str, cache_key_period: str, df: pd.DataFrame, ttl_period: str | None = None) -> None:
     """Store in in-memory cache with TTL.
 
     Args:
         symbol: Ticker symbol.
-        period: Period string.
+        cache_key_period: Period string used for the cache slot's key. May
+            carry a mode suffix (e.g. ``"1d:narrow"``) so widened and
+            narrow fetches for the same period never collide.
         df: DataFrame to cache.
+        ttl_period: Period string used to look up the TTL in
+            `CACHE_TTL_BY_PERIOD`. Defaults to `cache_key_period` when not
+            given, but callers using a suffixed cache key (which never
+            matches `CACHE_TTL_BY_PERIOD`) must pass the bare requested
+            period here so the TTL isn't silently the 3600s fallback.
     """
-    key = (symbol.upper(), period)
-    ttl = CACHE_TTL_BY_PERIOD.get(period, 3600)
+    key = (symbol.upper(), cache_key_period)
+    ttl = CACHE_TTL_BY_PERIOD.get(ttl_period if ttl_period is not None else cache_key_period, 3600)
     _MEM_CACHE[key] = (df, time.time() + ttl)
 
 
@@ -251,7 +258,13 @@ class DataFetcher:
         """
         self._settings = settings or get_settings()
 
-    def fetch(self, symbol: str, period: str = DEFAULT_PERIOD) -> OHLCVResult:
+    def fetch(
+        self,
+        symbol: str,
+        period: str = DEFAULT_PERIOD,
+        *,
+        widen_for_indicators: bool = True,
+    ) -> OHLCVResult:
         """Fetch OHLCV data for a symbol over a given period.
 
         Checks the cache first. Falls back to yfinance if not cached.
@@ -266,9 +279,24 @@ class DataFetcher:
         no interface change, just a `df` long enough to support the
         indicators they're about to compute on it.
 
+        SA1 (FIBONACCI.md §13.1 / §12.1): this widening is exactly why
+        `fetch_multi()`/the 5-timeframe matrix (`scanner.build_matrix_for_symbol`)
+        used to collapse — every one of 1d/5d/1mo/3mo/6mo was silently
+        overridden to the same "1y" yfinance request, so all five columns
+        returned identical bars. Pass `widen_for_indicators=False` to get the
+        real, un-widened bar interval for `period` instead — the columns then
+        genuinely differ, at the cost of indicators needing >len(df) bars
+        (e.g. SMA_200 on a "1d"/"5d" window) coming back NaN/degraded, which
+        `compute_indicators`/`score_single_timeframe` already handle.
+
         Args:
             symbol: Ticker symbol (e.g., "AAPL").
             period: Period string. Must be in VALID_PERIODS.
+            widen_for_indicators: When True (default), widen short daily
+                periods per `_WARMUP_PERIOD_OVERRIDE` so indicators have a
+                full warmup window. When False, fetch exactly `period`'s own
+                bar interval — used by the multi-timeframe matrix so each
+                timeframe column is a real, distinct window.
 
         Returns:
             OHLCVResult with the DataFrame and metadata.
@@ -281,10 +309,18 @@ class DataFetcher:
 
         symbol = symbol.upper().strip()
 
+        # Cache key includes widen_for_indicators so the two modes never
+        # collide — the un-widened matrix fetch and the warmup-widened
+        # single-period fetch for the same (symbol, period) are genuinely
+        # different data and must not share a cache slot.
+        cache_key_period = period if widen_for_indicators else f"{period}:narrow"
+
         # Try local in-memory cache first
-        cached_df = _mem_cache_get(symbol, period)
+        cached_df = _mem_cache_get(symbol, cache_key_period)
         if cached_df is not None:
-            logger.info("data_cache_hit: %s period=%s bars=%d", symbol, period, len(cached_df))
+            logger.info(
+                "data_cache_hit: %s period=%s bars=%d", symbol, cache_key_period, len(cached_df)
+            )
             return OHLCVResult(
                 symbol=symbol,
                 period=period,
@@ -293,18 +329,20 @@ class DataFetcher:
                 bar_count=len(cached_df),
             )
 
-        fetch_period = _WARMUP_PERIOD_OVERRIDE.get(period, period)
+        fetch_period = (
+            _WARMUP_PERIOD_OVERRIDE.get(period, period) if widen_for_indicators else period
+        )
         df = _fetch_from_yfinance(symbol, fetch_period)
         if fetch_period != period and len(df) < MIN_DATA_POINTS_200MA:
             logger.warning(
                 "warmup_fetch_still_short: %s requested=%s fetched_as=%s bars=%d < %d",
                 symbol, period, fetch_period, len(df), MIN_DATA_POINTS_200MA,
             )
-        _mem_cache_set(symbol, period, df)
+        _mem_cache_set(symbol, cache_key_period, df, ttl_period=period)
 
         logger.info(
-            "data_fetched: %s period=%s fetch_period=%s bars=%d",
-            symbol, period, fetch_period, len(df),
+            "data_fetched: %s period=%s fetch_period=%s widened=%s bars=%d",
+            symbol, period, fetch_period, widen_for_indicators, len(df),
         )
         return OHLCVResult(
             symbol=symbol,

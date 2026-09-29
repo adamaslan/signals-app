@@ -222,3 +222,61 @@ def test_score_data_quality_handles_pure_date_index_without_crashing():
 
     assert result.score == 1.0
     assert "unparsable_last_bar_timestamp" not in " ".join(result.reasons)
+
+
+class TestCompositeCategoryStrengthCalibration:
+    """SA3 (FIBONACCI.md §13.1/§11.13 change 1): calibration must key by
+    (category, strength) — e.g. "FIBONACCI|STRONG BULLISH" — before falling
+    back to plain strength, so one detector's own miscalibration isn't
+    averaged away inside a strength-only bucket shared by every detector."""
+
+    def test_score_historical_signals_returns_category_strength_buckets(self):
+        from backtests.engine import score_historical_signals
+        from signals_app.detection.historical import scan_historical
+        from signals_app.indicators.compute import compute_indicators
+
+        df = compute_indicators(_make_ohlcv(n=260))
+        bars = scan_historical(df)
+        result = score_historical_signals(df, bars, horizon_days=5)
+
+        assert "by_category_strength" in result
+        for bucket in result["by_category_strength"]:
+            assert "|" in bucket.key
+            category, _, strength = bucket.key.partition("|")
+            assert category and strength
+
+    def test_confluence_prefers_composite_key_falls_back_to_plain_strength(self):
+        from signals_app.detection.base import MutableSignal
+        from signals_app.scoring.confluence import ConfluenceRanker
+
+        fib_signal = MutableSignal(
+            signal="FIB GOLDEN POCKET HOLD",
+            description="test",
+            strength="BULLISH",
+            category="FIBONACCI",
+        )
+        other_signal = MutableSignal(
+            signal="MA ALIGNMENT",
+            description="test",
+            strength="BULLISH",
+            category="MA_TREND",
+        )
+        ranker = ConfluenceRanker()
+
+        # Composite key present for FIBONACCI|BULLISH (a poor measured hit
+        # rate) but MA_TREND|BULLISH has no composite bucket yet — it must
+        # fall back to the plain "BULLISH" rate instead of being dropped
+        # from calibration entirely.
+        rates = {
+            "FIBONACCI|BULLISH": 0.30,
+            "BULLISH": 0.70,
+        }
+        result = ranker.rank_signals([fib_signal, other_signal], strength_hit_rates=rates)
+
+        # Both signals contribute to known_rates: fib via the composite key
+        # (0.30), the other via the plain-strength fallback (0.70). Average
+        # = 0.50, which is neither >= HIGH nor < LOW threshold by default —
+        # asserting the lookup didn't raise/drop a signal is the real point
+        # (KeyError or an empty known_rates list would previously either
+        # crash or silently skip calibration for the fib signal).
+        assert result.bias == "bullish"

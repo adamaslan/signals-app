@@ -204,7 +204,10 @@ def build_matrix_for_symbol(ticker: str, settings: Any) -> dict[str, Any] | None
             continue
         try:
             fetcher = DataFetcher(settings=settings)
-            df = fetcher.fetch(ticker, period).df
+            # SA1 (FIBONACCI.md §13.1/§12.1): widen_for_indicators=False so
+            # each timeframe column is a real, distinct bar window instead of
+            # all 5 silently collapsing to the same widened "1y" fetch.
+            df = fetcher.fetch(ticker, period, widen_for_indicators=False).df
             if len(df) >= 20:
                 dfs_by_timeframe[tf] = df
         except Exception as exc:

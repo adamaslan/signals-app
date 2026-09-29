@@ -282,6 +282,74 @@ class TestConfluenceRanker:
         assert -1.0 <= result.score <= 1.0
 
 
+class TestConfluenceRankerStructureVoteCollapse:
+    """SA4 (FIBONACCI.md §13.1/§11.13 change 2): structure-family signals
+    (support/resistance, range, fibonacci) measure the same underlying
+    reaction, so several agreeing at once must count as one vote — not one
+    HOLD-to-BUY-deciding vote per detector."""
+
+    def _bull(self, category: str, strength: str, name: str = "TEST") -> MutableSignal:
+        return MutableSignal(
+            signal=name, description="test", strength=strength, category=category,
+        )
+
+    def test_lone_fib_hold_alone_cannot_reach_buy(self) -> None:
+        """A single structure-family signal (fib) with nothing else agreeing
+        must not, by itself, produce BUY — the exact failure SA4 names."""
+        from signals_app.config import SignalCategory, SignalStrength
+
+        signals = [
+            self._bull(
+                SignalCategory.FIBONACCI.value, SignalStrength.STRONG_BULLISH.value,
+                "FIB GOLDEN POCKET HOLD",
+            )
+        ]
+        result = ConfluenceRanker().rank_signals(signals)
+        assert result.action != "BUY"
+
+    def test_agreeing_structure_signals_count_once_not_per_detector(self) -> None:
+        """Three structure-family signals agreeing bullish must contribute
+        one bull_count (the strongest), not three — and the score with 3
+        agreeing structure signals must be less than or equal to the score
+        if those 3 were counted as independent votes (RSI category, which
+        is NOT in the structure family and so is never collapsed)."""
+        from signals_app.config import SignalCategory, SignalStrength
+
+        structure_signals = [
+            self._bull(SignalCategory.FIBONACCI.value, SignalStrength.STRONG_BULLISH.value, "A"),
+            self._bull(SignalCategory.SUPPORT_RESISTANCE.value, SignalStrength.BULLISH.value, "B"),
+            self._bull(SignalCategory.RANGE.value, SignalStrength.BULLISH.value, "C"),
+        ]
+        non_structure_signals = [
+            self._bull(SignalCategory.RSI.value, SignalStrength.STRONG_BULLISH.value, "A"),
+            self._bull(SignalCategory.RSI.value, SignalStrength.BULLISH.value, "B"),
+            self._bull(SignalCategory.RSI.value, SignalStrength.BULLISH.value, "C"),
+        ]
+        structure_result = ConfluenceRanker().rank_signals(structure_signals)
+        uncollapsed_result = ConfluenceRanker().rank_signals(non_structure_signals)
+
+        assert structure_result.bull_count == 1  # collapsed to the strongest
+        assert uncollapsed_result.bull_count == 3  # RSI is never collapsed
+        assert structure_result.score < uncollapsed_result.score
+        # total_signals still reports how many detectors actually fired,
+        # independent of how many votes they collapsed into.
+        assert structure_result.total_signals == 3
+
+    def test_single_structure_signal_is_unaffected(self) -> None:
+        """A structure signal alone (no other structure signal to collapse
+        with) passes through with its own strength intact — collapsing only
+        changes behavior when 2+ structure signals fire the same bar."""
+        from signals_app.config import SignalCategory, SignalStrength
+
+        signals = [
+            self._bull(SignalCategory.FIBONACCI.value, SignalStrength.BULLISH.value, "A"),
+            self._bull(SignalCategory.MACD.value, SignalStrength.STRONG_BULLISH.value, "B"),
+        ]
+        result = ConfluenceRanker().rank_signals(signals)
+        assert result.bull_count == 2
+        assert result.total_signals == 2
+
+
 # ---------------------------------------------------------------------------
 # Schema tests
 # ---------------------------------------------------------------------------

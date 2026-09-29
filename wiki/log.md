@@ -121,3 +121,5 @@ analysis in docs/universe-scan-improvements.md.
 ## [2026-09-25] ingest | fix time-dependent data-quality tests + ruff safe auto-fixes | pages touched: 1
 
 ## [2026-09-25] ingest | PR #37 Vercel deploy alongside GitHub Pages | pages touched: 2
+
+## [2026-09-28] ingest | PR #41 fib correctness batch (SA1-SA4, SA6) + weekly MTF eval | pages touched: 1
