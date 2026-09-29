@@ -677,23 +677,23 @@ async def backtest(
 
     async with _backtest_inflight_lock:
         task = _backtest_inflight.get(key)
-        is_owner = task is None
-        if is_owner:
+        if task is None:
             task = asyncio.ensure_future(
                 asyncio.to_thread(_backtest_sync, symbol, period, horizon_days, settings)
             )
             _backtest_inflight[key] = task
 
-    try:
-        result = await task
-    finally:
-        if is_owner:
-            async with _backtest_inflight_lock:
-                _backtest_inflight.pop(key, None)
+            def _on_done(t: asyncio.Task[BacktestResult], k: tuple[str, str, int] = key) -> None:
+                _backtest_inflight.pop(k, None)
+                if not t.cancelled() and t.exception() is None:
+                    _backtest_cache.set(k, t.result())
 
-    if is_owner:
-        _backtest_cache.set(key, result)
-    return result
+            task.add_done_callback(_on_done)
+
+    # Shielded: a caller's own cancellation (client timeout, MCP request
+    # cancellation) must not cancel the shared task every other caller of
+    # this key is also awaiting.
+    return await asyncio.shield(task)
 
 
 def _backtest_sync(symbol: str, period: str, horizon_days: int, settings: Any) -> BacktestResult:
