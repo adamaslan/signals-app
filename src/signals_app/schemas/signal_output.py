@@ -177,6 +177,31 @@ class TimeframeMatrix(BaseModel):
         return self
 
 
+class SignalState(BaseModel):
+    """Deterministic pipeline state behind a signal — the numbers, not the prose.
+
+    Everything here is computed before LLM synthesis, so it is identical with
+    and without ``no_llm``. Downstream graders and RAG/grounding consumers key
+    on these fields instead of parsing ``evidence`` summaries.
+    """
+
+    as_of: str | None = Field(default=None, description="Date of the last bar (YYYY-MM-DD).")
+    confluence_score: float | None = Field(default=None, description="Net confluence in [-1, 1].")
+    bias: str | None = None
+    action: str | None = None
+    confidence_label: str | None = None
+    bull_count: int | None = None
+    bear_count: int | None = None
+    total_signals: int | None = None
+    close: float | None = None
+    price_change: float | None = None
+    rsi: float | None = None
+    macd: float | None = None
+    adx: float | None = None
+    atr: float | None = None
+    volume: float | None = None
+
+
 class SignalOutput(BaseModel):
     """Top-level API response schema.
 
@@ -213,6 +238,7 @@ class SignalOutput(BaseModel):
         description="Calibrated probability that excess return over the benchmark is > 0.",
     )
     model_version: str | None = None
+    state: SignalState | None = None
 
 
 def alignment_score(signals: list[Signal]) -> float:
