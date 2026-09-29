@@ -48,8 +48,14 @@ from signals_app.schemas.signal_output import SignalOutput
 
 API_VERSION = "1"
 
-CACHE_BACKTEST = "public, max-age=3600"
-CACHE_SIGNAL = "public, max-age=300"
+def _cache_control(max_age: int) -> str:
+    """Cache-Control for a /v1 response, scoped private when API-key auth is on.
+
+    A shared/CDN cache must not reuse a response across callers with
+    different API keys, so authenticated responses are marked private.
+    """
+    scope = "private" if get_api_key() is not None else "public"
+    return f"{scope}, max-age={max_age}"
 
 ERROR_STATUS: dict[type[Exception], int] = {
     service.InvalidPeriod: 400,
@@ -320,7 +326,7 @@ async def signal(
     no_llm: bool = Query(default=False),
 ) -> SignalOutput:
     result = await service.analyze(symbol, period, no_llm=no_llm)
-    response.headers["Cache-Control"] = CACHE_SIGNAL
+    response.headers["Cache-Control"] = _cache_control(300)
     return result
 
 
@@ -356,7 +362,7 @@ async def backtest(
     horizon_days: int = Query(default=BACKTEST_FORWARD_HORIZON_DAYS, ge=1, le=60),
 ) -> BacktestOut:
     result = await service.backtest(symbol, period, horizon_days)
-    response.headers["Cache-Control"] = CACHE_BACKTEST
+    response.headers["Cache-Control"] = _cache_control(3600)
     return BacktestOut(**backtest_to_dict(result))
 
 
@@ -393,8 +399,8 @@ async def brief(
 ) -> Any:
     b = await service.brief(symbol, period, include_backtest=include_backtest)
     if format == "text":
-        return PlainTextResponse(b.text, headers={"Cache-Control": CACHE_SIGNAL})
-    response.headers["Cache-Control"] = CACHE_SIGNAL
+        return PlainTextResponse(b.text, headers={"Cache-Control": _cache_control(300)})
+    response.headers["Cache-Control"] = _cache_control(300)
     return _brief_out(b)
 
 

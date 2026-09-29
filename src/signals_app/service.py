@@ -152,6 +152,12 @@ _BACKTEST_CACHE_TTL_SECONDS = 6 * 60 * 60
 _BACKTEST_CACHE_MAX_ENTRIES = 1024
 _backtest_cache = _TTLCache(_BACKTEST_CACHE_TTL_SECONDS, _BACKTEST_CACHE_MAX_ENTRIES)
 
+# Coalesces concurrent cold-key requests (batch endpoints run up to 4 at once,
+# and separate callers can overlap too) onto one in-flight replay instead of
+# each caller repeating the full CPU + yfinance fetch independently.
+_backtest_inflight: dict[tuple[str, str, int], asyncio.Task[BacktestResult]] = {}
+_backtest_inflight_lock = asyncio.Lock()
+
 
 # ---------------------------------------------------------------------------
 # Domain exceptions — adapters translate these (§2.1). Names are fixed by the
@@ -668,8 +674,25 @@ async def backtest(
     cached = _backtest_cache.get(key)
     if cached is not None:
         return cached
-    result = await asyncio.to_thread(_backtest_sync, symbol, period, horizon_days, settings)
-    _backtest_cache.set(key, result)
+
+    async with _backtest_inflight_lock:
+        task = _backtest_inflight.get(key)
+        is_owner = task is None
+        if is_owner:
+            task = asyncio.ensure_future(
+                asyncio.to_thread(_backtest_sync, symbol, period, horizon_days, settings)
+            )
+            _backtest_inflight[key] = task
+
+    try:
+        result = await task
+    finally:
+        if is_owner:
+            async with _backtest_inflight_lock:
+                _backtest_inflight.pop(key, None)
+
+    if is_owner:
+        _backtest_cache.set(key, result)
     return result
 
 
