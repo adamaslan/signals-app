@@ -166,16 +166,23 @@ def _mem_cache_get(symbol: str, period: str) -> pd.DataFrame | None:
     return df
 
 
-def _mem_cache_set(symbol: str, period: str, df: pd.DataFrame) -> None:
+def _mem_cache_set(symbol: str, cache_key_period: str, df: pd.DataFrame, ttl_period: str | None = None) -> None:
     """Store in in-memory cache with TTL.
 
     Args:
         symbol: Ticker symbol.
-        period: Period string.
+        cache_key_period: Period string used for the cache slot's key. May
+            carry a mode suffix (e.g. ``"1d:narrow"``) so widened and
+            narrow fetches for the same period never collide.
         df: DataFrame to cache.
+        ttl_period: Period string used to look up the TTL in
+            `CACHE_TTL_BY_PERIOD`. Defaults to `cache_key_period` when not
+            given, but callers using a suffixed cache key (which never
+            matches `CACHE_TTL_BY_PERIOD`) must pass the bare requested
+            period here so the TTL isn't silently the 3600s fallback.
     """
-    key = (symbol.upper(), period)
-    ttl = CACHE_TTL_BY_PERIOD.get(period, 3600)
+    key = (symbol.upper(), cache_key_period)
+    ttl = CACHE_TTL_BY_PERIOD.get(ttl_period if ttl_period is not None else cache_key_period, 3600)
     _MEM_CACHE[key] = (df, time.time() + ttl)
 
 
@@ -331,7 +338,7 @@ class DataFetcher:
                 "warmup_fetch_still_short: %s requested=%s fetched_as=%s bars=%d < %d",
                 symbol, period, fetch_period, len(df), MIN_DATA_POINTS_200MA,
             )
-        _mem_cache_set(symbol, cache_key_period, df)
+        _mem_cache_set(symbol, cache_key_period, df, ttl_period=period)
 
         logger.info(
             "data_fetched: %s period=%s fetch_period=%s widened=%s bars=%d",

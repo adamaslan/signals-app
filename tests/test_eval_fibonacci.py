@@ -53,7 +53,8 @@ class TestResampleToWeekly:
         weekly = ef.resample_to_weekly(df)
 
         assert weekly.index[-1].date() < date(2024, 1, 19)  # last kept week's Friday
-        assert weekly.index[-1] not in df.resample("W-FRI").groups or True
+        assert weekly.index[-1].date() == date(2024, 1, 12)  # exactly the second completed week
+        assert len(weekly) == 2  # both completed weeks kept, none dropped
         last_daily_in_kept_weeks = df.index[df.index <= weekly.index[-1]]
         assert len(last_daily_in_kept_weeks) < len(df)  # the forming week's days were excluded
 

@@ -37,10 +37,10 @@ being claimed done.
 | Daily (21-bar, for comparison) | 8 | 49 | 55.1% | 52.8% | +2.3 | 0.32 |
 | **Weekly (13-bar, MTF2)** | 7 | 15 | 73.3% | 59.9% | **+13.4** | 1.06 |
 
-15 events is far too few to draw a conclusion (z = 1.06 < the rule's own
-"clustered z < 1 means unproven" floor from SA10, and this isn't even the
-clustered-SE version). Reported honestly as a small positive point estimate,
-not a finding.
+15 events is far too few to draw a conclusion. The z = 1.06 above is
+unclustered and can't be compared against SA10's clustered-z floor — that
+comparison would understate the real uncertainty. Reported honestly as a
+small positive point estimate on a tiny sample, not a finding.
 
 ### MTF5 — retracement-depth excess mass near 0.618
 | Interval | Tickers | n (bar-depths) | Observed mass in band | Expected (uniform) | Excess |
