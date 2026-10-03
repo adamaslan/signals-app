@@ -19,6 +19,7 @@ from signals_app.config import (
     SignalStrength,
 )
 from signals_app.detection.base import MutableSignal
+from signals_app.detection.crosses import CROSS_DOWN, CROSS_UP, cross_at_last_bar
 from signals_app.indicators.grids import (
     HL_LOOKBACKS,
     HL_PROXIMITIES,
@@ -40,10 +41,10 @@ def _sf(val: object) -> float | None:
 
 
 class MovingAverageSignalDetector:
-    """Detects MA crossover and alignment signals (standard 50/200 golden/death cross)."""
+    """Detects price-vs-20 MA crosses and MA stack alignment."""
 
     def detect(self, df: pd.DataFrame) -> list[MutableSignal]:
-        """Detect standard MA signals.
+        """Detect price-vs-MA cross and MA alignment signals.
 
         Args:
             df: Indicator DataFrame.
@@ -56,61 +57,27 @@ class MovingAverageSignalDetector:
 
         signals: list[MutableSignal] = []
         current = df.iloc[-1]
-        prev = df.iloc[-2]
 
-        signals.extend(self._detect_ma_crossovers(current, prev, df))
-        signals.extend(self._detect_price_ma_crosses(current, prev))
+        # The 50/200 golden/death cross is emitted by ExpandedMACrossDetector
+        # only; emitting it here too double-counted every event (defect D1).
+        signals.extend(self._detect_price_ma_crosses(df))
         signals.extend(self._detect_ma_alignment(current))
 
         return signals
 
-    def _detect_ma_crossovers(
-        self, current: pd.Series, prev: pd.Series, df: pd.DataFrame
-    ) -> list[MutableSignal]:
-        """Detect golden cross and death cross."""
+    def _detect_price_ma_crosses(self, df: pd.DataFrame) -> list[MutableSignal]:
+        """Detect price crossing above/below 20 SMA (sign-flip rule)."""
         signals: list[MutableSignal] = []
+        cross = cross_at_last_bar(df, "Close", "SMA_20")
 
-        if len(df) <= 200:
-            return signals
-        if "SMA_50" not in current.index or "SMA_200" not in current.index:
-            return signals
-
-        if prev["SMA_50"] <= prev["SMA_200"] and current["SMA_50"] > current["SMA_200"]:
-            signals.append(MutableSignal(
-                signal="GOLDEN CROSS",
-                description="50 MA crossed above 200 MA",
-                strength=SignalStrength.STRONG_BULLISH.value,
-                category=SignalCategory.MA_CROSS.value,
-            ))
-
-        if prev["SMA_50"] >= prev["SMA_200"] and current["SMA_50"] < current["SMA_200"]:
-            signals.append(MutableSignal(
-                signal="DEATH CROSS",
-                description="50 MA crossed below 200 MA",
-                strength=SignalStrength.STRONG_BEARISH.value,
-                category=SignalCategory.MA_CROSS.value,
-            ))
-
-        return signals
-
-    def _detect_price_ma_crosses(
-        self, current: pd.Series, prev: pd.Series
-    ) -> list[MutableSignal]:
-        """Detect price crossing above/below 20 SMA."""
-        signals: list[MutableSignal] = []
-
-        if "SMA_20" not in current.index:
-            return signals
-
-        if prev["Close"] <= prev["SMA_20"] and current["Close"] > current["SMA_20"]:
+        if cross == CROSS_UP:
             signals.append(MutableSignal(
                 signal="PRICE ABOVE 20 MA",
                 description="Price crossed above 20-day MA",
                 strength=SignalStrength.BULLISH.value,
                 category=SignalCategory.MA_CROSS.value,
             ))
-
-        if prev["Close"] >= prev["SMA_20"] and current["Close"] < current["SMA_20"]:
+        elif cross == CROSS_DOWN:
             signals.append(MutableSignal(
                 signal="PRICE BELOW 20 MA",
                 description="Price crossed below 20-day MA",
@@ -163,24 +130,11 @@ class ExpandedMACrossDetector:
             return []
 
         signals: list[MutableSignal] = []
-        current = df.iloc[-1]
-        prev = df.iloc[-2]
 
+        # Sole emitter of the 50/200 GOLDEN/DEATH CROSS (D1).
         for fast, slow in MA_CROSS_PAIRS:
-            cf = f"SMA_{fast}"
-            cs = f"SMA_{slow}"
-            if cf not in current.index or cs not in current.index:
-                continue
-
-            cur_f = _sf(current[cf])
-            cur_s = _sf(current[cs])
-            pre_f = _sf(prev[cf])
-            pre_s = _sf(prev[cs])
-
-            if None in (cur_f, cur_s, pre_f, pre_s):
-                continue
-
-            if pre_f <= pre_s and cur_f > cur_s:  # type: ignore[operator]
+            cross = cross_at_last_bar(df, f"SMA_{fast}", f"SMA_{slow}")
+            if cross == CROSS_UP:
                 is_golden = (fast, slow) == (50, 200)
                 label = "GOLDEN CROSS" if is_golden else f"{fast}/{slow} MA BULL CROSS"
                 strength = SignalStrength.STRONG_BULLISH.value if is_golden else SignalStrength.BULLISH.value
@@ -190,7 +144,7 @@ class ExpandedMACrossDetector:
                     strength=strength,
                     category=SignalCategory.MA_CROSS.value,
                 ))
-            elif pre_f >= pre_s and cur_f < cur_s:  # type: ignore[operator]
+            elif cross == CROSS_DOWN:
                 is_death = (fast, slow) == (50, 200)
                 label = "DEATH CROSS" if is_death else f"{fast}/{slow} MA BEAR CROSS"
                 strength = SignalStrength.STRONG_BEARISH.value if is_death else SignalStrength.BEARISH.value
@@ -264,7 +218,6 @@ class IchimokuDetector:
 
         signals: list[MutableSignal] = []
         current = df.iloc[-1]
-        prev = df.iloc[-2]
 
         tenkan = _sf(current["Ichimoku_Tenkan"])
         kijun = _sf(current["Ichimoku_Kijun"])
@@ -275,23 +228,24 @@ class IchimokuDetector:
         if None in (tenkan, kijun, span_a, span_b, close):
             return signals
 
-        prev_tenkan = _sf(prev["Ichimoku_Tenkan"]) or tenkan
-        prev_kijun = _sf(prev["Ichimoku_Kijun"]) or kijun
         cloud_top = max(span_a, span_b)  # type: ignore[type-var]
         cloud_bot = min(span_a, span_b)  # type: ignore[type-var]
 
-        if prev_tenkan <= prev_kijun and tenkan > kijun:  # type: ignore[operator]
+        # Graded BULLISH/BEARISH, not STRONG: the pilot found no TK-cross variant
+        # beating baseline (D3).
+        tk_cross = cross_at_last_bar(df, "Ichimoku_Tenkan", "Ichimoku_Kijun")
+        if tk_cross == CROSS_UP:
             signals.append(MutableSignal(
                 signal="ICHIMOKU TK BULL CROSS",
                 description=f"Tenkan ({tenkan:.2f}) crossed above Kijun ({kijun:.2f})",
-                strength=SignalStrength.STRONG_BULLISH.value,
+                strength=SignalStrength.BULLISH.value,
                 category=SignalCategory.ICHIMOKU.value,
             ))
-        elif prev_tenkan >= prev_kijun and tenkan < kijun:  # type: ignore[operator]
+        elif tk_cross == CROSS_DOWN:
             signals.append(MutableSignal(
                 signal="ICHIMOKU TK BEAR CROSS",
                 description=f"Tenkan ({tenkan:.2f}) crossed below Kijun ({kijun:.2f})",
-                strength=SignalStrength.STRONG_BEARISH.value,
+                strength=SignalStrength.BEARISH.value,
                 category=SignalCategory.ICHIMOKU.value,
             ))
 
