@@ -188,19 +188,32 @@ def _ichimoku_series(high: pd.Series, low: pd.Series, close: pd.Series) -> dict[
     charts draw 26 bars to the right, needed to see a Kumo twist. ``Chikou_Diff``
     is the causal Chikou signal ``Close[i] - Close[i-26]``; never use
     ``Close.shift(-26)``, which is look-ahead.
+
+    ``Ichimoku_CloudPos`` (+1 above / 0 inside / -1 below the current cloud) and
+    ``Ichimoku_CloudColour`` (+1 SpanA > SpanB, -1 below, 0 equal) are states
+    true on every bar, so they are features only, never signals. NaN until the
+    cloud exists.
     """
     tenkan = (high.rolling(ICHIMOKU_TENKAN).max() + low.rolling(ICHIMOKU_TENKAN).min()) / 2.0
     kijun = (high.rolling(ICHIMOKU_KIJUN).max() + low.rolling(ICHIMOKU_KIJUN).min()) / 2.0
     lead_a = (tenkan + kijun) / 2.0
     lead_b = (high.rolling(ICHIMOKU_SENKOU_B).max() + low.rolling(ICHIMOKU_SENKOU_B).min()) / 2.0
+    span_a = lead_a.shift(ICHIMOKU_KIJUN)
+    span_b = lead_b.shift(ICHIMOKU_KIJUN)
+    cloud_top = np.maximum(span_a, span_b)
+    cloud_bottom = np.minimum(span_a, span_b)
+    cloud_ready = span_a.notna() & span_b.notna()
+    cloud_pos = pd.Series(np.where(close > cloud_top, 1.0, np.where(close < cloud_bottom, -1.0, 0.0)), index=close.index)
     return {
         "Ichimoku_Tenkan": tenkan,
         "Ichimoku_Kijun": kijun,
-        "Ichimoku_SpanA": lead_a.shift(ICHIMOKU_KIJUN),
-        "Ichimoku_SpanB": lead_b.shift(ICHIMOKU_KIJUN),
+        "Ichimoku_SpanA": span_a,
+        "Ichimoku_SpanB": span_b,
         "Ichimoku_LeadA": lead_a,
         "Ichimoku_LeadB": lead_b,
         "Chikou_Diff": close - close.shift(ICHIMOKU_KIJUN),
+        "Ichimoku_CloudPos": cloud_pos.where(cloud_ready),
+        "Ichimoku_CloudColour": np.sign(span_a - span_b),
     }
 
 

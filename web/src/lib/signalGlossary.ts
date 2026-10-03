@@ -123,14 +123,11 @@ export const DETECTORS: DetectorEntry[] = [
     id: "IchimokuDetector",
     name: "Ichimoku cloud",
     family: "trend",
-    watches: "Tenkan/Kijun crosses, where price sits relative to the cloud (kumo), and the cloud's own colour.",
+    watches: "Tenkan/Kijun crosses. Cloud position and colour are state, recorded as columns rather than voted.",
     signals: [
       { label: "ICHIMOKU TK BULL / BEAR CROSS", when: "Tenkan crosses Kijun", side: "bull", weight: 2 },
-      { label: "PRICE ABOVE / BELOW KUMO", when: "Close above cloud top / below cloud bottom", side: "bull", weight: 1 },
-      { label: "PRICE INSIDE KUMO", when: "Close between the spans — indecision", side: "none", weight: 0 },
-      { label: "BULLISH / BEARISH KUMO", when: "Span A above Span B (green) or below (red)", side: "bull", weight: 1 },
     ],
-    readIt: "Strongest when all three agree: TK cross, price outside the cloud, and cloud colour on the same side.",
+    readIt: "A TK cross is an event, graded bullish or bearish only. Where price sits against the cloud is context, not a vote.",
   },
   // ── Momentum ─────────────────────────────────────────────────────────────
   {

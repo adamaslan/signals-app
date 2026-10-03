@@ -11,7 +11,7 @@ narrative version and orchestration details.
 | `MovingAverageSignalDetector` | MA_CROSS, MA_TREND | GOLDEN CROSS, DEATH CROSS, PRICE ABOVE/BELOW 20 MA, MA ALIGNMENT BULLISH/BEARISH | 50/200 SMA cross (needs >200 bars); price vs 20 SMA cross; 10>20>50 SMA stack |
 | `ExpandedMACrossDetector` | MA_CROSS | `{fast}/{slow} MA BULL/BEAR CROSS` (or GOLDEN/DEATH CROSS for the 50/200 pair) | Cross of any of 11 SMA pairs in `MA_CROSS_PAIRS` |
 | `TrendSignalDetector` | TREND | STRONG UPTREND / STRONG DOWNTREND | `ADX > 25.0`, direction from Close vs SMA_50 |
-| `IchimokuDetector` | ICHIMOKU | ICHIMOKU TK BULL/BEAR CROSS, PRICE ABOVE/BELOW/INSIDE KUMO, BULLISH/BEARISH KUMO | Tenkan/Kijun cross; Close vs cloud top/bottom; SpanA vs SpanB |
+| `IchimokuDetector` | ICHIMOKU | ICHIMOKU TK BULL/BEAR CROSS | Tenkan/Kijun cross (sign-flip rule). Cloud position and colour are the `Ichimoku_CloudPos` / `Ichimoku_CloudColour` columns, not votes |
 | `BollingerBandSignalDetector` | BOLLINGER | AT LOWER BB, AT UPPER BB | Close within 1% of standard 20/2.0 band edge |
 | `BBExpansionDetector` | BB_BREAKOUT | ABOVE UPPER/BELOW LOWER `BB(period,sd)`, `{label} %B > 1 / < 0`, `{label} RIDING UPPER BAND` | Swept across periods (10/20/30/50) × stdevs (1.5/2.0/2.5/3.0) |
 | `PriceActionSignalDetector` | PRICE_ACTION | LARGE GAIN, LARGE LOSS | `\|Price_Change\| > 5.0%` in one bar |
