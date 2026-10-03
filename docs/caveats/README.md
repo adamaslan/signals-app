@@ -27,3 +27,4 @@ fine; env var *values* never appear.
 | Date | Entry | Repo(s) | Subject |
 |---|---|---|---|
 | 2026-09-29 | [pr39-rebase-coderabbit](2026-09-29-pr39-rebase-coderabbit.md) | signals-app | PR #39 (/v1 integration API) rebase + 2 CodeRabbit rounds; cloud signal-scan never exercises the new /v1 code path |
+| 2026-10-03 | [ichimoku-fib-eval-engine-pass](2026-10-03-ichimoku-fib-eval-engine-pass.md) | signals-app, mcp-finance1, holdemfoldem, portal | Ichimoku/fib items; eval KILLs rest on wide intervals; live engine pass ran |
