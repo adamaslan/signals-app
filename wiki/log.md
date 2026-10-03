@@ -125,3 +125,5 @@ analysis in docs/universe-scan-improvements.md.
 ## [2026-09-26] ingest | PR /v1 integration API + backtest daily-bars and synthesis-thread fixes | pages touched: 1
 
 ## [2026-09-28] ingest | PR #41 fib correctness batch (SA1-SA4, SA6) + weekly MTF eval | pages touched: 1
+
+## [2026-10-03] ingest | PR #45 Ichimoku cloud states out of the vote (row 2) | pages touched: 2

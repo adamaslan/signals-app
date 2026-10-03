@@ -198,7 +198,11 @@ class TrendSignalDetector:
 
 
 class IchimokuDetector:
-    """Ichimoku Cloud signals: TK cross, price vs cloud, Kumo color."""
+    """Ichimoku TK cross.
+
+    Cloud position and cloud colour are states true on every bar, so they are
+    columns (``Ichimoku_CloudPos``, ``Ichimoku_CloudColour``), not votes.
+    """
 
     def detect(self, df: pd.DataFrame) -> list[MutableSignal]:
         """Detect Ichimoku signals.
@@ -212,7 +216,7 @@ class IchimokuDetector:
         if len(df) < 2:
             return []
 
-        required = ["Ichimoku_Tenkan", "Ichimoku_Kijun", "Ichimoku_SpanA", "Ichimoku_SpanB"]
+        required = ["Ichimoku_Tenkan", "Ichimoku_Kijun"]
         if not all(c in df.columns for c in required):
             return []
 
@@ -221,15 +225,9 @@ class IchimokuDetector:
 
         tenkan = _sf(current["Ichimoku_Tenkan"])
         kijun = _sf(current["Ichimoku_Kijun"])
-        span_a = _sf(current["Ichimoku_SpanA"])
-        span_b = _sf(current["Ichimoku_SpanB"])
-        close = _sf(current["Close"])
 
-        if None in (tenkan, kijun, span_a, span_b, close):
+        if None in (tenkan, kijun):
             return signals
-
-        cloud_top = max(span_a, span_b)  # type: ignore[type-var]
-        cloud_bot = min(span_a, span_b)  # type: ignore[type-var]
 
         # Graded BULLISH/BEARISH, not STRONG: the pilot found no TK-cross variant
         # beating baseline (D3).
@@ -245,43 +243,6 @@ class IchimokuDetector:
             signals.append(MutableSignal(
                 signal="ICHIMOKU TK BEAR CROSS",
                 description=f"Tenkan ({tenkan:.2f}) crossed below Kijun ({kijun:.2f})",
-                strength=SignalStrength.BEARISH.value,
-                category=SignalCategory.ICHIMOKU.value,
-            ))
-
-        if close > cloud_top:
-            signals.append(MutableSignal(
-                signal="PRICE ABOVE KUMO",
-                description=f"Close ${close:.2f} above cloud top ${cloud_top:.2f}",
-                strength=SignalStrength.BULLISH.value,
-                category=SignalCategory.ICHIMOKU.value,
-            ))
-        elif close < cloud_bot:
-            signals.append(MutableSignal(
-                signal="PRICE BELOW KUMO",
-                description=f"Close ${close:.2f} below cloud bottom ${cloud_bot:.2f}",
-                strength=SignalStrength.BEARISH.value,
-                category=SignalCategory.ICHIMOKU.value,
-            ))
-        else:
-            signals.append(MutableSignal(
-                signal="PRICE INSIDE KUMO",
-                description=f"Close ${close:.2f} inside cloud (indecision)",
-                strength=SignalStrength.NEUTRAL.value,
-                category=SignalCategory.ICHIMOKU.value,
-            ))
-
-        if span_a > span_b:
-            signals.append(MutableSignal(
-                signal="BULLISH KUMO",
-                description=f"Green cloud: SpanA ({span_a:.2f}) > SpanB ({span_b:.2f})",
-                strength=SignalStrength.BULLISH.value,
-                category=SignalCategory.ICHIMOKU.value,
-            ))
-        else:
-            signals.append(MutableSignal(
-                signal="BEARISH KUMO",
-                description=f"Red cloud: SpanA ({span_a:.2f}) < SpanB ({span_b:.2f})",
                 strength=SignalStrength.BEARISH.value,
                 category=SignalCategory.ICHIMOKU.value,
             ))

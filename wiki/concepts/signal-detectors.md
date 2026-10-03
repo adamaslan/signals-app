@@ -48,7 +48,7 @@ Source: [`detection/trend.py`](../../src/signals_app/detection/trend.py).
   e.g. a 10/50 cross fires independently of the 50/200 golden cross.
 - `TrendSignalDetector` — ADX-based: `STRONG UPTREND`/`STRONG DOWNTREND` when
   `ADX > ADX_TRENDING` (25.0), direction from price vs 50 SMA.
-- `IchimokuDetector` — Tenkan/Kijun cross, price vs Kumo (cloud) position
+- `IchimokuDetector` — Tenkan/Kijun cross only; cloud position and colour are `Ichimoku_CloudPos` / `Ichimoku_CloudColour` columns, not votes (code version 1.4.0)
   (above/below/inside), and cloud color (SpanA > SpanB = bullish "green
   cloud").
 - `BollingerBandSignalDetector` — standard 20-period/2.0-stdev band touch
