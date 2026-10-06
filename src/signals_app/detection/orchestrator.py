@@ -19,7 +19,15 @@ from signals_app.detection.base import (
     SignalList,
     _run_detector_with_timeout,
 )
-from signals_app.detection.fibonacci import FibonacciDetector
+from signals_app.detection.events import (
+    KumoEventDetector,
+    MACDHistTurnDetector,
+    PivotReactionDetector,
+    RangeBreakoutDetector,
+    RSIDivergenceDetector,
+    RSIZoneExitDetector,
+)
+from signals_app.detection.fibonacci import FibonacciDetector, FibonacciVariantDetector
 from signals_app.detection.momentum import (
     MACDSignalDetector,
     MultiMACDDetector,
@@ -82,6 +90,26 @@ def get_default_detectors() -> list[SignalDetector]:
     ]
 
 
+def get_experimental_detectors() -> list[SignalDetector]:
+    """Event detectors that exist to be measured, not yet to vote.
+
+    Kept out of ``get_default_detectors()`` on purpose: ``ConfluenceRanker`` and
+    ``FamilyConfluenceRanker`` vote on any directional signal, so registering
+    these there would change production scores before the evaluator has earned
+    them any weight. Only the graded ranker (evidence E = 0 until earned) and
+    detector-hit storage consume this list.
+    """
+    return [
+        KumoEventDetector(),
+        RangeBreakoutDetector(),
+        RSIZoneExitDetector(),
+        RSIDivergenceDetector(),
+        MACDHistTurnDetector(),
+        PivotReactionDetector(),
+        FibonacciVariantDetector(),
+    ]
+
+
 def resolve_contradictions(signals: list[MutableSignal]) -> list[MutableSignal]:
     """Drop readings that a stronger reading on the same bar already contradicts.
 
@@ -105,6 +133,7 @@ def detect_all_signals(
     detectors: list[SignalDetector] | None = None,
     timeout_ms: int = DETECTOR_TIMEOUT_MS,
     max_failures: int = MAX_DETECTOR_FAILURES,
+    include_experimental: bool = False,
 ) -> SignalList:
     """Detect all trading signals from indicator data.
 
@@ -117,6 +146,9 @@ def detect_all_signals(
         detectors: Detectors to run. Defaults to all 19 standard detectors.
         timeout_ms: Per-detector wall-clock budget in milliseconds.
         max_failures: Number of detector failures that marks the result degraded.
+        include_experimental: Also run ``get_experimental_detectors()``. Off by
+            default so every production ranker sees exactly the signals it did
+            before; ignored when ``detectors`` is passed explicitly.
 
     Returns:
         SignalList — a list of MutableSignal objects with .degraded and
@@ -124,6 +156,8 @@ def detect_all_signals(
     """
     if detectors is None:
         detectors = get_default_detectors()
+        if include_experimental:
+            detectors = [*detectors, *get_experimental_detectors()]
 
     signals: list[MutableSignal] = []
     failure_count = 0

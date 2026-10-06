@@ -199,3 +199,33 @@ class FibonacciDetector:
         # against uptrends ungated.
         return _signal("FIB 1.618 TARGET", f"Reached 1.618 extension {level:.2f}",
                        SignalStrength.SIGNIFICANT)
+
+
+_VARIANT_SUFFIX = " (VARIANT)"
+
+
+class FibonacciVariantDetector:
+    """Store-only Fibonacci variants: everything ``experimental=True`` emits that
+    the default detector does not (spec §8.3 P4).
+
+    The default detector's one earned signal (an up-leg golden-pocket hold on
+    above-average volume) is dropped here and every other label gets a
+    ``(VARIANT)`` suffix, so the evidence table can give the default E > 0 and
+    the variants E = 0 without the two sharing a key.
+    """
+
+    def __init__(self) -> None:
+        self._inner = FibonacciDetector(experimental=True)
+
+    def detect(self, df: pd.DataFrame) -> list[MutableSignal]:
+        """Detect variant reactions on the last bar."""
+        variants: list[MutableSignal] = []
+        for sig in self._inner.detect(df):
+            is_default_equivalent = (
+                sig.signal == "FIB GOLDEN POCKET HOLD"
+                and sig.strength == SignalStrength.STRONG_BULLISH.value
+            )
+            if is_default_equivalent:
+                continue
+            variants.append(sig.model_copy(update={"signal": sig.signal + _VARIANT_SUFFIX}))
+        return variants

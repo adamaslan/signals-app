@@ -123,3 +123,20 @@ def test_stamp_kinds_is_idempotent() -> None:
     first = (sig.kind, sig.concept)
     stamp_kinds([sig])
     assert (sig.kind, sig.concept) == first == ("X", "macd_cross")
+
+
+def test_experimental_labels_are_classified() -> None:
+    """Every label from the experimental detectors resolves to a kind and concept."""
+    from signals_app.detection.orchestrator import get_experimental_detectors
+
+    unclassified: set[str] = set()
+    seen: set[str] = set()
+    for seed in range(20):
+        full = compute_indicators(_random_walk_ohlcv(seed, n=500))
+        for end in range(210, len(full) + 1, 3):
+            for sig in detect_all_signals(full.iloc[:end], get_experimental_detectors()):
+                seen.add(sig.signal)
+                if sig.kind not in _VALID_KINDS or not sig.concept:
+                    unclassified.add(sig.signal)
+    assert len(seen) >= 8, sorted(seen)
+    assert not unclassified, sorted(unclassified)

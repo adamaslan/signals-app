@@ -73,9 +73,18 @@ KIND_BY_PATTERN: Final[tuple[KindRule, ...]] = (
     _rule(r"^CMF STRONG (BUYING|SELLING)$", _S, "cmf_level"),
     _rule(r"^CMF CROSSED (POSITIVE|NEGATIVE)$", _X, "cmf_cross"),
     # --- structure ---
-    _rule(r"^FIB (GOLDEN POCKET|CONFLUENCE) HOLD$", _X, "fib_hold"),
-    _rule(r"^FIB 0\.786 BREAK$", _X, "fib_break"),
-    _rule(r"^FIB 1\.618 TARGET$", _T, "fib_target"),
+    _rule(r"^FIB (GOLDEN POCKET|CONFLUENCE) HOLD( \(VARIANT\))?$", _X, "fib_hold"),
+    _rule(r"^FIB 0\.786 BREAK( \(VARIANT\))?$", _X, "fib_break"),
+    _rule(r"^FIB 1\.618 TARGET( \(VARIANT\))?$", _T, "fib_target"),
+    # --- event detectors added for the graded ranker (detection/events.py) ---
+    _rule(r"^KUMO (BREAKOUT|BREAKDOWN)$", _X, "kumo_break"),
+    _rule(r"^KUMO TWIST (BULL|BEAR)$", _T, "kumo_twist"),
+    _rule(r"^CHIKOU CROSS (BULL|BEAR)$", _T, "chikou_cross"),
+    _rule(r"^RANGE (BREAKOUT|BREAKDOWN) \d+b$", _T, "range_break"),
+    _rule(r"^RSI14 EXIT (OVERSOLD|OVERBOUGHT)$", _X, "rsi_zone_exit"),
+    _rule(r"^RSI (BULLISH|BEARISH) DIVERGENCE$", _T, "rsi_divergence"),
+    _rule(r"^MACD HIST TURN (UP|DOWN)$", _T, "macd_hist_turn"),
+    _rule(r"^PIVOT (SUPPORT HOLD|RESISTANCE REJECT)$", _X, "sr_reaction"),
 )
 
 
