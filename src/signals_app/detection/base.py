@@ -30,6 +30,10 @@ class MutableSignal(BaseModel):
         ai_score: Optional AI-assigned score (1–100).
         ai_reasoning: Optional AI explanation.
         rank: Optional rank position in a sorted signal list.
+        kind: SignalKind value (X/T/S/P/C); stamped by the orchestrator.
+        concept: Key of the single fact this signal measures; same-concept
+            signals collapse to one vote in the graded ranker.
+        context: Optional numeric context (e.g. distance to a level in ATR).
     """
 
     signal: str
@@ -39,6 +43,9 @@ class MutableSignal(BaseModel):
     ai_score: int | None = None
     ai_reasoning: str | None = None
     rank: int | None = None
+    kind: str | None = None
+    concept: str | None = None
+    context: dict[str, float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to plain dictionary for serialization.
@@ -54,6 +61,9 @@ class MutableSignal(BaseModel):
             "ai_score": self.ai_score,
             "ai_reasoning": self.ai_reasoning,
             "rank": self.rank,
+            "kind": self.kind,
+            "concept": self.concept,
+            "context": self.context,
         }
 
 

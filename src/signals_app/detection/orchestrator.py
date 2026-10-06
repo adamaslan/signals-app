@@ -44,6 +44,7 @@ from signals_app.detection.volume import (
     VolumeDivergenceDetector,
     VolumeSignalDetector,
 )
+from signals_app.scoring.kinds import stamp_kinds
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ def detect_all_signals(
         finally:
             timings_ms[name] = round((time.perf_counter() - started) * 1000, 2)
 
+    stamp_kinds(signals)
     degraded = failure_count >= max_failures
 
     if degraded:

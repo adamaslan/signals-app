@@ -316,6 +316,35 @@ class SignalCategory(str, Enum):
     FIBONACCI = "FIBONACCI"
 
 
+class SignalKind(str, Enum):
+    """What a signal *is*, which decides how much it may vote (graded ranker).
+
+    EVENT_CROSS: a sign flip or a reaction on the latest bar.
+    EVENT_THRESHOLD: a fresh breach / big move that first appeared this bar.
+    STATE: a standing condition, true on every bar for a while.
+    PROXIMITY: near a level or an average, no reaction yet.
+    CONTEXT: carries no direction; amplifier / regime / sizing input only.
+    """
+
+    EVENT_CROSS = "X"
+    EVENT_THRESHOLD = "T"
+    STATE = "S"
+    PROXIMITY = "P"
+    CONTEXT = "C"
+
+
+# Starting multipliers for the graded ranker (docs/states-and-near-a-level-as-
+# signals-2026-10-06.md §6.2). Untuned: the evaluator (scripts/eval_signals.py)
+# is the only thing allowed to move them.
+KIND_MULTIPLIER: Final[dict[str, float]] = {
+    SignalKind.EVENT_CROSS.value: 1.00,
+    SignalKind.EVENT_THRESHOLD.value: 0.60,
+    SignalKind.STATE.value: 0.25,
+    SignalKind.PROXIMITY.value: 0.15,
+    SignalKind.CONTEXT.value: 0.0,
+}
+
+
 # ---------------------------------------------------------------------------
 # Settings dataclass (reads env vars)
 # ---------------------------------------------------------------------------
