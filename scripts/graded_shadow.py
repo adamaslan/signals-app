@@ -345,7 +345,8 @@ def run_report(horizon: int, since: str | None, out: str | None) -> int:
     return 0 if report["cutover"]["ready"] else 1
 
 
-def run_fit_k(cache: str, sample_size: int, step: int, out: str | None) -> int:
+def run_fit_k(cache: str, sample_size: int, step: int, out: str | None,
+              evidence_path: str | None = None) -> int:
     import eval_fibonacci as ef
     import eval_signals as es
 
@@ -367,7 +368,7 @@ def run_fit_k(cache: str, sample_size: int, step: int, out: str | None) -> int:
             signals = list(detect_all_signals(df.iloc[: bar + 1], include_experimental=True))
             fwd = float(df["Close"].iloc[bar + es.HORIZON] / df["Close"].iloc[bar] - 1.0)
             bars.append(FitBar(signals, fwd, is_fit))
-    result = fit_kind_multipliers(bars, load_evidence())
+    result = fit_kind_multipliers(bars, load_evidence(Path(evidence_path) if evidence_path else None))
     text = json.dumps(result, indent=2)
     print(text)
     if out:
@@ -390,13 +391,14 @@ def main() -> int:
     fit.add_argument("--cache", required=True)
     fit.add_argument("--sample-size", type=int, default=100)
     fit.add_argument("--step", type=int, default=5)
+    fit.add_argument("--evidence", help="Evidence file (default: the committed baseline)")
     fit.add_argument("--out")
     args = parser.parse_args()
     if args.cmd == "report":
         return run_report(args.horizon, args.since, args.out)
     if args.cmd == "thresholds":
         return run_thresholds(args.since, args.out)
-    return run_fit_k(args.cache, args.sample_size, args.step, args.out)
+    return run_fit_k(args.cache, args.sample_size, args.step, args.out, args.evidence)
 
 
 if __name__ == "__main__":
