@@ -35,7 +35,9 @@ from signals_app.config import (
     PUBLISH_MIN_CONFLUENCE_SCORE,
     PUBLISH_MIN_DATA_QUALITY,
     PUBLISH_MIN_SIGNALS,
+    RANKER_MODE,
     SHADOW_GRADED,
+    THRESHOLDS_FILE,
     get_settings,
 )
 from signals_app.data.fetcher import DataFetcher
@@ -52,6 +54,7 @@ from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
 from signals_app.scoring.evidence import load_evidence
 from signals_app.scoring.features import build_feature_row, continuous_features_frame
 from signals_app.scoring.graded import GradedConfluenceRanker
+from signals_app.scoring.production import ProductionRanker, build_production_ranker
 from signals_app.scoring.model import LogisticScorer, confidence_label, load_active_scorer
 from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES
 from signals_app.scoring.probability import rank_pct as compute_rank_pct
@@ -144,6 +147,7 @@ def passes_publication_gate(
     ai_degraded: bool,
     direction: str | None = None,
     agreeing_families: int | None = None,
+    min_score: float | None = None,
 ) -> bool:
     """The publication gate — see config.py's PUBLISH_MIN_* constants and
     docs/backend-state-and-supabase-plan.md Part 3 §3 ("Selective").
@@ -160,7 +164,10 @@ def passes_publication_gate(
             ``total_signals`` floor with "at least PUBLISH_MIN_FAMILIES
             independent families agree" — a signal count is satisfiable by one
             detector's fan-out, a family count is not.
+        min_score: Score bar to clear; defaults to PUBLISH_MIN_CONFLUENCE_SCORE.
+            The graded ranker passes its own, since its score has another scale.
     """
+    bar = PUBLISH_MIN_CONFLUENCE_SCORE if min_score is None else min_score
     if direction not in (None, "bullish", "bearish"):
         raise ValueError(f"direction must be None, 'bullish', or 'bearish', got {direction!r}")
     if data_quality_score is None or data_quality_score < PUBLISH_MIN_DATA_QUALITY:
@@ -171,12 +178,12 @@ def passes_publication_gate(
     elif total_signals < PUBLISH_MIN_SIGNALS:
         return False
     if direction == "bullish":
-        if confluence_score < PUBLISH_MIN_CONFLUENCE_SCORE:
+        if confluence_score < bar:
             return False
     elif direction == "bearish":
-        if confluence_score > -PUBLISH_MIN_CONFLUENCE_SCORE:
+        if confluence_score > -bar:
             return False
-    elif abs(confluence_score) < PUBLISH_MIN_CONFLUENCE_SCORE:
+    elif abs(confluence_score) < bar:
         return False
     return True
 
@@ -342,6 +349,12 @@ class ScoredSymbol:
 
 
 @lru_cache(maxsize=1)
+def _production_ranker() -> ProductionRanker:
+    """The ranker that makes the production call; see scoring/production.py."""
+    return build_production_ranker(RANKER_MODE, THRESHOLDS_FILE, EVIDENCE_FILE)
+
+
+@lru_cache(maxsize=1)
 def _graded_ranker() -> GradedConfluenceRanker:
     """One ranker per process; the evidence file is read once."""
     return GradedConfluenceRanker(load_evidence(Path(EVIDENCE_FILE) if EVIDENCE_FILE else None))
@@ -427,8 +440,9 @@ def score_symbol(
         data_quality = score_data_quality(ohlcv.df, period)
         df = compute_indicators(ohlcv.df)
         signal_list = detect_all_signals(df)
-        confluence = ConfluenceRanker().rank_signals(
-            list(signal_list), strength_hit_rates=strength_hit_rates
+        confluence = _production_ranker().rank_signals(
+            list(signal_list), strength_hit_rates=strength_hit_rates,
+            regime=(market.regime if market else None), df=df,
         )
         model = (
             _model_score(scorer, df, signal_list, market or MarketContext(None, None))
@@ -446,7 +460,7 @@ def score_symbol(
             model=model,
             graded=(
                 _graded_shadow(df, signal_list, (market.regime if market else None), confluence)
-                if SHADOW_GRADED
+                if SHADOW_GRADED and RANKER_MODE != "graded"  # already the production call
                 else None
             ),
         )
@@ -496,6 +510,7 @@ def publish_symbol(
             cleared = passes_publication_gate(
                 scored.data_quality.score, len(scored.signal_list), confluence.score,
                 scored.signal_list.degraded, direction=direction,
+                min_score=_production_ranker().publish_min_score,
             )
         if not cleared:
             return SymbolResult(ticker, ok=True, published=False, reason="gated", p_outperform=p_out, rank_pct=rank)
@@ -690,6 +705,7 @@ def scan_universe(
         One SymbolResult per input symbol.
     """
     settings = get_settings()
+    _production_ranker()  # fail before a run row exists if the ranker is misconfigured
     run: EngineRun | None = None
     if writer is not None and not dry_run:
         run = writer.start_run(trigger=trigger, git_sha=_git_sha())

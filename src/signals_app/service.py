@@ -38,9 +38,12 @@ from signals_app.config import (
     BACKTEST_FORWARD_HORIZON_DAYS,
     DEFAULT_PERIOD,
     MAX_MANUAL_BACKTEST_SYMBOLS,
+    EVIDENCE_FILE,
     MIN_HISTORICAL_LOOKBACK,
+    RANKER_MODE,
     SIGNALS_APP_CODE_VERSION,
     SUGGEST_DETECT_PERIOD,
+    THRESHOLDS_FILE,
     VALID_PERIODS,
     get_settings,
 )
@@ -60,7 +63,7 @@ from signals_app.indicators.compute import compute_indicators
 from signals_app.indicators.data_quality import score_data_quality
 from signals_app.schemas.signal_output import Signal, SignalOutput, SignalState
 from signals_app.scoring.calibration import load_strength_hit_rates
-from signals_app.scoring.confluence import ConfluenceRanker
+from signals_app.scoring.production import build_production_ranker
 from signals_app.synthesis.mtf_llm import synthesize_single
 
 logger = logging.getLogger(__name__)
@@ -533,9 +536,9 @@ def _analyze_sync(symbol: str, period: str, no_llm: bool, settings: Any) -> Sign
     # L4: confluence scoring (calibrated when a table exists, safe default otherwise)
     try:
         strength_hit_rates = load_strength_hit_rates()
-        ranker = ConfluenceRanker()
+        ranker = build_production_ranker(RANKER_MODE, THRESHOLDS_FILE, EVIDENCE_FILE)
         confluence_result = ranker.rank_signals(
-            list(signal_list), strength_hit_rates=strength_hit_rates
+            list(signal_list), strength_hit_rates=strength_hit_rates, df=df
         )
     except Exception as exc:  # noqa: BLE001
         logger.error("service.analyze: confluence failed for %s: %s", symbol, exc, exc_info=True)

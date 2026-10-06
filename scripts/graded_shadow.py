@@ -6,6 +6,10 @@
             counts and hit rates, rank correlation of score with forward return,
             and a flip table (HOLD->BUY, BUY->HOLD, ...) with each flip's drivers.
             Read-only against Supabase.
+``thresholds``  derives the graded ranker's BUY/SELL cut-offs from shadow rows so that
+            its BUY and SELL counts match production's on the same bars, and writes the
+            file ``SIGNALS_THRESHOLDS_FILE`` points at. The graded ranker will not run
+            as the production ranker without it.
 ``fit-k``   fits the kind multipliers T, S, P (X stays 1.0 as the scale anchor) by
             grid search on rank correlation of graded score vs forward return,
             fitted on bars before a purged holdout and reported on the holdout.
@@ -16,6 +20,7 @@ worse. The flip table still has to be read by the owner; no script signs that of
 
 Usage:
     python scripts/graded_shadow.py report --horizon 21 --since 2026-10-07
+    python scripts/graded_shadow.py thresholds --since 2026-10-07
     python scripts/graded_shadow.py fit-k --cache /tmp/sigcache --sample-size 100
 """
 from __future__ import annotations
@@ -165,6 +170,103 @@ def fit_kind_multipliers(bars: list[FitBar], evidence, grid: dict[str, tuple[flo
     }
 
 
+# ------------------------------------------------------------------------- thresholds
+
+MIN_THRESHOLD_ROWS = 1000
+MIN_PRODUCTION_CALLS = 30
+THRESHOLD_CANDIDATES = 200
+
+
+def _count_calls(rows: list[dict], action: str, thresholds) -> int:
+    from signals_app.scoring.graded import decide_action
+
+    return sum(
+        1 for r in rows
+        if decide_action(r["new_score"], r["bull_families"], r["bear_families"],
+                         set(r["live_sides"]), thresholds) == action
+    )
+
+
+def _closest_threshold(rows: list[dict], side: str, target: int, min_agreeing: int,
+                       max_opposing: int) -> tuple[float, int]:
+    """The cut-off whose call count lands nearest ``target``; ties go to the stricter one."""
+    from signals_app.scoring.thresholds import GradedThresholds
+
+    sign = 1 if side == "BUY" else -1
+    scores = sorted({abs(r["new_score"]) for r in rows if r["new_score"] * sign > 0})
+    if not scores:
+        return 1.0, 0
+    stride = max(1, len(scores) // THRESHOLD_CANDIDATES)
+    candidates = scores[::stride] + [scores[-1] + 1e-6]
+    best: tuple[int, float, int] | None = None
+    for candidate in candidates:
+        cut = GradedThresholds("probe", buy=candidate if sign > 0 else 1.0,
+                               sell=-candidate if sign < 0 else -1.0,
+                               min_agreeing=min_agreeing, max_opposing=max_opposing,
+                               publish_min=candidate)
+        count = _count_calls(rows, side, cut)
+        key = (abs(count - target), -candidate)
+        if best is None or key < (best[0], -best[1]):
+            best = (abs(count - target), candidate, count)
+    assert best is not None
+    return best[1], best[2]
+
+
+def derive_thresholds(rows: list[dict], min_agreeing: int = 3, max_opposing: int = 1,
+                      min_rows: int = MIN_THRESHOLD_ROWS) -> dict[str, Any]:
+    """Thresholds that give the graded ranker the same BUY and SELL counts as production.
+
+    Chosen from the data, not from intuition: the cut-off whose call count on these
+    bars lands nearest production's. ``publish_min`` mirrors the BUY cut-off, the same
+    "the publish gate reuses the BUY band" convention the production config uses.
+
+    Raises:
+        ValueError: too few rows or too few production calls to match a rate against,
+            or rows from before the payload carried family counts.
+    """
+    usable = [r for r in rows if None not in (r["bull_families"], r["bear_families"], r["live_sides"])]
+    if len(usable) < min_rows:
+        raise ValueError(f"need {min_rows} shadow rows with family counts, have {len(usable)}")
+    target_buy = sum(1 for r in usable if r["old_action"] == "BUY")
+    target_sell = sum(1 for r in usable if r["old_action"] == "SELL")
+    if target_buy < MIN_PRODUCTION_CALLS:
+        raise ValueError(f"only {target_buy} production BUY calls (need {MIN_PRODUCTION_CALLS})")
+    buy, got_buy = _closest_threshold(usable, "BUY", target_buy, min_agreeing, max_opposing)
+    sell, got_sell = _closest_threshold(usable, "SELL", target_sell, min_agreeing, max_opposing)
+    return {
+        "version": "thresholds-" + pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d"),
+        "buy": round(buy, 4),
+        "sell": round(-sell, 4),
+        "min_agreeing": min_agreeing,
+        "max_opposing": max_opposing,
+        "publish_min": round(buy, 4),
+        "derived_from": f"shadow:{len(usable)}",
+        "target_calls": {"BUY": target_buy, "SELL": target_sell},
+        "achieved_calls": {"BUY": got_buy, "SELL": got_sell},
+        "rows": len(usable),
+    }
+
+
+def run_thresholds(since: str | None, out: str | None) -> int:
+    client = _client()
+    filters = {"select": "ticker,bar_ts,action,score,payload", "order": "bar_ts.asc"}
+    if since:
+        filters["bar_ts"] = f"gte.{since}"
+    rows = join_rows(_paged(client, "/confluence_shadow", filters), [], require_return=False)
+    try:
+        result = derive_thresholds(rows)
+    except ValueError as exc:
+        print(f"cannot derive thresholds yet: {exc}", file=sys.stderr)
+        return 1
+    text = json.dumps(result, indent=2)
+    print(text)
+    target = Path(out) if out else Path("calibration/evidence") / f"{result['version']}.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    print(f"wrote {target}")
+    return 0
+
+
 # --------------------------------------------------------------------------- Supabase
 
 
@@ -201,19 +303,28 @@ def _key(ticker: str, bar_ts: str) -> tuple[str, pd.Timestamp]:
     return ticker, pd.to_datetime(bar_ts, utc=True)
 
 
-def join_rows(shadow: list[dict], forward: list[dict]) -> list[dict]:
-    """Inner-join shadow rows to forward returns on (ticker, bar_ts); skips rows with no production call."""
+def join_rows(shadow: list[dict], forward: list[dict], require_return: bool = True) -> list[dict]:
+    """Join shadow rows to forward returns on (ticker, bar_ts).
+
+    Skips rows with no production call. Rows with no forward return yet are
+    skipped too unless ``require_return`` is False (threshold derivation does
+    not need the outcome, so it can use the most recent bars as well).
+    """
     fwd_by_key = {_key(f["ticker"], f["bar_ts"]): f["pct_return"] for f in forward}
     rows: list[dict] = []
     for row in shadow:
-        production = (row.get("payload") or {}).get("production")
+        payload = row.get("payload") or {}
+        production = payload.get("production")
         fwd = fwd_by_key.get(_key(row["ticker"], row["bar_ts"]))
-        if production is None or fwd is None:
+        if production is None or (fwd is None and require_return):
             continue
         rows.append({"ticker": row["ticker"], "bar_ts": row["bar_ts"], "fwd": fwd,
                      "old_action": production["action"], "old_score": production["score"],
                      "new_action": row["action"], "new_score": row["score"],
-                     "drivers": row["payload"].get("drivers", [])})
+                     "drivers": payload.get("drivers", []),
+                     "bull_families": payload.get("bull_families"),
+                     "bear_families": payload.get("bear_families"),
+                     "live_sides": payload.get("live_sides")})
     return rows
 
 
@@ -272,6 +383,9 @@ def main() -> int:
     rep.add_argument("--horizon", type=int, default=21)
     rep.add_argument("--since")
     rep.add_argument("--out")
+    thr = sub.add_parser("thresholds")
+    thr.add_argument("--since")
+    thr.add_argument("--out")
     fit = sub.add_parser("fit-k")
     fit.add_argument("--cache", required=True)
     fit.add_argument("--sample-size", type=int, default=100)
@@ -280,6 +394,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.cmd == "report":
         return run_report(args.horizon, args.since, args.out)
+    if args.cmd == "thresholds":
+        return run_thresholds(args.since, args.out)
     return run_fit_k(args.cache, args.sample_size, args.step, args.out)
 
 

@@ -20,7 +20,16 @@ logger = logging.getLogger(__name__)
 # Bumped whenever detection/scoring logic changes — provenance stamp on every
 # SignalOutput so two runs on identical data are distinguishable if the logic
 # that produced them differs. Independent of schema_version (wire format).
-SIGNALS_APP_CODE_VERSION: Final[str] = "signals-app@1.3.0"
+_BASE_CODE_VERSION: Final[str] = "signals-app@1.3.0"
+# Which ranker makes the production call (scoring/production.py). The default
+# keeps today's behaviour exactly. In graded mode the code version gains a
+# "+graded" suffix so its rows can never merge into the old ranker's: rows are
+# upserted on (ticker, bar, code_version) and the two scores mean different things.
+RANKER_MODE: Final[str] = os.getenv("SIGNALS_RANKER", "production")
+THRESHOLDS_FILE: Final[str | None] = os.getenv("SIGNALS_THRESHOLDS_FILE") or None
+SIGNALS_APP_CODE_VERSION: Final[str] = (
+    f"{_BASE_CODE_VERSION}+graded" if RANKER_MODE == "graded" else _BASE_CODE_VERSION
+)
 
 # ---------------------------------------------------------------------------
 # Environment / deployment mode

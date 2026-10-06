@@ -32,11 +32,7 @@ from signals_app.detection.base import MutableSignal
 from signals_app.scoring.confluence import (
     _CATEGORY_BONUS,
     _STRENGTH_BULL_WEIGHT,
-    FAMILY_BUY_THRESHOLD,
-    FAMILY_MAX_OPPOSING,
-    FAMILY_MIN_AGREEING,
     FAMILY_PSEUDO_COUNT,
-    FAMILY_SELL_THRESHOLD,
     FAMILY_SIDE_MIN_NET,
     ConfluenceResult,
 )
@@ -45,6 +41,7 @@ from signals_app.scoring.evidence import EvidenceTable, load_evidence
 from signals_app.scoring.families import FAMILIES, family_of, is_bearish_extension_vote
 from signals_app.scoring.kinds import concept_of, kind_of
 from signals_app.scoring.regime import TREND_UP
+from signals_app.scoring.thresholds import DEFAULT_THRESHOLDS, GradedThresholds
 
 RANKER_VERSION: Final[str] = "graded-1"
 
@@ -63,6 +60,29 @@ _STANDING_KINDS: Final[frozenset[str]] = frozenset(
     {SignalKind.STATE.value, SignalKind.PROXIMITY.value}
 )
 _VOLUME_CONCEPT: Final[str] = "vol_spike"
+
+
+def decide_action(
+    score: float,
+    bull_families: int,
+    bear_families: int,
+    live_sides: set[int],
+    thresholds: GradedThresholds,
+) -> str:
+    """BUY / SELL / HOLD from a graded score, family agreement and live events.
+
+    A side needs the score past its threshold, enough agreeing families, few
+    enough opposing ones, AND at least one live event (E > 0, kind X or T) on
+    that side: standing states can raise the score but never create the call.
+    Pure so ``graded_shadow.py thresholds`` can replay it over stored payloads.
+    """
+    if (score >= thresholds.buy and bull_families >= thresholds.min_agreeing
+            and bear_families <= thresholds.max_opposing and 1 in live_sides):
+        return "BUY"
+    if (score <= thresholds.sell and bear_families >= thresholds.min_agreeing
+            and bull_families <= thresholds.max_opposing and -1 in live_sides):
+        return "SELL"
+    return "HOLD"
 
 
 @dataclass(frozen=True)
@@ -94,6 +114,11 @@ class GradedConfluenceResult(ConfluenceResult):
         ranker_version: Version of this pipeline.
         evidence_version: Version of the evidence table used.
         unclassified: Signals with no kind, which cannot vote.
+        bull_families: Families whose net is on the bull side (>= the side minimum).
+        bear_families: Families on the bear side.
+        live_sides: Sides (+1 / -1) that have a live event; with the two counts
+            above this is everything ``decide_action`` needs to re-decide a
+            stored result under different thresholds.
     """
 
     events: int = 0
@@ -107,6 +132,9 @@ class GradedConfluenceResult(ConfluenceResult):
     ranker_version: str = RANKER_VERSION
     evidence_version: str | None = None
     unclassified: int = 0
+    bull_families: int = 0
+    bear_families: int = 0
+    live_sides: list[int] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Serialize, extending the base payload."""
@@ -116,7 +144,8 @@ class GradedConfluenceResult(ConfluenceResult):
             live_events=self.live_events, drivers=self.drivers, flag_only=self.flag_only,
             risk_context=self.risk_context, location=self.location,
             ranker_version=self.ranker_version, evidence_version=self.evidence_version,
-            unclassified=self.unclassified,
+            unclassified=self.unclassified, bull_families=self.bull_families,
+            bear_families=self.bear_families, live_sides=self.live_sides,
         )
         return payload
 
@@ -124,8 +153,11 @@ class GradedConfluenceResult(ConfluenceResult):
 class GradedConfluenceRanker:
     """Score one bar's signals by kind and evidence. Pure: no I/O in ``rank_signals``."""
 
-    def __init__(self, evidence: EvidenceTable | None = None) -> None:
+    def __init__(
+        self, evidence: EvidenceTable | None = None, thresholds: GradedThresholds | None = None,
+    ) -> None:
         self._evidence = evidence if evidence is not None else load_evidence()
+        self._thresholds = thresholds if thresholds is not None else DEFAULT_THRESHOLDS
 
     def rank_signals(
         self,
@@ -263,11 +295,7 @@ class GradedConfluenceRanker:
         live = [v for v in votes if v.kind in _EVENT_KINDS and v.points > 0]
         live_side = {v.side for v in live}
 
-        buy = (score >= FAMILY_BUY_THRESHOLD and bull_families >= FAMILY_MIN_AGREEING
-               and bear_families <= FAMILY_MAX_OPPOSING and 1 in live_side)
-        sell = (score <= FAMILY_SELL_THRESHOLD and bear_families >= FAMILY_MIN_AGREEING
-                and bull_families <= FAMILY_MAX_OPPOSING and -1 in live_side)
-        action = "BUY" if buy else "SELL" if sell else "HOLD"
+        action = decide_action(score, bull_families, bear_families, live_side, self._thresholds)
         bias = "bullish" if score >= 0.05 else "bearish" if score <= -0.05 else "neutral"
         abs_score = abs(score)
         confidence = "HIGH" if abs_score >= 0.35 else "MEDIUM" if abs_score >= 0.2 else "LOW"
@@ -296,6 +324,8 @@ class GradedConfluenceRanker:
             risk_context=risk_context(df) if df is not None else None,
             location=location(df) if df is not None else None,
             evidence_version=self._evidence.version, unclassified=tally.unclassified,
+            bull_families=bull_families, bear_families=bear_families,
+            live_sides=sorted(live_side),
         )
 
 
