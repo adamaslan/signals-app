@@ -320,6 +320,14 @@ class SignalCategory(str, Enum):
 # migration. Off by default so the code can deploy before the schema does.
 WRITE_HIT_KINDS: Final[bool] = os.getenv("SIGNALS_WRITE_HIT_KINDS", "0") == "1"
 
+# Graded-ranker shadow mode (docs/states-and-near-a-level-as-signals-2026-10-06.md
+# §8.3 P6). SHADOW_GRADED computes the new score beside the production one on every
+# scan; WRITE_CONFLUENCE_SHADOW persists it and needs the 20261006000002 migration.
+# Both off by default, and neither changes the production score or action.
+SHADOW_GRADED: Final[bool] = os.getenv("SIGNALS_SHADOW_GRADED", "0") == "1"
+WRITE_CONFLUENCE_SHADOW: Final[bool] = os.getenv("SIGNALS_WRITE_CONFLUENCE_SHADOW", "0") == "1"
+EVIDENCE_FILE: Final[str | None] = os.getenv("SIGNALS_EVIDENCE_FILE") or None
+
 
 class SignalKind(str, Enum):
     """What a signal *is*, which decides how much it may vote (graded ranker).

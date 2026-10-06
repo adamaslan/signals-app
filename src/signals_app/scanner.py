@@ -25,14 +25,17 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from signals_app.config import (
     DEFAULT_PERIOD,
+    EVIDENCE_FILE,
     PUBLISH_MIN_CONFLUENCE_SCORE,
     PUBLISH_MIN_DATA_QUALITY,
     PUBLISH_MIN_SIGNALS,
+    SHADOW_GRADED,
     get_settings,
 )
 from signals_app.data.fetcher import DataFetcher
@@ -41,12 +44,14 @@ from signals_app.db.supabase import (
     SignalWriter,
     confluence_result_to_signal_record,
 )
-from signals_app.detection.orchestrator import detect_all_signals
+from signals_app.detection.orchestrator import detect_all_signals, get_experimental_detectors
 from signals_app.indicators.compute import compute_indicators
 from signals_app.indicators.data_quality import score_data_quality
 from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase
 from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
+from signals_app.scoring.evidence import load_evidence
 from signals_app.scoring.features import build_feature_row, continuous_features_frame
+from signals_app.scoring.graded import GradedConfluenceRanker
 from signals_app.scoring.model import LogisticScorer, confidence_label, load_active_scorer
 from signals_app.scoring.mtf import SUPPORTED_TIMEFRAMES
 from signals_app.scoring.probability import rank_pct as compute_rank_pct
@@ -333,6 +338,38 @@ class ScoredSymbol:
     data_quality: Any
     indicator_snapshot: dict[str, float]
     model: ModelScore | None = None
+    graded: dict[str, Any] | None = None
+
+
+@lru_cache(maxsize=1)
+def _graded_ranker() -> GradedConfluenceRanker:
+    """One ranker per process; the evidence file is read once."""
+    return GradedConfluenceRanker(load_evidence(Path(EVIDENCE_FILE) if EVIDENCE_FILE else None))
+
+
+def _graded_shadow(
+    df: Any, signal_list: Any, regime: str | None, production: ConfluenceResult,
+) -> dict[str, Any] | None:
+    """Score the bar with the graded ranker beside the production one. Never raises.
+
+    The production ranker keeps seeing exactly ``signal_list``; the experimental
+    detectors run in a separate pass and only feed this shadow score. The
+    production call is stored in the payload so the shadow analysis can compare
+    the two on every scored bar, not just the ones that cleared the gate.
+    """
+    try:
+        experimental = detect_all_signals(df, get_experimental_detectors())
+        result = _graded_ranker().rank_signals(
+            [*signal_list, *experimental], regime=regime, df=df
+        )
+        payload = result.to_dict()
+        payload["production"] = {
+            "score": production.score, "action": production.action, "bias": production.bias,
+        }
+        return payload
+    except Exception as exc:  # noqa: BLE001 — shadow must never break a scan
+        logger.warning("graded shadow failed: %s", exc)
+        return None
 
 
 _LLM_INDICATOR_COLUMNS = ("RSI", "MACD", "ADX", "Close", "ATR", "Price_Change")
@@ -407,6 +444,11 @@ def score_symbol(
             data_quality=data_quality,
             indicator_snapshot=_snapshot(df.iloc[-1]),
             model=model,
+            graded=(
+                _graded_shadow(df, signal_list, (market.regime if market else None), confluence)
+                if SHADOW_GRADED
+                else None
+            ),
         )
     except Exception as exc:  # noqa: BLE001 — per-symbol isolation
         logger.warning("scan_universe: %s failed: %s", ticker, exc)
@@ -441,6 +483,9 @@ def publish_symbol(
             # must exist first for tickers scanned outside the seeded universe.
             writer.ensure_symbol(ticker)
             writer.write_detector_hits(ticker, scored.bar_ts, list(scored.signal_list))
+            write_shadow = getattr(writer, "write_confluence_shadow", None)
+            if scored.graded is not None and write_shadow is not None:
+                write_shadow(ticker, scored.bar_ts, scored.graded)
 
         if model is not None:
             cleared = passes_ev_gate(

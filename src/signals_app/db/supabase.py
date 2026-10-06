@@ -26,6 +26,7 @@ from signals_app.config import (
     SUPABASE_REQUEST_TIMEOUT_SECONDS,
     SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_URL,
+    WRITE_CONFLUENCE_SHADOW,
     WRITE_HIT_KINDS,
 )
 from signals_app.detection.base import MutableSignal
@@ -96,6 +97,9 @@ class SignalWriter(Protocol):
     def write_detector_hits(
         self, ticker: str, bar_ts: str, signals: list[MutableSignal],
     ) -> None: ...
+
+    # Optional: writers that do not implement it are skipped (see scanner).
+    # def write_confluence_shadow(self, ticker: str, bar_ts: str, payload: dict) -> None: ...
 
 
 class SupabaseWriter:
@@ -250,6 +254,33 @@ class SupabaseWriter:
             json=rows,
         )
         resp.raise_for_status()
+
+    def write_confluence_shadow(self, ticker: str, bar_ts: str, payload: dict[str, Any]) -> None:
+        """Upsert the graded ranker's shadow score. No-op unless WRITE_CONFLUENCE_SHADOW.
+
+        Idempotent on (ticker, bar_ts, code_version, ranker_version).
+        """
+        if not WRITE_CONFLUENCE_SHADOW:
+            return
+        resp = self._client.post(
+            "/confluence_shadow?on_conflict=ticker,bar_ts,code_version,ranker_version",
+            headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=confluence_shadow_row(ticker, bar_ts, payload),
+        )
+        resp.raise_for_status()
+
+
+def confluence_shadow_row(ticker: str, bar_ts: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """One `confluence_shadow` row from a GradedConfluenceResult.to_dict()."""
+    return {
+        "ticker": ticker,
+        "bar_ts": bar_ts,
+        "code_version": SIGNALS_APP_CODE_VERSION,
+        "ranker_version": payload["ranker_version"],
+        "score": payload["score"],
+        "action": payload["action"],
+        "payload": payload,
+    }
 
 
 def detector_hit_row(ticker: str, bar_ts: str, signal: MutableSignal) -> dict[str, Any]:

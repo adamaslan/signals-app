@@ -31,13 +31,11 @@ import argparse
 import json
 import math
 import multiprocessing as mp
-from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 HORIZON = 21
@@ -317,9 +315,9 @@ def main() -> None:
     import logging
 
     logging.getLogger("signals_app").setLevel(logging.ERROR)
-    from signals_app.config import SIGNALS_APP_CODE_VERSION
-
     import eval_fibonacci as ef
+
+    from signals_app.config import SIGNALS_APP_CODE_VERSION
 
     cache = Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
