@@ -1,0 +1,25 @@
+{
+  "version": "baseline-2026-10-06",
+  "note": "Hand-set starting table, not measured by scripts/eval_signals.py. default_E 1.0 keeps every signal that votes in production today; explicit zeros cover new events and readings measured at or below baseline. Replace with a dated evaluator output once scripts/eval_signals.py has run on the full universe.",
+  "default_E": 1.0,
+  "K": {"X": 1.0, "T": 0.6, "S": 0.25, "P": 0.15, "C": 0.0},
+  "concepts": {
+    "kumo_break":    {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "kumo_twist":    {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "chikou_cross":  {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "range_break":   {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "rsi_zone_exit": {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "rsi_divergence":{"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "macd_hist_turn":{"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "sr_reaction":   {"E": 0.0, "source": "new event (P4), flag-only until earned"},
+    "ichimoku_cloud_pos":   {"E": 0.0, "source": "FIB-ICHIMOKU-MA.md pilot: PRICE ABOVE/BELOW KUMO edge -0.6/-1.0 pts (z -3.5/-4.3)"},
+    "ichimoku_cloud_color": {"E": 0.0, "source": "FIB-ICHIMOKU-MA.md pilot: BULLISH KUMO edge -0.1 pts (z -0.5)"},
+    "range_edge":           {"E": 0.0, "source": "signals-app docs/scoring-2x-plan.md: near-high is the worst bullish signal (beta proxy) until the relative version exists"}
+  },
+  "labels": {
+    "FIB GOLDEN POCKET HOLD (VARIANT)": {"E": 0.0, "source": "FIBONACCI.md: every non-default variant at or below baseline"},
+    "FIB CONFLUENCE HOLD (VARIANT)":    {"E": 0.0, "source": "FIBONACCI.md: at or below baseline"},
+    "FIB 0.786 BREAK (VARIANT)":        {"E": 0.0, "source": "FIBONACCI.md: at or below baseline"},
+    "FIB 1.618 TARGET (VARIANT)":       {"E": 0.0, "source": "FIBONACCI.md: exit marker, not a direction vote"}
+  }
+}
