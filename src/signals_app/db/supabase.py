@@ -26,6 +26,7 @@ from signals_app.config import (
     SUPABASE_REQUEST_TIMEOUT_SECONDS,
     SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_URL,
+    WRITE_HIT_KINDS,
 )
 from signals_app.detection.base import MutableSignal
 from signals_app.scoring.confluence import ConfluenceResult
@@ -242,24 +243,30 @@ class SupabaseWriter:
         """
         if not signals:
             return
-        rows = [
-            {
-                "ticker": ticker,
-                "bar_ts": bar_ts,
-                "detector": s.signal,
-                "category": s.category,
-                "strength": s.strength,
-                "description": s.description,
-                "code_version": SIGNALS_APP_CODE_VERSION,
-            }
-            for s in signals
-        ]
+        rows = [detector_hit_row(ticker, bar_ts, s) for s in signals]
         resp = self._client.post(
             "/detector_hits?on_conflict=ticker,bar_ts,detector,description,code_version",
             headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
             json=rows,
         )
         resp.raise_for_status()
+
+
+def detector_hit_row(ticker: str, bar_ts: str, signal: MutableSignal) -> dict[str, Any]:
+    """One `detector_hits` row. kind/concept/context are included only when
+    WRITE_HIT_KINDS is on (the columns need the 20261006000001 migration)."""
+    row: dict[str, Any] = {
+        "ticker": ticker,
+        "bar_ts": bar_ts,
+        "detector": signal.signal,
+        "category": signal.category,
+        "strength": signal.strength,
+        "description": signal.description,
+        "code_version": SIGNALS_APP_CODE_VERSION,
+    }
+    if WRITE_HIT_KINDS:
+        row.update(kind=signal.kind, concept=signal.concept, context=signal.context)
+    return row
 
 
 def confluence_result_to_signal_record(

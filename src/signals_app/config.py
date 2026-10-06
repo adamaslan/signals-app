@@ -316,6 +316,11 @@ class SignalCategory(str, Enum):
     FIBONACCI = "FIBONACCI"
 
 
+# Writing kind/concept/context on detector_hits needs the 20261006000001
+# migration. Off by default so the code can deploy before the schema does.
+WRITE_HIT_KINDS: Final[bool] = os.getenv("SIGNALS_WRITE_HIT_KINDS", "0") == "1"
+
+
 class SignalKind(str, Enum):
     """What a signal *is*, which decides how much it may vote (graded ranker).
 
