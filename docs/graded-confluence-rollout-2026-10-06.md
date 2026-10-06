@@ -87,6 +87,20 @@ ranker on 6 live tickers (payload sane, 0 unclassified labels, production result
 `SIGNALS_SHADOW_GRADED=1` on 3 tickers (0 failed; one earlier attempt hit a transient yfinance empty-data error
 for all three and passed on retry, with shadow on and off).
 
+Local runs after the P0 decision (2026-10-06):
+
+- **Evaluator, 939 tickers, step 5** (`calibration/evidence/evidence-2026-10-06.json`, an artifact, not activated).
+  Concepts with E > 0: `ichimoku_tk` (+4.5pp, holdout +3.3), `macd_zero` (+2.5, holdout +0.7), `kumo_twist`
+  (+2.1, holdout +0.6), `rsi_divergence` (+2.8, holdout +1.8), `vol_divergence` (E 0.27). The weak states and
+  breaches got E = 0. Distrust: current-constituents universe, z ignores cross-ticker correlation on shared
+  dates, one holdout year, and `ichimoku_tk` contradicts the earlier 62-ticker pilot. Re-test before using.
+- **`fit-k`, 100 tickers:** the graded score's rank correlation with forward return is *negative* before and after
+  fitting (holdout -0.046 at the start K, -0.040 at the fitted K T=0.4 S=0.1 P=0.3). Starting K kept; the gain is
+  tiny and the sign is wrong either way. This is on baseline evidence (default E 1.0 for live signals), so a
+  re-run with the earned evidence file is the fairer test.
+- **Rung-3 smoke, 60 symbols, horizon 20:** rung 3 rank IC 0.0014 vs rung 2 0.0114, buckets not monotone, ship bar
+  missed, so no model was written. Not adopted; the 60-symbol sample is small, so this is a smoke result only.
+
 **Not run here:** Steps 3, 5 (workflow dispatch), 6 (needs shadow rows in Supabase), 7 and 8. Their commands were
 checked against the code (flags, env var names, file paths), not executed. `calibrate_supabase.py` flags were
 not checked at all.
