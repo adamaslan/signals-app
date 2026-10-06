@@ -10,7 +10,7 @@ needs a flag to stay as it was. Every behaviour change is behind an env flag tha
 
 | Phase | State | What exists | What is left (needs you) |
 |---|---|---|---|
-| P0 Decide | **Open** | Defaults proposed below | You decide; no code could settle this |
+| P0 Decide | **Decided 2026-10-06** | K = X 1.0, T 0.6, S 0.25, P 0.15, C 0 as *starting* values (fit on held-out data only); shadow runs 4 weeks and at least 300 graded BUYs, whichever is longer; both additive migrations approved (applied by pasting in the SQL editor) | none |
 | P1 Taxonomy | Built | `scoring/kinds.py`, `SignalKind`, kind/concept stamped by the orchestrator | none |
 | P2 Storage | Built, **not applied** | migration `20261006000001`, writer gated by `SIGNALS_WRITE_HIT_KINDS` | apply the migration (Step 3) |
 | P3 Hygiene | Built, changes scores | MACD/RSI/OBV/BB/regime fixes, `scripts/flip_report.py` | real-data flip report; version bump at merge (Step 2) |
