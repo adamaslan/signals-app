@@ -125,7 +125,9 @@ class MultiRSIDetector:
             if rsi is None:
                 continue
 
-            for os_lvl, ob_lvl in RSI_OS_OB_LEVELS:
+            # RSISignalDetector already votes the period-14 zone; counting it
+            # here too gave one reading two votes.
+            for os_lvl, ob_lvl in () if period == 14 else RSI_OS_OB_LEVELS:
                 if rsi < os_lvl and (oversold is None or os_lvl < oversold[0]):
                     oversold = (os_lvl, period, rsi)
                 elif rsi > ob_lvl and (overbought is None or ob_lvl > overbought[0]):
@@ -244,6 +246,16 @@ class MACDSignalDetector:
 class MultiMACDDetector:
     """MACD signals across additional parameter sets beyond the standard (12, 26, 9)."""
 
+    @staticmethod
+    def _winning_side(by_side: dict[str, list[str]]) -> list[tuple[str, list[str]]]:
+        """The side with strictly more agreeing parameter sets, else nothing."""
+        bull, bear = by_side["BULL"], by_side["BEAR"]
+        if len(bull) > len(bear):
+            return [("BULL", bull)]
+        if len(bear) > len(bull):
+            return [("BEAR", bear)]
+        return []
+
     def detect(self, df: pd.DataFrame) -> list[MutableSignal]:
         """Detect multi-param MACD signals.
 
@@ -262,6 +274,14 @@ class MultiMACDDetector:
 
         # Skip the standard set — handled by MACDSignalDetector
         non_standard = [(f, s, sig) for f, s, sig in MACD_PARAMS if not (f == 12 and s == 26 and sig == 9)]
+
+        # One vote per concept (signal-line cross, zero cross), like MultiRSI:
+        # three parameter sets agreeing is one observation. Each concept keeps
+        # the side most sets agree on; a tie means conflicting evidence and
+        # emits nothing. Graded plain, so a non-standard cross never outscores
+        # the standard (12,26,9) one.
+        crosses: dict[str, list[str]] = {"BULL": [], "BEAR": []}
+        zeros: dict[str, list[str]] = {"BULL": [], "BEAR": []}
 
         for fast, slow, sig in non_standard:
             tag = f"_{fast}_{slow}_{sig}"
@@ -282,34 +302,37 @@ class MultiMACDDetector:
             label = f"MACD({fast},{slow},{sig})"
 
             if prev_macd <= prev_sig and macd > macd_sig:  # type: ignore[operator]
-                signals.append(MutableSignal(
-                    signal=f"{label} BULL CROSS",
-                    description="MACD crossed above signal line",
-                    strength=SignalStrength.STRONG_BULLISH.value,
-                    category=SignalCategory.MACD.value,
-                ))
+                crosses["BULL"].append(label)
             elif prev_macd >= prev_sig and macd < macd_sig:  # type: ignore[operator]
-                signals.append(MutableSignal(
-                    signal=f"{label} BEAR CROSS",
-                    description="MACD crossed below signal line",
-                    strength=SignalStrength.STRONG_BEARISH.value,
-                    category=SignalCategory.MACD.value,
-                ))
+                crosses["BEAR"].append(label)
 
             if prev_macd <= 0 < macd:  # type: ignore[operator]
-                signals.append(MutableSignal(
-                    signal=f"{label} ZERO BULL",
-                    description="MACD crossed above zero",
-                    strength=SignalStrength.BULLISH.value,
-                    category=SignalCategory.MACD.value,
-                ))
+                zeros["BULL"].append(label)
             elif prev_macd >= 0 > macd:  # type: ignore[operator]
-                signals.append(MutableSignal(
-                    signal=f"{label} ZERO BEAR",
-                    description="MACD crossed below zero",
-                    strength=SignalStrength.BEARISH.value,
-                    category=SignalCategory.MACD.value,
-                ))
+                zeros["BEAR"].append(label)
+
+        for side, labels in self._winning_side(crosses):
+            bull = side == "BULL"
+            signals.append(MutableSignal(
+                signal=f"{labels[0]} {side} CROSS",
+                description=(
+                    f"MACD crossed {'above' if bull else 'below'} signal line "
+                    f"({len(labels)} parameter set(s) agree)"
+                ),
+                strength=(SignalStrength.BULLISH if bull else SignalStrength.BEARISH).value,
+                category=SignalCategory.MACD.value,
+            ))
+        for side, labels in self._winning_side(zeros):
+            bull = side == "BULL"
+            signals.append(MutableSignal(
+                signal=f"{labels[0]} ZERO {side}",
+                description=(
+                    f"MACD crossed {'above' if bull else 'below'} zero "
+                    f"({len(labels)} parameter set(s) agree)"
+                ),
+                strength=(SignalStrength.BULLISH if bull else SignalStrength.BEARISH).value,
+                category=SignalCategory.MACD.value,
+            ))
 
         return signals
 

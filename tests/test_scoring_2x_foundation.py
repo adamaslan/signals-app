@@ -80,8 +80,11 @@ class TestDetectorFixes:
         assert not any("%B" in s.signal for s in sigs)
 
     def test_rsi_collapses_to_one_oversold_vote(self):
-        sigs = MultiRSIDetector().detect(_frame(RSI=10.0, RSI_7=10.0, RSI_21=10.0))
-        assert len([s for s in sigs if "OVERSOLD" in s.signal]) == 1
+        sigs = MultiRSIDetector().detect(_frame(RSI=10.0, RSI_5=10.0, RSI_10=10.0, RSI_20=10.0))
+        oversold = [s for s in sigs if "OVERSOLD" in s.signal]
+        assert len(oversold) == 1
+        # period 14 belongs to RSISignalDetector; MultiRSI must not double-count it
+        assert not any("RSI14" in s.signal for s in oversold)
 
     def test_macd_histogram_flip_no_longer_double_counts(self):
         df = pd.DataFrame(

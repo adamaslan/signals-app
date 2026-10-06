@@ -132,7 +132,7 @@ class MovingAverageSignalDetector:
             signals.append(MutableSignal(
                 signal="MA ALIGNMENT BULLISH",
                 description="10 > 20 > 50 SMA",
-                strength=SignalStrength.STRONG_BULLISH.value,
+                strength=SignalStrength.BULLISH.value,
                 category=SignalCategory.MA_TREND.value,
             ))
 
@@ -140,7 +140,7 @@ class MovingAverageSignalDetector:
             signals.append(MutableSignal(
                 signal="MA ALIGNMENT BEARISH",
                 description="10 < 20 < 50 SMA",
-                strength=SignalStrength.STRONG_BEARISH.value,
+                strength=SignalStrength.BEARISH.value,
                 category=SignalCategory.MA_TREND.value,
             ))
 

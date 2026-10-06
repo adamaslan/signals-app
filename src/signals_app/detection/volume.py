@@ -197,7 +197,7 @@ class OBVCMFDetector:
                 signals.append(MutableSignal(
                     signal="OBV BULLISH DIVERGENCE",
                     description="Price falling but OBV rising (accumulation)",
-                    strength=SignalStrength.STRONG_BULLISH.value,
+                    strength=SignalStrength.BULLISH.value,
                     category=SignalCategory.OBV_CMF.value,
                 ))
 

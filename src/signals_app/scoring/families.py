@@ -45,7 +45,9 @@ _EXTENSION_CATEGORIES: Final[frozenset[str]] = frozenset(
     {
         SignalCategory.MA_DISTANCE.value,
         SignalCategory.BOLLINGER.value,
-        SignalCategory.BB_BREAKOUT.value,
+        # BB_BREAKOUT is deliberately absent: a bearish breakout is a *breakdown*
+        # (close below the lower band), not an overbought extension, so it must
+        # still vote in an uptrend.
     }
 )
 _OVERBOUGHT_CATEGORIES: Final[frozenset[str]] = frozenset(

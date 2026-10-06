@@ -82,6 +82,24 @@ def get_default_detectors() -> list[SignalDetector]:
     ]
 
 
+def resolve_contradictions(signals: list[MutableSignal]) -> list[MutableSignal]:
+    """Drop readings that a stronger reading on the same bar already contradicts.
+
+    ``AT UPPER BB`` (a bearish proximity read) also matches a close *above* the
+    band, so on a breakout bar one stock cast -1 and +3 in the same family.
+    A fresh band breach supersedes the "at the edge" proximity reading.
+
+    Args:
+        signals: Stamped signals for one bar (``stamp_kinds`` already run).
+
+    Returns:
+        The signals with superseded proximity readings removed.
+    """
+    if not any(s.concept == "bb_breach" for s in signals):
+        return signals
+    return [s for s in signals if s.concept != "bb_edge"]
+
+
 def detect_all_signals(
     df: pd.DataFrame,
     detectors: list[SignalDetector] | None = None,
@@ -131,6 +149,7 @@ def detect_all_signals(
             timings_ms[name] = round((time.perf_counter() - started) * 1000, 2)
 
     stamp_kinds(signals)
+    signals = resolve_contradictions(signals)
     degraded = failure_count >= max_failures
 
     if degraded:
