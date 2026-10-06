@@ -31,6 +31,10 @@ DEFAULT_SPLITS = 5
 DEFAULT_HOLDOUT_MONTHS = 12
 MIN_HOLDOUT_ROWS = 200
 TARGET_PUBLISH_RATE = 0.40
+# Spec §8.3 P8: rung 3 must beat rung 2 by this much out-of-fold AUC or it is dropped, and an
+# AUC this high on a daily-return label is a leakage signal, not a win (FIBONACCI.md §11.13).
+RUNG3_MIN_AUC_GAIN = 0.005
+LEAKAGE_AUC_RED_FLAG = 0.60
 
 
 @dataclass
@@ -44,6 +48,40 @@ class TrainResult:
     holdout_reliability_gap: float
     ship_bar_met: bool
     ship_bar_failures: list[str] = field(default_factory=list)
+    oof_auc: float = math.nan
+
+
+def auc_score(outcome: np.ndarray, score: np.ndarray) -> float:
+    """Area under the ROC curve via ranks (Mann-Whitney); NaN when one class is missing."""
+    y = np.asarray(outcome, dtype=float)
+    positive = y == 1.0
+    n_pos, n_neg = int(positive.sum()), int((~positive).sum())
+    if n_pos == 0 or n_neg == 0:
+        return math.nan
+    ranks = pd.Series(np.asarray(score, dtype=float)).rank(method="average").to_numpy()
+    return float((ranks[positive].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+
+
+def rung3_failures(rung2: TrainResult, rung3: TrainResult) -> list[str]:
+    """Why rung 3 should not replace rung 2 (empty means adopt).
+
+    Requires the rung-3 model to clear the ship bar itself, to beat rung 2's
+    out-of-fold AUC by RUNG3_MIN_AUC_GAIN, and to stay under the leakage red flag.
+    """
+    failures: list[str] = []
+    if not rung3.ship_bar_met:
+        failures.append("rung3 misses the absolute ship bar")
+    if math.isnan(rung2.oof_auc) or math.isnan(rung3.oof_auc):
+        failures.append("AUC unavailable for one rung")
+        return failures
+    gain = rung3.oof_auc - rung2.oof_auc
+    if gain < RUNG3_MIN_AUC_GAIN:
+        failures.append(f"AUC gain {gain:+.4f} < {RUNG3_MIN_AUC_GAIN}: drop the graded features")
+    if rung3.oof_auc > LEAKAGE_AUC_RED_FLAG:
+        failures.append(
+            f"OOF AUC {rung3.oof_auc:.3f} > {LEAKAGE_AUC_RED_FLAG}: likely leakage, re-check causality"
+        )
+    return failures
 
 
 def ship_bar_failures(report: EvalReport, regime_ic: pd.DataFrame, horizon: int) -> list[str]:
@@ -90,6 +128,7 @@ def train_scorer(
     holdout_months: int = DEFAULT_HOLDOUT_MONTHS,
     model_version: str | None = None,
     features: tuple[str, ...] | None = None,
+    extra_metrics: dict[str, Any] | None = None,
 ) -> TrainResult:
     """Cross-validate, calibrate, fit the final model and score the holdout once.
 
@@ -104,6 +143,8 @@ def train_scorer(
         model_version: Version stamp; defaults to a timestamped id.
         features: Explicit column list overriding ``feature_set`` (used by the
             timeframe stacker, whose inputs are per-interval probabilities).
+        extra_metrics: Merged into the scorer's metrics (e.g. the evidence version a
+            rung-3 panel was built with, which the scan checks).
 
     Raises:
         ValueError: If no fold could be fitted.
@@ -122,6 +163,7 @@ def train_scorer(
     regime_ic = ic_by_regime(scored)
 
     outcome = (scored["fwd_excess"] > 0).astype(float).to_numpy()
+    oof_auc = auc_score(outcome, scored["score"].to_numpy())
     calibrator = IsotonicCalibrator.fit(scored["score"].to_numpy(), outcome)
     excess_map = IsotonicCalibrator.fit(scored["score"].to_numpy(), scored["fwd_excess"].to_numpy())
 
@@ -163,9 +205,13 @@ def train_scorer(
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "n_rows": int(len(data)),
         "n_symbols": int(data["symbol"].nunique()) if "symbol" in data else None,
+        "oof_auc": None if math.isnan(oof_auc) else oof_auc,
+        **(extra_metrics or {}),
     }
     scorer = final.with_calibration(calibrator, excess_map, metrics)
-    return TrainResult(scorer, oof_report, regime_ic, holdout_report, holdout_gap, not failures, failures)
+    return TrainResult(
+        scorer, oof_report, regime_ic, holdout_report, holdout_gap, not failures, failures, oof_auc
+    )
 
 
 def adopt_richer_rung(simple: EvalReport, richer: EvalReport) -> bool:

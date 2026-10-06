@@ -42,9 +42,15 @@ from backtests.stacking import (  # noqa: E402
     interval_oof,
     stack_beats_base,
 )
-from backtests.train import TrainResult, adopt_richer_rung, train_scorer  # noqa: E402
+from backtests.train import (  # noqa: E402
+    TrainResult,
+    adopt_richer_rung,
+    rung3_failures,
+    train_scorer,
+)
 from signals_app.config import get_settings  # noqa: E402
 from signals_app.data.fetcher import DataFetcher  # noqa: E402
+from signals_app.scoring.evidence import load_evidence  # noqa: E402
 from signals_app.scoring.model import DEFAULT_MODEL_PATH  # noqa: E402
 from signals_app.scoring.mtf import STACK_FEATURES  # noqa: E402
 from signals_app.scoring.regime import regime_series  # noqa: E402
@@ -60,10 +66,11 @@ EXIT_NOT_PUBLISHED = 3  # ship bar missed / too few symbols: expected, not an er
 
 def _symbol_worker(args: tuple) -> dict[str, pd.DataFrame]:
     """Fetch one symbol and build its daily (+ optional weekly/monthly) panels."""
-    symbol, benchmark, regimes, horizons, step, period, stack = args
+    symbol, benchmark, regimes, horizons, step, period, stack, graded = args
     try:
         ohlcv = DataFetcher(settings=get_settings()).fetch_daily_history(symbol, period)
-        panels = {"daily": build_symbol_panel(symbol, ohlcv, benchmark, regimes, horizons=horizons, step=step)}
+        panels = {"daily": build_symbol_panel(symbol, ohlcv, benchmark, regimes, horizons=horizons,
+                                              step=step, include_graded=graded)}
         if stack:
             for interval in ("weekly", "monthly"):
                 panels[interval] = build_interval_panel(symbol, interval, ohlcv, benchmark, regimes)
@@ -75,9 +82,9 @@ def _symbol_worker(args: tuple) -> dict[str, pd.DataFrame]:
 
 def gather_panels(
     symbols: list[str], benchmark: pd.DataFrame, regimes: pd.Series, horizons: tuple[int, ...],
-    step: int, period: str, workers: int, stack: bool,
+    step: int, period: str, workers: int, stack: bool, graded: bool = False,
 ) -> dict[str, pd.DataFrame]:
-    jobs = [(s, benchmark, regimes, horizons, step, period, stack) for s in symbols]
+    jobs = [(s, benchmark, regimes, horizons, step, period, stack, graded) for s in symbols]
     collected: dict[str, list[pd.DataFrame]] = {}
     with ProcessPoolExecutor(max_workers=workers) as pool:
         for done, panels in enumerate(pool.map(_symbol_worker, jobs), 1):
@@ -155,6 +162,11 @@ def main() -> int:
     ap.add_argument("--publish", action="store_true", help="also activate the model in Supabase")
     ap.add_argument("--force", action="store_true", help="write/publish even if the ship bar is missed")
     ap.add_argument("--stack", action="store_true", help="also train the timeframe meta-model (P6)")
+    ap.add_argument(
+        "--rung3", action="store_true",
+        help="also train rung 3 (graded-ranker features). Adopted only if it clears the ship bar, "
+             "beats rung 2 by >= 0.005 OOF AUC and stays under the 0.60 leakage red flag. Builds the "
+             "panel with the experimental detectors, so it is slower; ignores --cache.")
     args = ap.parse_args()
 
     symbols = load_symbols(args.seed, args.limit, args.asset_type)
@@ -162,11 +174,12 @@ def main() -> int:
     benchmark = fetcher.fetch_daily_history(BENCHMARK_SYMBOL, args.period)
     regimes = regime_series(benchmark)
 
-    if args.cache and args.cache.exists() and not args.stack:
+    if args.cache and args.cache.exists() and not args.stack and not args.rung3:
         panels = {"daily": pd.read_csv(args.cache, parse_dates=["date"])}
     else:
-        panels = gather_panels(symbols, benchmark, regimes, (5, 20, 60), args.step, args.period, args.workers, args.stack)
-        if args.cache and "daily" in panels:
+        panels = gather_panels(symbols, benchmark, regimes, (5, 20, 60), args.step, args.period,
+                               args.workers, args.stack, graded=args.rung3)
+        if args.cache and "daily" in panels and not args.rung3:
             panels["daily"].to_csv(args.cache, index=False)
     daily = panels["daily"]
     n_symbols = int(daily["symbol"].nunique())
@@ -177,6 +190,17 @@ def main() -> int:
         for name in ("rung1", "rung2")
     }
     chosen = "rung2" if adopt_richer_rung(results["rung1"].oof_report, results["rung2"].oof_report) else "rung1"
+    if args.rung3:
+        results["rung3"] = train_scorer(
+            daily, args.horizon, "rung3", args.step, args.splits, args.holdout_months,
+            extra_metrics={"evidence_version": load_evidence().version},
+        )
+        blockers = rung3_failures(results[chosen], results["rung3"])
+        print("rung3 adopted" if not blockers else "rung3 NOT adopted:")
+        for reason in blockers:
+            print(f"  - {reason}")
+        if not blockers:
+            chosen = "rung3"
     winner = results[chosen]
     forced = args.force and not winner.ship_bar_met
 

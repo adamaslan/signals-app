@@ -119,6 +119,10 @@ class GradedConfluenceResult(ConfluenceResult):
         live_sides: Sides (+1 / -1) that have a live event; with the two counts
             above this is everything ``decide_action`` needs to re-decide a
             stored result under different thresholds.
+        events_bull: Fired bullish events after collapsing, whether or not they vote.
+        events_bear: Fired bearish events after collapsing.
+        state_pressure: Largest per-family, per-side standing-state total *before*
+            the budget cap, as a multiple of the budget (above 1.0 means capped).
     """
 
     events: int = 0
@@ -135,6 +139,9 @@ class GradedConfluenceResult(ConfluenceResult):
     bull_families: int = 0
     bear_families: int = 0
     live_sides: list[int] = field(default_factory=list)
+    events_bull: int = 0
+    events_bear: int = 0
+    state_pressure: float = 0.0
 
     def to_dict(self) -> dict:
         """Serialize, extending the base payload."""
@@ -146,6 +153,8 @@ class GradedConfluenceResult(ConfluenceResult):
             ranker_version=self.ranker_version, evidence_version=self.evidence_version,
             unclassified=self.unclassified, bull_families=self.bull_families,
             bear_families=self.bear_families, live_sides=self.live_sides,
+            events_bull=self.events_bull, events_bear=self.events_bear,
+            state_pressure=self.state_pressure,
         )
         return payload
 
@@ -158,6 +167,11 @@ class GradedConfluenceRanker:
     ) -> None:
         self._evidence = evidence if evidence is not None else load_evidence()
         self._thresholds = thresholds if thresholds is not None else DEFAULT_THRESHOLDS
+
+    @property
+    def evidence_version(self) -> str:
+        """Version of the evidence table this ranker scores with."""
+        return self._evidence.version
 
     def rank_signals(
         self,
@@ -184,6 +198,7 @@ class GradedConfluenceRanker:
         tally.fired = votes
         votes = self._amplify(votes, tally.volume_spike)
         votes += self._decayed_events(votes, prior_bars or [], regime)
+        tally.state_pressure = self._state_pressure(votes)
         votes = self._budget_states(votes)
         return self._finish(votes, signals, regime, tally, df)
 
@@ -266,6 +281,15 @@ class GradedConfluenceRanker:
         return decayed
 
     @staticmethod
+    def _state_pressure(votes: list[_Vote]) -> float:
+        """Largest per-family, per-side S + P total, as a multiple of the budget."""
+        totals: dict[tuple[str, int], float] = defaultdict(float)
+        for vote in votes:
+            if vote.kind in _STANDING_KINDS:
+                totals[(vote.family, vote.side)] += vote.points
+        return max(totals.values(), default=0.0) / STATE_BUDGET_PER_SIDE
+
+    @staticmethod
     def _budget_states(votes: list[_Vote]) -> list[_Vote]:
         """Step 6: S + P points per family and side are capped, scaled proportionally."""
         totals: dict[tuple[str, int], float] = defaultdict(float)
@@ -326,6 +350,9 @@ class GradedConfluenceRanker:
             evidence_version=self._evidence.version, unclassified=tally.unclassified,
             bull_families=bull_families, bear_families=bear_families,
             live_sides=sorted(live_side),
+            events_bull=sum(1 for v in fired if v.kind in _EVENT_KINDS and v.side > 0),
+            events_bear=sum(1 for v in fired if v.kind in _EVENT_KINDS and v.side < 0),
+            state_pressure=round(tally.state_pressure, 4),
         )
 
 
@@ -336,4 +363,5 @@ class _Tally:
     unclassified: int = 0
     gated: int = 0
     volume_spike: bool = False
+    state_pressure: float = 0.0
     fired: list[_Vote] = field(default_factory=list)

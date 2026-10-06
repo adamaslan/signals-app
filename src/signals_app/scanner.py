@@ -52,7 +52,11 @@ from signals_app.indicators.data_quality import score_data_quality
 from signals_app.scoring.calibration import load_strength_hit_rates_from_supabase
 from signals_app.scoring.confluence import ConfluenceRanker, ConfluenceResult
 from signals_app.scoring.evidence import load_evidence
-from signals_app.scoring.features import build_feature_row, continuous_features_frame
+from signals_app.scoring.features import (
+    build_feature_row,
+    build_feature_row_rung3,
+    continuous_features_frame,
+)
 from signals_app.scoring.graded import GradedConfluenceRanker
 from signals_app.scoring.production import ProductionRanker, build_production_ranker
 from signals_app.scoring.model import LogisticScorer, confidence_label, load_active_scorer
@@ -400,11 +404,35 @@ def _snapshot(current: Any) -> dict[str, float]:
     return snapshot
 
 
+def _rung3_row(
+    scorer: LogisticScorer, df: Any, signal_list: Any, continuous: Any, regime: str | None,
+) -> dict[str, float]:
+    """Rung-3 features for the scan, refusing a model built on different evidence.
+
+    The evidence table decides what each graded family net contains, so a model
+    trained under one table and scored under another would silently read shifted
+    features. Raising here fails the symbol loudly rather than mis-scoring it.
+    """
+    ranker = _graded_ranker()
+    trained_on = scorer.metrics.get("evidence_version")
+    current = ranker.evidence_version
+    if trained_on != current:
+        raise ValueError(
+            f"rung3 model {scorer.model_version} was trained on evidence {trained_on!r} "
+            f"but the scan uses {current!r}"
+        )
+    extended = [*signal_list, *detect_all_signals(df, get_experimental_detectors())]
+    return build_feature_row_rung3(list(signal_list), extended, continuous, regime, df, ranker)
+
+
 def _model_score(
     scorer: LogisticScorer, df: Any, signal_list: Any, market: MarketContext
 ) -> ModelScore:
     continuous = continuous_features_frame(df, market.benchmark_close).iloc[-1]
-    row = build_feature_row(list(signal_list), continuous, market.regime)
+    if scorer.feature_set == "rung3":
+        row = _rung3_row(scorer, df, signal_list, continuous, market.regime)
+    else:
+        row = build_feature_row(list(signal_list), continuous, market.regime)
     X = scorer.matrix([row])
     raw = float(scorer.raw_proba(X)[0])
     p = float(scorer.predict_proba(X)[0])

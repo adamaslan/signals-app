@@ -43,7 +43,7 @@ class LogisticScorer:
         coef / intercept: Logistic parameters over standardised features.
         horizon_days: Forward horizon the label was built on.
         model_version: Identifier stamped on every prediction's provenance.
-        feature_set: ``rung1`` or ``rung2`` (see ``scoring.features``).
+        feature_set: ``rung1``, ``rung2`` or ``rung3`` (see ``scoring.features``).
         calibrator: Isotonic map from raw probability to observed frequency.
         excess_map: Isotonic map from raw probability to mean forward excess return.
         metrics: Out-of-sample metrics recorded at training time.

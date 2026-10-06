@@ -16,9 +16,14 @@ import pandas as pd
 from backtests.engine import excess_target
 from signals_app.config import MIN_HISTORICAL_LOOKBACK
 from signals_app.detection.base import MutableSignal
-from signals_app.detection.orchestrator import get_default_detectors
+from signals_app.detection.orchestrator import get_default_detectors, get_experimental_detectors
 from signals_app.indicators.compute import compute_indicators
-from signals_app.scoring.features import build_feature_row, continuous_features_frame
+from signals_app.scoring.features import (
+    build_feature_row,
+    build_feature_row_rung3,
+    continuous_features_frame,
+)
+from signals_app.scoring.graded import GradedConfluenceRanker
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,8 @@ def build_symbol_panel(
     step: int = DEFAULT_SAMPLE_STEP,
     min_lookback: int = MIN_HISTORICAL_LOOKBACK,
     detectors: list | None = None,
+    include_graded: bool = False,
+    graded_ranker: GradedConfluenceRanker | None = None,
 ) -> pd.DataFrame:
     """One row per sampled bar for one symbol.
 
@@ -59,6 +66,13 @@ def build_symbol_panel(
         step: Sample every ``step``-th bar (detector calls dominate runtime).
         min_lookback: Warm-up bars skipped before the first sample.
         detectors: Override the default detector set.
+        include_graded: Also compute the rung-3 graded features (runs the
+            experimental detectors on every sampled bar, so it is slower). The
+            rung-1 and rung-2 columns are identical either way.
+        graded_ranker: Ranker for the graded features; the committed baseline
+            evidence table when None. Its evidence version must match the one the
+            scan uses, because the evidence table decides what each family net
+            contains (the scan refuses a rung-3 model on a mismatch).
 
     Returns:
         Frame with ``date``, ``symbol``, ``regime``, every rung-2 feature, and
@@ -81,11 +95,20 @@ def build_symbol_panel(
         bench_fwd = bench_close.shift(-h) / bench_close - 1.0
         labels[f"fwd_excess_{h}"] = fwd - bench_fwd
 
+    experimental = get_experimental_detectors() if include_graded else []
+    graded = (graded_ranker or GradedConfluenceRanker()) if include_graded else None
     rows: list[dict] = []
     for pos in range(min_lookback, len(df), max(step, 1)):
         regime = regime_at.iloc[pos]
         regime = regime if isinstance(regime, str) else None
-        row = build_feature_row(_signals_at(df, pos, detectors), cont.iloc[pos], regime)
+        signals = _signals_at(df, pos, detectors)
+        if graded is None:
+            row = build_feature_row(signals, cont.iloc[pos], regime)
+        else:
+            extended = signals + _signals_at(df, pos, experimental)
+            row = build_feature_row_rung3(
+                signals, extended, cont.iloc[pos], regime, df.iloc[: pos + 1], graded
+            )
         row.update({"date": df.index[pos], "symbol": symbol, "regime": regime})
         for h in horizons:
             excess = labels[f"fwd_excess_{h}"].iloc[pos]
