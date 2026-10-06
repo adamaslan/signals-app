@@ -1,0 +1,5815 @@
+{
+  "version": "2026-10-06",
+  "code_version": "signals-app@1.3.0",
+  "default_E": 0.0,
+  "params": {
+    "horizon": 21,
+    "step": 3,
+    "holdout_bars": 252,
+    "min_n": 300,
+    "min_z": 1.5,
+    "ref_edge_pp": 2.0
+  },
+  "baseline": {
+    "hit_rate_up": 0.5379,
+    "bars": 136709
+  },
+  "K": {
+    "X": 1.0,
+    "T": 0.6,
+    "S": 0.25,
+    "P": 0.15,
+    "C": 0.0,
+    "fitted": false
+  },
+  "labels": {
+    "10/100 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1212,
+        "tickers": 690,
+        "hit_rate": 0.4662,
+        "baseline": 0.4608,
+        "edge_pp": 0.532,
+        "z": 0.372
+      },
+      "holdout": {
+        "n": 374,
+        "tickers": 328,
+        "hit_rate": 0.4358,
+        "baseline": 0.487,
+        "edge_pp": -5.121,
+        "z": -1.981
+      }
+    },
+    "10/100 MA BULL CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1249,
+        "tickers": 696,
+        "hit_rate": 0.5596,
+        "baseline": 0.5379,
+        "edge_pp": 2.17,
+        "z": 1.538
+      },
+      "holdout": {
+        "n": 368,
+        "tickers": 322,
+        "hit_rate": 0.5217,
+        "baseline": 0.512,
+        "edge_pp": 0.974,
+        "z": 0.374
+      }
+    },
+    "10/20 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 3562,
+        "tickers": 891,
+        "hit_rate": 0.4688,
+        "baseline": 0.4608,
+        "edge_pp": 0.799,
+        "z": 0.957
+      },
+      "holdout": {
+        "n": 1112,
+        "tickers": 691,
+        "hit_rate": 0.5126,
+        "baseline": 0.487,
+        "edge_pp": 2.555,
+        "z": 1.705
+      }
+    },
+    "10/20 MA BULL CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 3421,
+        "tickers": 882,
+        "hit_rate": 0.5592,
+        "baseline": 0.5379,
+        "edge_pp": 2.125,
+        "z": 2.493
+      },
+      "holdout": {
+        "n": 1120,
+        "tickers": 692,
+        "hit_rate": 0.5143,
+        "baseline": 0.512,
+        "edge_pp": 0.228,
+        "z": 0.153
+      }
+    },
+    "10/50 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1722,
+        "tickers": 774,
+        "hit_rate": 0.4454,
+        "baseline": 0.4608,
+        "edge_pp": -1.544,
+        "z": -1.285
+      },
+      "holdout": {
+        "n": 582,
+        "tickers": 470,
+        "hit_rate": 0.4914,
+        "baseline": 0.487,
+        "edge_pp": 0.437,
+        "z": 0.211
+      }
+    },
+    "10/50 MA BULL CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1783,
+        "tickers": 789,
+        "hit_rate": 0.5721,
+        "baseline": 0.5379,
+        "edge_pp": 3.412,
+        "z": 2.89
+      },
+      "holdout": {
+        "n": 518,
+        "tickers": 426,
+        "hit_rate": 0.5174,
+        "baseline": 0.512,
+        "edge_pp": 0.537,
+        "z": 0.245
+      }
+    },
+    "20/100 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 975,
+        "tickers": 627,
+        "hit_rate": 0.4892,
+        "baseline": 0.4608,
+        "edge_pp": 2.838,
+        "z": 1.778
+      },
+      "holdout": {
+        "n": 313,
+        "tickers": 282,
+        "hit_rate": 0.4345,
+        "baseline": 0.487,
+        "edge_pp": -5.253,
+        "z": -1.859
+      }
+    },
+    "20/100 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 984,
+        "tickers": 614,
+        "hit_rate": 0.5295,
+        "baseline": 0.5379,
+        "edge_pp": -0.847,
+        "z": -0.533
+      },
+      "holdout": {
+        "n": 287,
+        "tickers": 258,
+        "hit_rate": 0.5192,
+        "baseline": 0.512,
+        "edge_pp": 0.716,
+        "z": 0.243
+      }
+    },
+    "20/200 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 589,
+        "tickers": 441,
+        "hit_rate": 0.4805,
+        "baseline": 0.4608,
+        "edge_pp": 1.963,
+        "z": 0.956
+      },
+      "holdout": {
+        "n": 186,
+        "tickers": 176,
+        "hit_rate": 0.4409,
+        "baseline": 0.487,
+        "edge_pp": -4.618,
+        "z": -1.26
+      }
+    },
+    "20/200 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 640,
+        "tickers": 479,
+        "hit_rate": 0.5062,
+        "baseline": 0.5379,
+        "edge_pp": -3.17,
+        "z": -1.608
+      },
+      "holdout": {
+        "n": 139,
+        "tickers": 131,
+        "hit_rate": 0.6187,
+        "baseline": 0.512,
+        "edge_pp": 10.67,
+        "z": 2.517
+      }
+    },
+    "20/50 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1487,
+        "tickers": 744,
+        "hit_rate": 0.4607,
+        "baseline": 0.4608,
+        "edge_pp": -0.019,
+        "z": -0.015
+      },
+      "holdout": {
+        "n": 478,
+        "tickers": 407,
+        "hit_rate": 0.5063,
+        "baseline": 0.487,
+        "edge_pp": 1.924,
+        "z": 0.841
+      }
+    },
+    "20/50 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 1521,
+        "tickers": 757,
+        "hit_rate": 0.5398,
+        "baseline": 0.5379,
+        "edge_pp": 0.183,
+        "z": 0.143
+      },
+      "holdout": {
+        "n": 499,
+        "tickers": 419,
+        "hit_rate": 0.5511,
+        "baseline": 0.512,
+        "edge_pp": 3.91,
+        "z": 1.747
+      }
+    },
+    "5/10 MA BEAR CROSS": {
+      "E": 0.731,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 6398,
+        "tickers": 911,
+        "hit_rate": 0.4755,
+        "baseline": 0.4608,
+        "edge_pp": 1.461,
+        "z": 2.345
+      },
+      "holdout": {
+        "n": 2056,
+        "tickers": 873,
+        "hit_rate": 0.4966,
+        "baseline": 0.487,
+        "edge_pp": 0.956,
+        "z": 0.867
+      }
+    },
+    "5/10 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 6278,
+        "tickers": 907,
+        "hit_rate": 0.5421,
+        "baseline": 0.5379,
+        "edge_pp": 0.411,
+        "z": 0.653
+      },
+      "holdout": {
+        "n": 2036,
+        "tickers": 878,
+        "hit_rate": 0.5083,
+        "baseline": 0.512,
+        "edge_pp": -0.365,
+        "z": -0.33
+      }
+    },
+    "5/20 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 4050,
+        "tickers": 896,
+        "hit_rate": 0.4696,
+        "baseline": 0.4608,
+        "edge_pp": 0.878,
+        "z": 1.121
+      },
+      "holdout": {
+        "n": 1284,
+        "tickers": 717,
+        "hit_rate": 0.5008,
+        "baseline": 0.487,
+        "edge_pp": 1.374,
+        "z": 0.985
+      }
+    },
+    "5/20 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 3914,
+        "tickers": 898,
+        "hit_rate": 0.5618,
+        "baseline": 0.5379,
+        "edge_pp": 2.388,
+        "z": 2.997
+      },
+      "holdout": {
+        "n": 1249,
+        "tickers": 732,
+        "hit_rate": 0.5076,
+        "baseline": 0.512,
+        "edge_pp": -0.439,
+        "z": -0.311
+      }
+    },
+    "5/50 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 2223,
+        "tickers": 831,
+        "hit_rate": 0.4593,
+        "baseline": 0.4608,
+        "edge_pp": -0.156,
+        "z": -0.147
+      },
+      "holdout": {
+        "n": 768,
+        "tickers": 556,
+        "hit_rate": 0.4818,
+        "baseline": 0.487,
+        "edge_pp": -0.527,
+        "z": -0.292
+      }
+    },
+    "5/50 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 2186,
+        "tickers": 838,
+        "hit_rate": 0.5581,
+        "baseline": 0.5379,
+        "edge_pp": 2.015,
+        "z": 1.89
+      },
+      "holdout": {
+        "n": 700,
+        "tickers": 509,
+        "hit_rate": 0.5029,
+        "baseline": 0.512,
+        "edge_pp": -0.914,
+        "z": -0.484
+      }
+    },
+    "50/100 MA BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 740,
+        "tickers": 535,
+        "hit_rate": 0.477,
+        "baseline": 0.4608,
+        "edge_pp": 1.618,
+        "z": 0.883
+      },
+      "holdout": {
+        "n": 197,
+        "tickers": 183,
+        "hit_rate": 0.4162,
+        "baseline": 0.487,
+        "edge_pp": -7.08,
+        "z": -1.988
+      }
+    },
+    "50/100 MA BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 844,
+        "tickers": 576,
+        "hit_rate": 0.5249,
+        "baseline": 0.5379,
+        "edge_pp": -1.306,
+        "z": -0.761
+      },
+      "holdout": {
+        "n": 201,
+        "tickers": 190,
+        "hit_rate": 0.4975,
+        "baseline": 0.512,
+        "edge_pp": -1.449,
+        "z": -0.411
+      }
+    },
+    ">10% ABOVE 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 1502,
+        "tickers": 724,
+        "hit_rate": 0.5166,
+        "baseline": 0.4608,
+        "edge_pp": 5.58,
+        "z": 4.338
+      },
+      "holdout": {
+        "n": 318,
+        "tickers": 276,
+        "hit_rate": 0.4969,
+        "baseline": 0.487,
+        "edge_pp": 0.982,
+        "z": 0.35
+      }
+    },
+    ">10% ABOVE 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 5266,
+        "tickers": 868,
+        "hit_rate": 0.4468,
+        "baseline": 0.4608,
+        "edge_pp": -1.402,
+        "z": -2.041
+      },
+      "holdout": {
+        "n": 1709,
+        "tickers": 658,
+        "hit_rate": 0.4751,
+        "baseline": 0.487,
+        "edge_pp": -1.191,
+        "z": -0.985
+      }
+    },
+    ">10% ABOVE 20SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 630,
+        "tickers": 360,
+        "hit_rate": 0.3921,
+        "baseline": 0.4608,
+        "edge_pp": -6.878,
+        "z": -3.464
+      },
+      "holdout": {
+        "n": 200,
+        "tickers": 168,
+        "hit_rate": 0.6,
+        "baseline": 0.487,
+        "edge_pp": 11.296,
+        "z": 3.196
+      }
+    },
+    ">10% ABOVE 50SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 1297,
+        "tickers": 672,
+        "hit_rate": 0.5274,
+        "baseline": 0.4608,
+        "edge_pp": 6.652,
+        "z": 4.806
+      },
+      "holdout": {
+        "n": 331,
+        "tickers": 292,
+        "hit_rate": 0.5287,
+        "baseline": 0.487,
+        "edge_pp": 4.166,
+        "z": 1.516
+      }
+    },
+    ">10% BELOW 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 1260,
+        "tickers": 671,
+        "hit_rate": 0.5889,
+        "baseline": 0.5379,
+        "edge_pp": 5.094,
+        "z": 3.627
+      },
+      "holdout": {
+        "n": 477,
+        "tickers": 379,
+        "hit_rate": 0.522,
+        "baseline": 0.512,
+        "edge_pp": 1.001,
+        "z": 0.437
+      }
+    },
+    ">10% BELOW 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 3667,
+        "tickers": 816,
+        "hit_rate": 0.5361,
+        "baseline": 0.5379,
+        "edge_pp": -0.181,
+        "z": -0.22
+      },
+      "holdout": {
+        "n": 1065,
+        "tickers": 484,
+        "hit_rate": 0.5052,
+        "baseline": 0.512,
+        "edge_pp": -0.684,
+        "z": -0.446
+      }
+    },
+    ">10% BELOW 20SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 509,
+        "tickers": 305,
+        "hit_rate": 0.499,
+        "baseline": 0.5379,
+        "edge_pp": -3.893,
+        "z": -1.762
+      },
+      "holdout": {
+        "n": 214,
+        "tickers": 177,
+        "hit_rate": 0.5234,
+        "baseline": 0.512,
+        "edge_pp": 1.136,
+        "z": 0.333
+      }
+    },
+    ">10% BELOW 50SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 858,
+        "tickers": 518,
+        "hit_rate": 0.5373,
+        "baseline": 0.5379,
+        "edge_pp": -0.065,
+        "z": -0.038
+      },
+      "holdout": {
+        "n": 373,
+        "tickers": 312,
+        "hit_rate": 0.5818,
+        "baseline": 0.512,
+        "edge_pp": 6.977,
+        "z": 2.696
+      }
+    },
+    ">15% ABOVE 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 915,
+        "tickers": 526,
+        "hit_rate": 0.5005,
+        "baseline": 0.4608,
+        "edge_pp": 3.97,
+        "z": 2.409
+      },
+      "holdout": {
+        "n": 215,
+        "tickers": 184,
+        "hit_rate": 0.5302,
+        "baseline": 0.487,
+        "edge_pp": 4.319,
+        "z": 1.267
+      }
+    },
+    ">15% ABOVE 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 4067,
+        "tickers": 830,
+        "hit_rate": 0.4475,
+        "baseline": 0.4608,
+        "edge_pp": -1.334,
+        "z": -1.707
+      },
+      "holdout": {
+        "n": 1355,
+        "tickers": 570,
+        "hit_rate": 0.4945,
+        "baseline": 0.487,
+        "edge_pp": 0.743,
+        "z": 0.547
+      }
+    },
+    ">15% ABOVE 50SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 641,
+        "tickers": 399,
+        "hit_rate": 0.5055,
+        "baseline": 0.4608,
+        "edge_pp": 4.461,
+        "z": 2.266
+      },
+      "holdout": {
+        "n": 203,
+        "tickers": 187,
+        "hit_rate": 0.5665,
+        "baseline": 0.487,
+        "edge_pp": 7.946,
+        "z": 2.265
+      }
+    },
+    ">15% BELOW 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 701,
+        "tickers": 443,
+        "hit_rate": 0.5906,
+        "baseline": 0.5379,
+        "edge_pp": 5.264,
+        "z": 2.795
+      },
+      "holdout": {
+        "n": 308,
+        "tickers": 253,
+        "hit_rate": 0.539,
+        "baseline": 0.512,
+        "edge_pp": 2.696,
+        "z": 0.947
+      }
+    },
+    ">15% BELOW 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 2725,
+        "tickers": 715,
+        "hit_rate": 0.5519,
+        "baseline": 0.5379,
+        "edge_pp": 1.398,
+        "z": 1.464
+      },
+      "holdout": {
+        "n": 868,
+        "tickers": 401,
+        "hit_rate": 0.485,
+        "baseline": 0.512,
+        "edge_pp": -2.698,
+        "z": -1.59
+      }
+    },
+    ">15% BELOW 50SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 386,
+        "tickers": 274,
+        "hit_rate": 0.5,
+        "baseline": 0.5379,
+        "edge_pp": -3.795,
+        "z": -1.495
+      },
+      "holdout": {
+        "n": 192,
+        "tickers": 161,
+        "hit_rate": 0.6042,
+        "baseline": 0.512,
+        "edge_pp": 9.217,
+        "z": 2.555
+      }
+    },
+    ">20% ABOVE 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 850,
+        "tickers": 431,
+        "hit_rate": 0.5341,
+        "baseline": 0.4608,
+        "edge_pp": 7.327,
+        "z": 4.286
+      },
+      "holdout": {
+        "n": 227,
+        "tickers": 188,
+        "hit_rate": 0.4978,
+        "baseline": 0.487,
+        "edge_pp": 1.076,
+        "z": 0.324
+      }
+    },
+    ">20% ABOVE 200SMA": {
+      "E": 0.908,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 5311,
+        "tickers": 764,
+        "hit_rate": 0.479,
+        "baseline": 0.4608,
+        "edge_pp": 1.816,
+        "z": 2.655
+      },
+      "holdout": {
+        "n": 2193,
+        "tickers": 567,
+        "hit_rate": 0.4929,
+        "baseline": 0.487,
+        "edge_pp": 0.589,
+        "z": 0.552
+      }
+    },
+    ">20% ABOVE 50SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 512,
+        "tickers": 311,
+        "hit_rate": 0.5527,
+        "baseline": 0.4608,
+        "edge_pp": 9.189,
+        "z": 4.171
+      },
+      "holdout": {
+        "n": 169,
+        "tickers": 152,
+        "hit_rate": 0.5799,
+        "baseline": 0.487,
+        "edge_pp": 9.284,
+        "z": 2.415
+      }
+    },
+    ">20% BELOW 100SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 529,
+        "tickers": 308,
+        "hit_rate": 0.5652,
+        "baseline": 0.5379,
+        "edge_pp": 2.727,
+        "z": 1.258
+      },
+      "holdout": {
+        "n": 234,
+        "tickers": 176,
+        "hit_rate": 0.5427,
+        "baseline": 0.512,
+        "edge_pp": 3.073,
+        "z": 0.941
+      }
+    },
+    ">20% BELOW 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 3751,
+        "tickers": 599,
+        "hit_rate": 0.5196,
+        "baseline": 0.5379,
+        "edge_pp": -1.835,
+        "z": -2.254
+      },
+      "holdout": {
+        "n": 1511,
+        "tickers": 374,
+        "hit_rate": 0.4811,
+        "baseline": 0.512,
+        "edge_pp": -3.086,
+        "z": -2.4
+      }
+    },
+    ">5% ABOVE 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 2147,
+        "tickers": 810,
+        "hit_rate": 0.4993,
+        "baseline": 0.4608,
+        "edge_pp": 3.845,
+        "z": 3.575
+      },
+      "holdout": {
+        "n": 411,
+        "tickers": 312,
+        "hit_rate": 0.5061,
+        "baseline": 0.487,
+        "edge_pp": 1.904,
+        "z": 0.772
+      }
+    },
+    ">5% ABOVE 10SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 898,
+        "tickers": 473,
+        "hit_rate": 0.4677,
+        "baseline": 0.4608,
+        "edge_pp": 0.686,
+        "z": 0.412
+      },
+      "holdout": {
+        "n": 314,
+        "tickers": 239,
+        "hit_rate": 0.586,
+        "baseline": 0.487,
+        "edge_pp": 9.895,
+        "z": 3.508
+      }
+    },
+    ">5% ABOVE 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 5954,
+        "tickers": 864,
+        "hit_rate": 0.4399,
+        "baseline": 0.4608,
+        "edge_pp": -2.098,
+        "z": -3.247
+      },
+      "holdout": {
+        "n": 1885,
+        "tickers": 689,
+        "hit_rate": 0.4371,
+        "baseline": 0.487,
+        "edge_pp": -4.99,
+        "z": -4.335
+      }
+    },
+    ">5% ABOVE 20SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 1939,
+        "tickers": 748,
+        "hit_rate": 0.3997,
+        "baseline": 0.4608,
+        "edge_pp": -6.116,
+        "z": -5.403
+      },
+      "holdout": {
+        "n": 589,
+        "tickers": 405,
+        "hit_rate": 0.5297,
+        "baseline": 0.487,
+        "edge_pp": 4.267,
+        "z": 2.072
+      }
+    },
+    ">5% ABOVE 50SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 2230,
+        "tickers": 821,
+        "hit_rate": 0.4803,
+        "baseline": 0.4608,
+        "edge_pp": 1.942,
+        "z": 1.84
+      },
+      "holdout": {
+        "n": 549,
+        "tickers": 426,
+        "hit_rate": 0.4645,
+        "baseline": 0.487,
+        "edge_pp": -2.256,
+        "z": -1.057
+      }
+    },
+    ">5% ABOVE 5SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 324,
+        "tickers": 205,
+        "hit_rate": 0.4352,
+        "baseline": 0.4608,
+        "edge_pp": -2.566,
+        "z": -0.927
+      },
+      "holdout": {
+        "n": 133,
+        "tickers": 108,
+        "hit_rate": 0.594,
+        "baseline": 0.487,
+        "edge_pp": 10.695,
+        "z": 2.468
+      }
+    },
+    ">5% BELOW 100SMA": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 2211,
+        "tickers": 817,
+        "hit_rate": 0.5631,
+        "baseline": 0.5379,
+        "edge_pp": 2.515,
+        "z": 2.372
+      },
+      "holdout": {
+        "n": 711,
+        "tickers": 500,
+        "hit_rate": 0.5401,
+        "baseline": 0.512,
+        "edge_pp": 2.808,
+        "z": 1.498
+      }
+    },
+    ">5% BELOW 10SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 604,
+        "tickers": 353,
+        "hit_rate": 0.4834,
+        "baseline": 0.5379,
+        "edge_pp": -5.45,
+        "z": -2.687
+      },
+      "holdout": {
+        "n": 317,
+        "tickers": 251,
+        "hit_rate": 0.47,
+        "baseline": 0.512,
+        "edge_pp": -4.197,
+        "z": -1.495
+      }
+    },
+    ">5% BELOW 200SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 4706,
+        "tickers": 862,
+        "hit_rate": 0.5457,
+        "baseline": 0.5379,
+        "edge_pp": 0.774,
+        "z": 1.065
+      },
+      "holdout": {
+        "n": 1197,
+        "tickers": 525,
+        "hit_rate": 0.4954,
+        "baseline": 0.512,
+        "edge_pp": -1.66,
+        "z": -1.149
+      }
+    },
+    ">5% BELOW 20SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 1768,
+        "tickers": 726,
+        "hit_rate": 0.526,
+        "baseline": 0.5379,
+        "edge_pp": -1.193,
+        "z": -1.006
+      },
+      "holdout": {
+        "n": 696,
+        "tickers": 493,
+        "hit_rate": 0.5388,
+        "baseline": 0.512,
+        "edge_pp": 2.679,
+        "z": 1.414
+      }
+    },
+    ">5% BELOW 50SMA": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 2018,
+        "tickers": 803,
+        "hit_rate": 0.5372,
+        "baseline": 0.5379,
+        "edge_pp": -0.078,
+        "z": -0.07
+      },
+      "holdout": {
+        "n": 720,
+        "tickers": 528,
+        "hit_rate": 0.5556,
+        "baseline": 0.512,
+        "edge_pp": 4.355,
+        "z": 2.338
+      }
+    },
+    "ABOVE UPPER BB(10,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3670,
+        "tickers": 888,
+        "hit_rate": 0.5425,
+        "baseline": 0.5379,
+        "edge_pp": 0.456,
+        "z": 0.554
+      },
+      "holdout": {
+        "n": 1010,
+        "tickers": 660,
+        "hit_rate": 0.4584,
+        "baseline": 0.512,
+        "edge_pp": -5.359,
+        "z": -3.407
+      }
+    },
+    "ABOVE UPPER BB(10,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2483,
+        "tickers": 848,
+        "hit_rate": 0.53,
+        "baseline": 0.5379,
+        "edge_pp": -0.794,
+        "z": -0.794
+      },
+      "holdout": {
+        "n": 604,
+        "tickers": 466,
+        "hit_rate": 0.4884,
+        "baseline": 0.512,
+        "edge_pp": -2.359,
+        "z": -1.16
+      }
+    },
+    "ABOVE UPPER BB(10,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 444,
+        "tickers": 344,
+        "hit_rate": 0.5405,
+        "baseline": 0.5379,
+        "edge_pp": 0.259,
+        "z": 0.11
+      },
+      "holdout": {
+        "n": 128,
+        "tickers": 119,
+        "hit_rate": 0.4766,
+        "baseline": 0.512,
+        "edge_pp": -3.544,
+        "z": -0.802
+      }
+    },
+    "ABOVE UPPER BB(20,1.5)": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3073,
+        "tickers": 877,
+        "hit_rate": 0.5939,
+        "baseline": 0.5379,
+        "edge_pp": 5.594,
+        "z": 6.22
+      },
+      "holdout": {
+        "n": 843,
+        "tickers": 590,
+        "hit_rate": 0.5196,
+        "baseline": 0.512,
+        "edge_pp": 0.757,
+        "z": 0.44
+      }
+    },
+    "ABOVE UPPER BB(20,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 720,
+        "tickers": 506,
+        "hit_rate": 0.5042,
+        "baseline": 0.5379,
+        "edge_pp": -3.378,
+        "z": -1.818
+      },
+      "holdout": {
+        "n": 196,
+        "tickers": 177,
+        "hit_rate": 0.398,
+        "baseline": 0.512,
+        "edge_pp": -11.404,
+        "z": -3.194
+      }
+    },
+    "ABOVE UPPER BB(30,1.5)": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3085,
+        "tickers": 883,
+        "hit_rate": 0.5793,
+        "baseline": 0.5379,
+        "edge_pp": 4.131,
+        "z": 4.602
+      },
+      "holdout": {
+        "n": 868,
+        "tickers": 611,
+        "hit_rate": 0.5127,
+        "baseline": 0.512,
+        "edge_pp": 0.067,
+        "z": 0.04
+      }
+    },
+    "ABOVE UPPER BB(30,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2260,
+        "tickers": 836,
+        "hit_rate": 0.5451,
+        "baseline": 0.5379,
+        "edge_pp": 0.719,
+        "z": 0.685
+      },
+      "holdout": {
+        "n": 656,
+        "tickers": 490,
+        "hit_rate": 0.5259,
+        "baseline": 0.512,
+        "edge_pp": 1.391,
+        "z": 0.713
+      }
+    },
+    "ABOVE UPPER BB(30,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 984,
+        "tickers": 616,
+        "hit_rate": 0.5173,
+        "baseline": 0.5379,
+        "edge_pp": -2.067,
+        "z": -1.3
+      },
+      "holdout": {
+        "n": 327,
+        "tickers": 283,
+        "hit_rate": 0.5015,
+        "baseline": 0.512,
+        "edge_pp": -1.047,
+        "z": -0.379
+      }
+    },
+    "ABOVE UPPER BB(30,3.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 472,
+        "tickers": 373,
+        "hit_rate": 0.5339,
+        "baseline": 0.5379,
+        "edge_pp": -0.405,
+        "z": -0.176
+      },
+      "holdout": {
+        "n": 149,
+        "tickers": 139,
+        "hit_rate": 0.5034,
+        "baseline": 0.512,
+        "edge_pp": -0.865,
+        "z": -0.211
+      }
+    },
+    "ABOVE UPPER BB(50,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 7233,
+        "tickers": 907,
+        "hit_rate": 0.5211,
+        "baseline": 0.5379,
+        "edge_pp": -1.686,
+        "z": -2.876
+      },
+      "holdout": {
+        "n": 2122,
+        "tickers": 858,
+        "hit_rate": 0.4958,
+        "baseline": 0.512,
+        "edge_pp": -1.624,
+        "z": -1.497
+      }
+    },
+    "ABOVE UPPER BB(50,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 4639,
+        "tickers": 905,
+        "hit_rate": 0.5324,
+        "baseline": 0.5379,
+        "edge_pp": -0.55,
+        "z": -0.752
+      },
+      "holdout": {
+        "n": 1455,
+        "tickers": 784,
+        "hit_rate": 0.5052,
+        "baseline": 0.512,
+        "edge_pp": -0.685,
+        "z": -0.522
+      }
+    },
+    "ABOVE UPPER BB(50,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2080,
+        "tickers": 822,
+        "hit_rate": 0.5476,
+        "baseline": 0.5379,
+        "edge_pp": 0.965,
+        "z": 0.883
+      },
+      "holdout": {
+        "n": 773,
+        "tickers": 567,
+        "hit_rate": 0.5472,
+        "baseline": 0.512,
+        "edge_pp": 3.522,
+        "z": 1.959
+      }
+    },
+    "ABOVE UPPER BB(50,3.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 1120,
+        "tickers": 634,
+        "hit_rate": 0.5152,
+        "baseline": 0.5379,
+        "edge_pp": -2.277,
+        "z": -1.528
+      },
+      "holdout": {
+        "n": 402,
+        "tickers": 350,
+        "hit_rate": 0.4552,
+        "baseline": 0.512,
+        "edge_pp": -5.678,
+        "z": -2.277
+      }
+    },
+    "AT LOWER BB": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "bb_edge",
+      "fit": {
+        "n": 760,
+        "tickers": 359,
+        "hit_rate": 0.5342,
+        "baseline": 0.5379,
+        "edge_pp": -0.374,
+        "z": -0.207
+      },
+      "holdout": {
+        "n": 229,
+        "tickers": 162,
+        "hit_rate": 0.559,
+        "baseline": 0.512,
+        "edge_pp": 4.695,
+        "z": 1.421
+      }
+    },
+    "AT UPPER BB": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "bb_edge",
+      "fit": {
+        "n": 955,
+        "tickers": 412,
+        "hit_rate": 0.4419,
+        "baseline": 0.4608,
+        "edge_pp": -1.896,
+        "z": -1.176
+      },
+      "holdout": {
+        "n": 276,
+        "tickers": 170,
+        "hit_rate": 0.471,
+        "baseline": 0.487,
+        "edge_pp": -1.602,
+        "z": -0.533
+      }
+    },
+    "BB(10,1.5) RIDING UPPER BAND": {
+      "E": 1.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 2480,
+        "tickers": 839,
+        "hit_rate": 0.5815,
+        "baseline": 0.5379,
+        "edge_pp": 4.351,
+        "z": 4.346
+      },
+      "holdout": {
+        "n": 627,
+        "tickers": 467,
+        "hit_rate": 0.5136,
+        "baseline": 0.512,
+        "edge_pp": 0.156,
+        "z": 0.078
+      }
+    },
+    "BB(10,2.0) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 781,
+        "tickers": 518,
+        "hit_rate": 0.5634,
+        "baseline": 0.5379,
+        "edge_pp": 2.543,
+        "z": 1.426
+      },
+      "holdout": {
+        "n": 217,
+        "tickers": 200,
+        "hit_rate": 0.4793,
+        "baseline": 0.512,
+        "edge_pp": -3.274,
+        "z": -0.965
+      }
+    },
+    "BB(20,1.5) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 2368,
+        "tickers": 848,
+        "hit_rate": 0.5895,
+        "baseline": 0.5379,
+        "edge_pp": 5.158,
+        "z": 5.035
+      },
+      "holdout": {
+        "n": 729,
+        "tickers": 549,
+        "hit_rate": 0.5103,
+        "baseline": 0.512,
+        "edge_pp": -0.171,
+        "z": -0.093
+      }
+    },
+    "BB(30,1.5) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 2814,
+        "tickers": 862,
+        "hit_rate": 0.5697,
+        "baseline": 0.5379,
+        "edge_pp": 3.171,
+        "z": 3.374
+      },
+      "holdout": {
+        "n": 770,
+        "tickers": 555,
+        "hit_rate": 0.5104,
+        "baseline": 0.512,
+        "edge_pp": -0.161,
+        "z": -0.089
+      }
+    },
+    "BB(30,2.0) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 1597,
+        "tickers": 758,
+        "hit_rate": 0.5611,
+        "baseline": 0.5379,
+        "edge_pp": 2.311,
+        "z": 1.852
+      },
+      "holdout": {
+        "n": 465,
+        "tickers": 388,
+        "hit_rate": 0.4882,
+        "baseline": 0.512,
+        "edge_pp": -2.383,
+        "z": -1.028
+      }
+    },
+    "BB(30,2.5) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 492,
+        "tickers": 373,
+        "hit_rate": 0.4837,
+        "baseline": 0.5379,
+        "edge_pp": -5.421,
+        "z": -2.412
+      },
+      "holdout": {
+        "n": 174,
+        "tickers": 161,
+        "hit_rate": 0.5632,
+        "baseline": 0.512,
+        "edge_pp": 5.122,
+        "z": 1.352
+      }
+    },
+    "BB(50,1.5) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 6847,
+        "tickers": 906,
+        "hit_rate": 0.5226,
+        "baseline": 0.5379,
+        "edge_pp": -1.538,
+        "z": -2.553
+      },
+      "holdout": {
+        "n": 2014,
+        "tickers": 848,
+        "hit_rate": 0.5089,
+        "baseline": 0.512,
+        "edge_pp": -0.306,
+        "z": -0.275
+      }
+    },
+    "BB(50,2.0) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 3940,
+        "tickers": 897,
+        "hit_rate": 0.5406,
+        "baseline": 0.5379,
+        "edge_pp": 0.266,
+        "z": 0.335
+      },
+      "holdout": {
+        "n": 1290,
+        "tickers": 744,
+        "hit_rate": 0.5093,
+        "baseline": 0.512,
+        "edge_pp": -0.27,
+        "z": -0.194
+      }
+    },
+    "BB(50,2.5) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 1487,
+        "tickers": 734,
+        "hit_rate": 0.5562,
+        "baseline": 0.5379,
+        "edge_pp": 1.821,
+        "z": 1.408
+      },
+      "holdout": {
+        "n": 542,
+        "tickers": 436,
+        "hit_rate": 0.548,
+        "baseline": 0.512,
+        "edge_pp": 3.597,
+        "z": 1.675
+      }
+    },
+    "BB(50,3.0) RIDING UPPER BAND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 502,
+        "tickers": 380,
+        "hit_rate": 0.488,
+        "baseline": 0.5379,
+        "edge_pp": -4.99,
+        "z": -2.242
+      },
+      "holdout": {
+        "n": 175,
+        "tickers": 164,
+        "hit_rate": 0.4857,
+        "baseline": 0.512,
+        "edge_pp": -2.629,
+        "z": -0.696
+      }
+    },
+    "BEARISH KUMO": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_color",
+      "fit": {
+        "n": 15564,
+        "tickers": 912,
+        "hit_rate": 0.4529,
+        "baseline": 0.4608,
+        "edge_pp": -0.794,
+        "z": -1.988
+      },
+      "holdout": {
+        "n": 5125,
+        "tickers": 938,
+        "hit_rate": 0.4773,
+        "baseline": 0.487,
+        "edge_pp": -0.977,
+        "z": -1.399
+      }
+    },
+    "BELOW LOWER BB(10,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3701,
+        "tickers": 888,
+        "hit_rate": 0.4942,
+        "baseline": 0.4608,
+        "edge_pp": 3.334,
+        "z": 4.069
+      },
+      "holdout": {
+        "n": 1149,
+        "tickers": 706,
+        "hit_rate": 0.4708,
+        "baseline": 0.487,
+        "edge_pp": -1.619,
+        "z": -1.098
+      }
+    },
+    "BELOW LOWER BB(10,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2166,
+        "tickers": 841,
+        "hit_rate": 0.4838,
+        "baseline": 0.4608,
+        "edge_pp": 2.299,
+        "z": 2.147
+      },
+      "holdout": {
+        "n": 775,
+        "tickers": 538,
+        "hit_rate": 0.4658,
+        "baseline": 0.487,
+        "edge_pp": -2.123,
+        "z": -1.183
+      }
+    },
+    "BELOW LOWER BB(10,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 361,
+        "tickers": 310,
+        "hit_rate": 0.5152,
+        "baseline": 0.4608,
+        "edge_pp": 5.439,
+        "z": 2.073
+      },
+      "holdout": {
+        "n": 123,
+        "tickers": 116,
+        "hit_rate": 0.4228,
+        "baseline": 0.487,
+        "edge_pp": -6.427,
+        "z": -1.426
+      }
+    },
+    "BELOW LOWER BB(20,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3088,
+        "tickers": 881,
+        "hit_rate": 0.5097,
+        "baseline": 0.4608,
+        "edge_pp": 4.887,
+        "z": 5.448
+      },
+      "holdout": {
+        "n": 888,
+        "tickers": 607,
+        "hit_rate": 0.4561,
+        "baseline": 0.487,
+        "edge_pp": -3.096,
+        "z": -1.846
+      }
+    },
+    "BELOW LOWER BB(20,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 646,
+        "tickers": 465,
+        "hit_rate": 0.3746,
+        "baseline": 0.4608,
+        "edge_pp": -8.623,
+        "z": -4.397
+      },
+      "holdout": {
+        "n": 193,
+        "tickers": 181,
+        "hit_rate": 0.4611,
+        "baseline": 0.487,
+        "edge_pp": -2.59,
+        "z": -0.72
+      }
+    },
+    "BELOW LOWER BB(30,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 3225,
+        "tickers": 882,
+        "hit_rate": 0.4698,
+        "baseline": 0.4608,
+        "edge_pp": 0.892,
+        "z": 1.016
+      },
+      "holdout": {
+        "n": 966,
+        "tickers": 638,
+        "hit_rate": 0.4379,
+        "baseline": 0.487,
+        "edge_pp": -4.915,
+        "z": -3.056
+      }
+    },
+    "BELOW LOWER BB(30,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2034,
+        "tickers": 825,
+        "hit_rate": 0.4587,
+        "baseline": 0.4608,
+        "edge_pp": -0.215,
+        "z": -0.194
+      },
+      "holdout": {
+        "n": 643,
+        "tickers": 482,
+        "hit_rate": 0.4448,
+        "baseline": 0.487,
+        "edge_pp": -4.225,
+        "z": -2.143
+      }
+    },
+    "BELOW LOWER BB(30,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 884,
+        "tickers": 582,
+        "hit_rate": 0.4174,
+        "baseline": 0.4608,
+        "edge_pp": -4.343,
+        "z": -2.59
+      },
+      "holdout": {
+        "n": 277,
+        "tickers": 249,
+        "hit_rate": 0.3718,
+        "baseline": 0.487,
+        "edge_pp": -11.52,
+        "z": -3.836
+      }
+    },
+    "BELOW LOWER BB(30,3.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 301,
+        "tickers": 248,
+        "hit_rate": 0.3787,
+        "baseline": 0.4608,
+        "edge_pp": -8.211,
+        "z": -2.858
+      },
+      "holdout": {
+        "n": 119,
+        "tickers": 110,
+        "hit_rate": 0.4538,
+        "baseline": 0.487,
+        "edge_pp": -3.326,
+        "z": -0.726
+      }
+    },
+    "BELOW LOWER BB(50,1.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 5100,
+        "tickers": 901,
+        "hit_rate": 0.4471,
+        "baseline": 0.4608,
+        "edge_pp": -1.379,
+        "z": -1.975
+      },
+      "holdout": {
+        "n": 1693,
+        "tickers": 816,
+        "hit_rate": 0.4548,
+        "baseline": 0.487,
+        "edge_pp": -3.223,
+        "z": -2.653
+      }
+    },
+    "BELOW LOWER BB(50,2.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 2944,
+        "tickers": 876,
+        "hit_rate": 0.4293,
+        "baseline": 0.4608,
+        "edge_pp": -3.15,
+        "z": -3.429
+      },
+      "holdout": {
+        "n": 1047,
+        "tickers": 674,
+        "hit_rate": 0.4059,
+        "baseline": 0.487,
+        "edge_pp": -8.112,
+        "z": -5.251
+      }
+    },
+    "BELOW LOWER BB(50,2.5)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 1203,
+        "tickers": 684,
+        "hit_rate": 0.4148,
+        "baseline": 0.4608,
+        "edge_pp": -4.605,
+        "z": -3.204
+      },
+      "holdout": {
+        "n": 496,
+        "tickers": 404,
+        "hit_rate": 0.3831,
+        "baseline": 0.487,
+        "edge_pp": -10.397,
+        "z": -4.633
+      }
+    },
+    "BELOW LOWER BB(50,3.0)": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 547,
+        "tickers": 397,
+        "hit_rate": 0.362,
+        "baseline": 0.4608,
+        "edge_pp": -9.887,
+        "z": -4.639
+      },
+      "holdout": {
+        "n": 247,
+        "tickers": 225,
+        "hit_rate": 0.4291,
+        "baseline": 0.487,
+        "edge_pp": -5.789,
+        "z": -1.82
+      }
+    },
+    "BULLISH KUMO": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_color",
+      "fit": {
+        "n": 17928,
+        "tickers": 915,
+        "hit_rate": 0.5322,
+        "baseline": 0.5379,
+        "edge_pp": -0.576,
+        "z": -1.547
+      },
+      "holdout": {
+        "n": 5549,
+        "tickers": 934,
+        "hit_rate": 0.4949,
+        "baseline": 0.512,
+        "edge_pp": -1.714,
+        "z": -2.554
+      }
+    },
+    "CHIKOU CROSS BEAR": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "chikou_cross",
+      "fit": {
+        "n": 4903,
+        "tickers": 906,
+        "hit_rate": 0.4563,
+        "baseline": 0.4608,
+        "edge_pp": -0.46,
+        "z": -0.646
+      },
+      "holdout": {
+        "n": 1773,
+        "tickers": 844,
+        "hit_rate": 0.4614,
+        "baseline": 0.487,
+        "edge_pp": -2.567,
+        "z": -2.163
+      }
+    },
+    "CHIKOU CROSS BULL": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "chikou_cross",
+      "fit": {
+        "n": 4777,
+        "tickers": 908,
+        "hit_rate": 0.5359,
+        "baseline": 0.5379,
+        "edge_pp": -0.204,
+        "z": -0.283
+      },
+      "holdout": {
+        "n": 1546,
+        "tickers": 802,
+        "hit_rate": 0.4554,
+        "baseline": 0.512,
+        "edge_pp": -5.663,
+        "z": -4.455
+      }
+    },
+    "CMF CROSSED NEGATIVE": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "cmf_cross",
+      "fit": {
+        "n": 5457,
+        "tickers": 898,
+        "hit_rate": 0.4438,
+        "baseline": 0.4608,
+        "edge_pp": -1.701,
+        "z": -2.521
+      },
+      "holdout": {
+        "n": 1793,
+        "tickers": 836,
+        "hit_rate": 0.4763,
+        "baseline": 0.487,
+        "edge_pp": -1.074,
+        "z": -0.91
+      }
+    },
+    "CMF CROSSED POSITIVE": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "cmf_cross",
+      "fit": {
+        "n": 5389,
+        "tickers": 902,
+        "hit_rate": 0.5335,
+        "baseline": 0.5379,
+        "edge_pp": -0.445,
+        "z": -0.655
+      },
+      "holdout": {
+        "n": 1730,
+        "tickers": 838,
+        "hit_rate": 0.5087,
+        "baseline": 0.512,
+        "edge_pp": -0.333,
+        "z": -0.277
+      }
+    },
+    "CMF STRONG BUYING": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "cmf_level",
+      "fit": {
+        "n": 13672,
+        "tickers": 912,
+        "hit_rate": 0.5407,
+        "baseline": 0.5379,
+        "edge_pp": 0.272,
+        "z": 0.638
+      },
+      "holdout": {
+        "n": 3738,
+        "tickers": 931,
+        "hit_rate": 0.4896,
+        "baseline": 0.512,
+        "edge_pp": -2.243,
+        "z": -2.744
+      }
+    },
+    "CMF STRONG SELLING": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "cmf_level",
+      "fit": {
+        "n": 10670,
+        "tickers": 909,
+        "hit_rate": 0.4646,
+        "baseline": 0.4608,
+        "edge_pp": 0.373,
+        "z": 0.772
+      },
+      "holdout": {
+        "n": 4345,
+        "tickers": 933,
+        "hit_rate": 0.4663,
+        "baseline": 0.487,
+        "edge_pp": -2.076,
+        "z": -2.737
+      }
+    },
+    "DEATH CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 387,
+        "tickers": 324,
+        "hit_rate": 0.4367,
+        "baseline": 0.4608,
+        "edge_pp": -2.415,
+        "z": -0.953
+      },
+      "holdout": {
+        "n": 98,
+        "tickers": 97,
+        "hit_rate": 0.4694,
+        "baseline": 0.487,
+        "edge_pp": -1.765,
+        "z": -0.35
+      }
+    },
+    "FIB 0.786 BREAK (VARIANT)": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_break",
+      "fit": {
+        "n": 3840,
+        "tickers": 897,
+        "hit_rate": 0.507,
+        "baseline": 0.5002,
+        "edge_pp": 0.687,
+        "z": 0.852
+      },
+      "holdout": {
+        "n": 1301,
+        "tickers": 757,
+        "hit_rate": 0.4243,
+        "baseline": 0.4993,
+        "edge_pp": -7.499,
+        "z": -5.41
+      }
+    },
+    "FIB CONFLUENCE HOLD (VARIANT)": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_hold",
+      "fit": {
+        "n": 4540,
+        "tickers": 895,
+        "hit_rate": 0.4899,
+        "baseline": 0.4986,
+        "edge_pp": -0.876,
+        "z": -1.181
+      },
+      "holdout": {
+        "n": 1533,
+        "tickers": 807,
+        "hit_rate": 0.4847,
+        "baseline": 0.4976,
+        "edge_pp": -1.294,
+        "z": -1.013
+      }
+    },
+    "FIB GOLDEN POCKET HOLD": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_hold",
+      "fit": {
+        "n": 1046,
+        "tickers": 641,
+        "hit_rate": 0.5354,
+        "baseline": 0.5379,
+        "edge_pp": -0.257,
+        "z": -0.167
+      },
+      "holdout": {
+        "n": 331,
+        "tickers": 283,
+        "hit_rate": 0.5317,
+        "baseline": 0.512,
+        "edge_pp": 1.972,
+        "z": 0.718
+      }
+    },
+    "FIB GOLDEN POCKET HOLD (VARIANT)": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_hold",
+      "fit": {
+        "n": 3306,
+        "tickers": 887,
+        "hit_rate": 0.4716,
+        "baseline": 0.4914,
+        "edge_pp": -1.978,
+        "z": -2.275
+      },
+      "holdout": {
+        "n": 1113,
+        "tickers": 684,
+        "hit_rate": 0.4726,
+        "baseline": 0.4964,
+        "edge_pp": -2.382,
+        "z": -1.589
+      }
+    },
+    "GOLDEN CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 425,
+        "tickers": 362,
+        "hit_rate": 0.5482,
+        "baseline": 0.5379,
+        "edge_pp": 1.029,
+        "z": 0.425
+      },
+      "holdout": {
+        "n": 96,
+        "tickers": 92,
+        "hit_rate": 0.5312,
+        "baseline": 0.512,
+        "edge_pp": 1.925,
+        "z": 0.377
+      }
+    },
+    "ICHIMOKU TK BEAR CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ichimoku_tk",
+      "fit": {
+        "n": 3037,
+        "tickers": 881,
+        "hit_rate": 0.5018,
+        "baseline": 0.4608,
+        "edge_pp": 4.096,
+        "z": 4.529
+      },
+      "holdout": {
+        "n": 935,
+        "tickers": 638,
+        "hit_rate": 0.5358,
+        "baseline": 0.487,
+        "edge_pp": 4.879,
+        "z": 2.985
+      }
+    },
+    "ICHIMOKU TK BULL CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ichimoku_tk",
+      "fit": {
+        "n": 3030,
+        "tickers": 874,
+        "hit_rate": 0.5832,
+        "baseline": 0.5379,
+        "edge_pp": 4.522,
+        "z": 4.993
+      },
+      "holdout": {
+        "n": 1035,
+        "tickers": 652,
+        "hit_rate": 0.5333,
+        "baseline": 0.512,
+        "edge_pp": 2.133,
+        "z": 1.373
+      }
+    },
+    "KUMO BREAKDOWN": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "kumo_break",
+      "fit": {
+        "n": 2894,
+        "tickers": 872,
+        "hit_rate": 0.4568,
+        "baseline": 0.4608,
+        "edge_pp": -0.404,
+        "z": -0.436
+      },
+      "holdout": {
+        "n": 1099,
+        "tickers": 696,
+        "hit_rate": 0.4295,
+        "baseline": 0.487,
+        "edge_pp": -5.756,
+        "z": -3.817
+      }
+    },
+    "KUMO BREAKOUT": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "kumo_break",
+      "fit": {
+        "n": 3016,
+        "tickers": 868,
+        "hit_rate": 0.5282,
+        "baseline": 0.5379,
+        "edge_pp": -0.976,
+        "z": -1.075
+      },
+      "holdout": {
+        "n": 916,
+        "tickers": 622,
+        "hit_rate": 0.4552,
+        "baseline": 0.512,
+        "edge_pp": -5.676,
+        "z": -3.437
+      }
+    },
+    "KUMO TWIST BEAR": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "kumo_twist",
+      "fit": {
+        "n": 1574,
+        "tickers": 778,
+        "hit_rate": 0.4816,
+        "baseline": 0.4608,
+        "edge_pp": 2.073,
+        "z": 1.65
+      },
+      "holdout": {
+        "n": 560,
+        "tickers": 444,
+        "hit_rate": 0.4893,
+        "baseline": 0.487,
+        "edge_pp": 0.225,
+        "z": 0.106
+      }
+    },
+    "KUMO TWIST BULL": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "kumo_twist",
+      "fit": {
+        "n": 1699,
+        "tickers": 774,
+        "hit_rate": 0.5603,
+        "baseline": 0.5379,
+        "edge_pp": 2.238,
+        "z": 1.851
+      },
+      "holdout": {
+        "n": 506,
+        "tickers": 423,
+        "hit_rate": 0.5237,
+        "baseline": 0.512,
+        "edge_pp": 1.171,
+        "z": 0.527
+      }
+    },
+    "LARGE GAIN": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "big_move",
+      "fit": {
+        "n": 3348,
+        "tickers": 697,
+        "hit_rate": 0.4782,
+        "baseline": 0.5379,
+        "edge_pp": -5.975,
+        "z": -6.934
+      },
+      "holdout": {
+        "n": 1348,
+        "tickers": 557,
+        "hit_rate": 0.4125,
+        "baseline": 0.512,
+        "edge_pp": -9.954,
+        "z": -7.311
+      }
+    },
+    "LARGE LOSS": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "big_move",
+      "fit": {
+        "n": 3498,
+        "tickers": 759,
+        "hit_rate": 0.4551,
+        "baseline": 0.4608,
+        "edge_pp": -0.573,
+        "z": -0.68
+      },
+      "holdout": {
+        "n": 1436,
+        "tickers": 551,
+        "hit_rate": 0.4478,
+        "baseline": 0.487,
+        "edge_pp": -3.927,
+        "z": -2.977
+      }
+    },
+    "MA ALIGNMENT BEARISH": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ma_stack",
+      "fit": {
+        "n": 12105,
+        "tickers": 907,
+        "hit_rate": 0.4493,
+        "baseline": 0.4608,
+        "edge_pp": -1.153,
+        "z": -2.545
+      },
+      "holdout": {
+        "n": 4103,
+        "tickers": 935,
+        "hit_rate": 0.4684,
+        "baseline": 0.487,
+        "edge_pp": -1.86,
+        "z": -2.384
+      }
+    },
+    "MA ALIGNMENT BULLISH": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ma_stack",
+      "fit": {
+        "n": 14975,
+        "tickers": 915,
+        "hit_rate": 0.5324,
+        "baseline": 0.5379,
+        "edge_pp": -0.552,
+        "z": -1.356
+      },
+      "holdout": {
+        "n": 4626,
+        "tickers": 934,
+        "hit_rate": 0.5138,
+        "baseline": 0.512,
+        "edge_pp": 0.183,
+        "z": 0.25
+      }
+    },
+    "MACD BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 4954,
+        "tickers": 910,
+        "hit_rate": 0.4578,
+        "baseline": 0.4608,
+        "edge_pp": -0.304,
+        "z": -0.429
+      },
+      "holdout": {
+        "n": 1637,
+        "tickers": 807,
+        "hit_rate": 0.4606,
+        "baseline": 0.487,
+        "edge_pp": -2.644,
+        "z": -2.14
+      }
+    },
+    "MACD BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 4912,
+        "tickers": 901,
+        "hit_rate": 0.5415,
+        "baseline": 0.5379,
+        "edge_pp": 0.359,
+        "z": 0.504
+      },
+      "holdout": {
+        "n": 1593,
+        "tickers": 811,
+        "hit_rate": 0.4714,
+        "baseline": 0.512,
+        "edge_pp": -4.056,
+        "z": -3.239
+      }
+    },
+    "MACD HIST TURN DOWN": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "macd_hist_turn",
+      "fit": {
+        "n": 8479,
+        "tickers": 907,
+        "hit_rate": 0.4433,
+        "baseline": 0.4608,
+        "edge_pp": -1.752,
+        "z": -3.236
+      },
+      "holdout": {
+        "n": 2821,
+        "tickers": 926,
+        "hit_rate": 0.4651,
+        "baseline": 0.487,
+        "edge_pp": -2.196,
+        "z": -2.333
+      }
+    },
+    "MACD HIST TURN UP": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "macd_hist_turn",
+      "fit": {
+        "n": 7763,
+        "tickers": 912,
+        "hit_rate": 0.5087,
+        "baseline": 0.5379,
+        "edge_pp": -2.925,
+        "z": -5.169
+      },
+      "holdout": {
+        "n": 2216,
+        "tickers": 891,
+        "hit_rate": 0.4571,
+        "baseline": 0.512,
+        "edge_pp": -5.487,
+        "z": -5.168
+      }
+    },
+    "MACD ZERO CROSS DOWN": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 2230,
+        "tickers": 823,
+        "hit_rate": 0.4897,
+        "baseline": 0.4608,
+        "edge_pp": 2.884,
+        "z": 2.732
+      },
+      "holdout": {
+        "n": 744,
+        "tickers": 546,
+        "hit_rate": 0.4987,
+        "baseline": 0.487,
+        "edge_pp": 1.162,
+        "z": 0.634
+      }
+    },
+    "MACD ZERO CROSS UP": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 2230,
+        "tickers": 849,
+        "hit_rate": 0.5848,
+        "baseline": 0.5379,
+        "edge_pp": 4.681,
+        "z": 4.434
+      },
+      "holdout": {
+        "n": 696,
+        "tickers": 508,
+        "hit_rate": 0.5043,
+        "baseline": 0.512,
+        "edge_pp": -0.769,
+        "z": -0.406
+      }
+    },
+    "MACD(10,20,5) BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 6567,
+        "tickers": 910,
+        "hit_rate": 0.4646,
+        "baseline": 0.4608,
+        "edge_pp": 0.375,
+        "z": 0.609
+      },
+      "holdout": {
+        "n": 2192,
+        "tickers": 896,
+        "hit_rate": 0.4293,
+        "baseline": 0.487,
+        "edge_pp": -5.775,
+        "z": -5.409
+      }
+    },
+    "MACD(10,20,5) BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 6482,
+        "tickers": 905,
+        "hit_rate": 0.5413,
+        "baseline": 0.5379,
+        "edge_pp": 0.34,
+        "z": 0.549
+      },
+      "holdout": {
+        "n": 1972,
+        "tickers": 860,
+        "hit_rate": 0.4757,
+        "baseline": 0.512,
+        "edge_pp": -3.634,
+        "z": -3.229
+      }
+    },
+    "MACD(10,20,5) ZERO BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 2725,
+        "tickers": 870,
+        "hit_rate": 0.4646,
+        "baseline": 0.4608,
+        "edge_pp": 0.374,
+        "z": 0.392
+      },
+      "holdout": {
+        "n": 945,
+        "tickers": 646,
+        "hit_rate": 0.5037,
+        "baseline": 0.487,
+        "edge_pp": 1.666,
+        "z": 1.025
+      }
+    },
+    "MACD(10,20,5) ZERO BULL": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 2609,
+        "tickers": 853,
+        "hit_rate": 0.5807,
+        "baseline": 0.5379,
+        "edge_pp": 4.274,
+        "z": 4.378
+      },
+      "holdout": {
+        "n": 848,
+        "tickers": 580,
+        "hit_rate": 0.5165,
+        "baseline": 0.512,
+        "edge_pp": 0.451,
+        "z": 0.263
+      }
+    },
+    "MACD(19,39,9) BEAR CROSS": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 3187,
+        "tickers": 890,
+        "hit_rate": 0.4895,
+        "baseline": 0.4608,
+        "edge_pp": 2.864,
+        "z": 3.244
+      },
+      "holdout": {
+        "n": 1123,
+        "tickers": 712,
+        "hit_rate": 0.4924,
+        "baseline": 0.487,
+        "edge_pp": 0.539,
+        "z": 0.362
+      }
+    },
+    "MACD(19,39,9) BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 3205,
+        "tickers": 877,
+        "hit_rate": 0.5298,
+        "baseline": 0.5379,
+        "edge_pp": -0.815,
+        "z": -0.925
+      },
+      "holdout": {
+        "n": 1019,
+        "tickers": 668,
+        "hit_rate": 0.473,
+        "baseline": 0.512,
+        "edge_pp": -3.899,
+        "z": -2.49
+      }
+    },
+    "MACD(19,39,9) ZERO BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 1411,
+        "tickers": 719,
+        "hit_rate": 0.4833,
+        "baseline": 0.4608,
+        "edge_pp": 2.25,
+        "z": 1.695
+      },
+      "holdout": {
+        "n": 469,
+        "tickers": 397,
+        "hit_rate": 0.4776,
+        "baseline": 0.487,
+        "edge_pp": -0.943,
+        "z": -0.408
+      }
+    },
+    "MACD(19,39,9) ZERO BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 1391,
+        "tickers": 720,
+        "hit_rate": 0.5794,
+        "baseline": 0.5379,
+        "edge_pp": 4.149,
+        "z": 3.104
+      },
+      "holdout": {
+        "n": 400,
+        "tickers": 342,
+        "hit_rate": 0.505,
+        "baseline": 0.512,
+        "edge_pp": -0.7,
+        "z": -0.28
+      }
+    },
+    "MACD(20,50,10) BEAR CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 2079,
+        "tickers": 822,
+        "hit_rate": 0.4983,
+        "baseline": 0.4608,
+        "edge_pp": 3.747,
+        "z": 3.427
+      },
+      "holdout": {
+        "n": 635,
+        "tickers": 490,
+        "hit_rate": 0.4803,
+        "baseline": 0.487,
+        "edge_pp": -0.672,
+        "z": -0.339
+      }
+    },
+    "MACD(20,50,10) BULL CROSS": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 1847,
+        "tickers": 796,
+        "hit_rate": 0.536,
+        "baseline": 0.5379,
+        "edge_pp": -0.194,
+        "z": -0.167
+      },
+      "holdout": {
+        "n": 606,
+        "tickers": 476,
+        "hit_rate": 0.5149,
+        "baseline": 0.512,
+        "edge_pp": 0.285,
+        "z": 0.14
+      }
+    },
+    "MACD(20,50,10) ZERO BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 1025,
+        "tickers": 621,
+        "hit_rate": 0.4966,
+        "baseline": 0.4608,
+        "edge_pp": 3.574,
+        "z": 2.295
+      },
+      "holdout": {
+        "n": 326,
+        "tickers": 282,
+        "hit_rate": 0.4448,
+        "baseline": 0.487,
+        "edge_pp": -4.225,
+        "z": -1.526
+      }
+    },
+    "MACD(20,50,10) ZERO BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 1046,
+        "tickers": 634,
+        "hit_rate": 0.544,
+        "baseline": 0.5379,
+        "edge_pp": 0.603,
+        "z": 0.391
+      },
+      "holdout": {
+        "n": 266,
+        "tickers": 239,
+        "hit_rate": 0.5113,
+        "baseline": 0.512,
+        "edge_pp": -0.072,
+        "z": -0.024
+      }
+    },
+    "OBV BEAR CROSS EMA": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "obv_cross",
+      "fit": {
+        "n": 8124,
+        "tickers": 907,
+        "hit_rate": 0.4579,
+        "baseline": 0.4608,
+        "edge_pp": -0.294,
+        "z": -0.533
+      },
+      "holdout": {
+        "n": 2702,
+        "tickers": 919,
+        "hit_rate": 0.4693,
+        "baseline": 0.487,
+        "edge_pp": -1.776,
+        "z": -1.847
+      }
+    },
+    "OBV BEARISH DIVERGENCE": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "obv_divergence",
+      "fit": {
+        "n": 7595,
+        "tickers": 910,
+        "hit_rate": 0.4469,
+        "baseline": 0.4608,
+        "edge_pp": -1.397,
+        "z": -2.443
+      },
+      "holdout": {
+        "n": 2500,
+        "tickers": 899,
+        "hit_rate": 0.498,
+        "baseline": 0.487,
+        "edge_pp": 1.096,
+        "z": 1.096
+      }
+    },
+    "OBV BULL CROSS EMA": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "obv_cross",
+      "fit": {
+        "n": 7913,
+        "tickers": 912,
+        "hit_rate": 0.5387,
+        "baseline": 0.5379,
+        "edge_pp": 0.079,
+        "z": 0.141
+      },
+      "holdout": {
+        "n": 2460,
+        "tickers": 900,
+        "hit_rate": 0.474,
+        "baseline": 0.512,
+        "edge_pp": -3.802,
+        "z": -3.772
+      }
+    },
+    "OBV BULLISH DIVERGENCE": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "obv_divergence",
+      "fit": {
+        "n": 7732,
+        "tickers": 908,
+        "hit_rate": 0.5247,
+        "baseline": 0.5379,
+        "edge_pp": -1.324,
+        "z": -2.336
+      },
+      "holdout": {
+        "n": 2463,
+        "tickers": 897,
+        "hit_rate": 0.5168,
+        "baseline": 0.512,
+        "edge_pp": 0.485,
+        "z": 0.481
+      }
+    },
+    "PIVOT RESISTANCE REJECT": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "sr_reaction",
+      "fit": {
+        "n": 12080,
+        "tickers": 909,
+        "hit_rate": 0.4598,
+        "baseline": 0.4608,
+        "edge_pp": -0.108,
+        "z": -0.238
+      },
+      "holdout": {
+        "n": 4063,
+        "tickers": 932,
+        "hit_rate": 0.4753,
+        "baseline": 0.487,
+        "edge_pp": -1.177,
+        "z": -1.502
+      }
+    },
+    "PIVOT SUPPORT HOLD": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "sr_reaction",
+      "fit": {
+        "n": 11826,
+        "tickers": 912,
+        "hit_rate": 0.5291,
+        "baseline": 0.5379,
+        "edge_pp": -0.886,
+        "z": -1.932
+      },
+      "holdout": {
+        "n": 3618,
+        "tickers": 934,
+        "hit_rate": 0.4939,
+        "baseline": 0.512,
+        "edge_pp": -1.808,
+        "z": -2.176
+      }
+    },
+    "PRICE ABOVE 20 MA": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 6370,
+        "tickers": 909,
+        "hit_rate": 0.5176,
+        "baseline": 0.5379,
+        "edge_pp": -2.036,
+        "z": -3.26
+      },
+      "holdout": {
+        "n": 1949,
+        "tickers": 862,
+        "hit_rate": 0.4443,
+        "baseline": 0.512,
+        "edge_pp": -6.767,
+        "z": -5.977
+      }
+    },
+    "PRICE ABOVE KUMO": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_pos",
+      "fit": {
+        "n": 16824,
+        "tickers": 916,
+        "hit_rate": 0.5341,
+        "baseline": 0.5379,
+        "edge_pp": -0.383,
+        "z": -0.996
+      },
+      "holdout": {
+        "n": 4986,
+        "tickers": 927,
+        "hit_rate": 0.5062,
+        "baseline": 0.512,
+        "edge_pp": -0.578,
+        "z": -0.817
+      }
+    },
+    "PRICE BELOW 20 MA": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 6525,
+        "tickers": 913,
+        "hit_rate": 0.4521,
+        "baseline": 0.4608,
+        "edge_pp": -0.874,
+        "z": -1.416
+      },
+      "holdout": {
+        "n": 2306,
+        "tickers": 903,
+        "hit_rate": 0.4549,
+        "baseline": 0.487,
+        "edge_pp": -3.214,
+        "z": -3.088
+      }
+    },
+    "PRICE BELOW KUMO": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_pos",
+      "fit": {
+        "n": 13582,
+        "tickers": 907,
+        "hit_rate": 0.4538,
+        "baseline": 0.4608,
+        "edge_pp": -0.701,
+        "z": -1.639
+      },
+      "holdout": {
+        "n": 4749,
+        "tickers": 935,
+        "hit_rate": 0.4702,
+        "baseline": 0.487,
+        "edge_pp": -1.683,
+        "z": -2.321
+      }
+    },
+    "RANGE BREAKDOWN 50b": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "range_break",
+      "fit": {
+        "n": 1919,
+        "tickers": 812,
+        "hit_rate": 0.3913,
+        "baseline": 0.4608,
+        "edge_pp": -6.95,
+        "z": -6.108
+      },
+      "holdout": {
+        "n": 704,
+        "tickers": 523,
+        "hit_rate": 0.3764,
+        "baseline": 0.487,
+        "edge_pp": -11.062,
+        "z": -5.872
+      }
+    },
+    "RANGE BREAKOUT 50b": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "range_break",
+      "fit": {
+        "n": 2516,
+        "tickers": 845,
+        "hit_rate": 0.5314,
+        "baseline": 0.5379,
+        "edge_pp": -0.655,
+        "z": -0.659
+      },
+      "holdout": {
+        "n": 750,
+        "tickers": 540,
+        "hit_rate": 0.496,
+        "baseline": 0.512,
+        "edge_pp": -1.6,
+        "z": -0.877
+      }
+    },
+    "RSI BEARISH DIVERGENCE": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "rsi_divergence",
+      "fit": {
+        "n": 951,
+        "tickers": 598,
+        "hit_rate": 0.4911,
+        "baseline": 0.4608,
+        "edge_pp": 3.021,
+        "z": 1.869
+      },
+      "holdout": {
+        "n": 273,
+        "tickers": 242,
+        "hit_rate": 0.5531,
+        "baseline": 0.487,
+        "edge_pp": 6.607,
+        "z": 2.184
+      }
+    },
+    "RSI BULLISH DIVERGENCE": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "rsi_divergence",
+      "fit": {
+        "n": 665,
+        "tickers": 491,
+        "hit_rate": 0.5669,
+        "baseline": 0.5379,
+        "edge_pp": 2.897,
+        "z": 1.499
+      },
+      "holdout": {
+        "n": 288,
+        "tickers": 258,
+        "hit_rate": 0.4826,
+        "baseline": 0.512,
+        "edge_pp": -2.936,
+        "z": -0.997
+      }
+    },
+    "RSI OVERBOUGHT": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 4965,
+        "tickers": 904,
+        "hit_rate": 0.4679,
+        "baseline": 0.4608,
+        "edge_pp": 0.703,
+        "z": 0.993
+      },
+      "holdout": {
+        "n": 1387,
+        "tickers": 729,
+        "hit_rate": 0.4802,
+        "baseline": 0.487,
+        "edge_pp": -0.687,
+        "z": -0.512
+      }
+    },
+    "RSI OVERSOLD": {
+      "E": 1.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 2807,
+        "tickers": 852,
+        "hit_rate": 0.5732,
+        "baseline": 0.5379,
+        "edge_pp": 3.526,
+        "z": 3.747
+      },
+      "holdout": {
+        "n": 941,
+        "tickers": 587,
+        "hit_rate": 0.593,
+        "baseline": 0.512,
+        "edge_pp": 8.099,
+        "z": 4.97
+      }
+    },
+    "RSI10 CROSSED 50 BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 3159,
+        "tickers": 881,
+        "hit_rate": 0.471,
+        "baseline": 0.4608,
+        "edge_pp": 1.019,
+        "z": 1.149
+      },
+      "holdout": {
+        "n": 1239,
+        "tickers": 726,
+        "hit_rate": 0.4794,
+        "baseline": 0.487,
+        "edge_pp": -0.762,
+        "z": -0.537
+      }
+    },
+    "RSI10 CROSSED 50 BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 3134,
+        "tickers": 881,
+        "hit_rate": 0.5281,
+        "baseline": 0.5379,
+        "edge_pp": -0.987,
+        "z": -1.108
+      },
+      "holdout": {
+        "n": 1006,
+        "tickers": 664,
+        "hit_rate": 0.4553,
+        "baseline": 0.512,
+        "edge_pp": -5.673,
+        "z": -3.6
+      }
+    },
+    "RSI10 OVERBOUGHT (>70)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 656,
+        "tickers": 465,
+        "hit_rate": 0.4619,
+        "baseline": 0.4608,
+        "edge_pp": 0.104,
+        "z": 0.054
+      },
+      "holdout": {
+        "n": 153,
+        "tickers": 145,
+        "hit_rate": 0.4706,
+        "baseline": 0.487,
+        "edge_pp": -1.645,
+        "z": -0.407
+      }
+    },
+    "RSI10 OVERSOLD (<30)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 302,
+        "tickers": 258,
+        "hit_rate": 0.5331,
+        "baseline": 0.5379,
+        "edge_pp": -0.483,
+        "z": -0.168
+      },
+      "holdout": {
+        "n": 103,
+        "tickers": 97,
+        "hit_rate": 0.4951,
+        "baseline": 0.512,
+        "edge_pp": -1.686,
+        "z": -0.342
+      }
+    },
+    "RSI14 CROSSED 50 BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1957,
+        "tickers": 814,
+        "hit_rate": 0.4696,
+        "baseline": 0.4608,
+        "edge_pp": 0.875,
+        "z": 0.776
+      },
+      "holdout": {
+        "n": 654,
+        "tickers": 482,
+        "hit_rate": 0.4786,
+        "baseline": 0.487,
+        "edge_pp": -0.845,
+        "z": -0.432
+      }
+    },
+    "RSI14 CROSSED 50 BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1798,
+        "tickers": 776,
+        "hit_rate": 0.5189,
+        "baseline": 0.5379,
+        "edge_pp": -1.904,
+        "z": -1.619
+      },
+      "holdout": {
+        "n": 581,
+        "tickers": 441,
+        "hit_rate": 0.4905,
+        "baseline": 0.512,
+        "edge_pp": -2.147,
+        "z": -1.035
+      }
+    },
+    "RSI14 EXIT OVERBOUGHT": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_zone_exit",
+      "fit": {
+        "n": 2150,
+        "tickers": 835,
+        "hit_rate": 0.4684,
+        "baseline": 0.4608,
+        "edge_pp": 0.752,
+        "z": 0.7
+      },
+      "holdout": {
+        "n": 730,
+        "tickers": 510,
+        "hit_rate": 0.4521,
+        "baseline": 0.487,
+        "edge_pp": -3.498,
+        "z": -1.891
+      }
+    },
+    "RSI14 EXIT OVERSOLD": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_zone_exit",
+      "fit": {
+        "n": 1193,
+        "tickers": 671,
+        "hit_rate": 0.5398,
+        "baseline": 0.5379,
+        "edge_pp": 0.187,
+        "z": 0.13
+      },
+      "holdout": {
+        "n": 311,
+        "tickers": 257,
+        "hit_rate": 0.508,
+        "baseline": 0.512,
+        "edge_pp": -0.396,
+        "z": -0.14
+      }
+    },
+    "RSI20 CROSSED 50 BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1823,
+        "tickers": 765,
+        "hit_rate": 0.4591,
+        "baseline": 0.4608,
+        "edge_pp": -0.171,
+        "z": -0.147
+      },
+      "holdout": {
+        "n": 618,
+        "tickers": 463,
+        "hit_rate": 0.4579,
+        "baseline": 0.487,
+        "edge_pp": -2.911,
+        "z": -1.448
+      }
+    },
+    "RSI20 CROSSED 50 BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1678,
+        "tickers": 770,
+        "hit_rate": 0.559,
+        "baseline": 0.5379,
+        "edge_pp": 2.105,
+        "z": 1.73
+      },
+      "holdout": {
+        "n": 550,
+        "tickers": 441,
+        "hit_rate": 0.5036,
+        "baseline": 0.512,
+        "edge_pp": -0.836,
+        "z": -0.392
+      }
+    },
+    "RSI30 CROSSED 50 BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1714,
+        "tickers": 767,
+        "hit_rate": 0.4487,
+        "baseline": 0.4608,
+        "edge_pp": -1.219,
+        "z": -1.012
+      },
+      "holdout": {
+        "n": 586,
+        "tickers": 465,
+        "hit_rate": 0.4249,
+        "baseline": 0.487,
+        "edge_pp": -6.212,
+        "z": -3.009
+      }
+    },
+    "RSI30 CROSSED 50 BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 1564,
+        "tickers": 750,
+        "hit_rate": 0.5556,
+        "baseline": 0.5379,
+        "edge_pp": 1.768,
+        "z": 1.403
+      },
+      "holdout": {
+        "n": 494,
+        "tickers": 393,
+        "hit_rate": 0.4372,
+        "baseline": 0.512,
+        "edge_pp": -7.475,
+        "z": -3.324
+      }
+    },
+    "RSI5 CROSSED 50 BEAR": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 9929,
+        "tickers": 912,
+        "hit_rate": 0.447,
+        "baseline": 0.4608,
+        "edge_pp": -1.387,
+        "z": -2.773
+      },
+      "holdout": {
+        "n": 3341,
+        "tickers": 926,
+        "hit_rate": 0.4606,
+        "baseline": 0.487,
+        "edge_pp": -2.64,
+        "z": -3.053
+      }
+    },
+    "RSI5 CROSSED 50 BULL": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 9488,
+        "tickers": 912,
+        "hit_rate": 0.5274,
+        "baseline": 0.5379,
+        "edge_pp": -1.054,
+        "z": -2.06
+      },
+      "holdout": {
+        "n": 2872,
+        "tickers": 918,
+        "hit_rate": 0.454,
+        "baseline": 0.512,
+        "edge_pp": -5.796,
+        "z": -6.214
+      }
+    },
+    "RSI5 OVERBOUGHT (>70)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 6869,
+        "tickers": 902,
+        "hit_rate": 0.4576,
+        "baseline": 0.4608,
+        "edge_pp": -0.328,
+        "z": -0.546
+      },
+      "holdout": {
+        "n": 2055,
+        "tickers": 873,
+        "hit_rate": 0.4886,
+        "baseline": 0.487,
+        "edge_pp": 0.153,
+        "z": 0.138
+      }
+    },
+    "RSI5 OVERBOUGHT (>75)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 5946,
+        "tickers": 909,
+        "hit_rate": 0.4462,
+        "baseline": 0.4608,
+        "edge_pp": -1.467,
+        "z": -2.269
+      },
+      "holdout": {
+        "n": 1669,
+        "tickers": 823,
+        "hit_rate": 0.4949,
+        "baseline": 0.487,
+        "edge_pp": 0.787,
+        "z": 0.643
+      }
+    },
+    "RSI5 OVERBOUGHT (>80)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 7681,
+        "tickers": 908,
+        "hit_rate": 0.4568,
+        "baseline": 0.4608,
+        "edge_pp": -0.401,
+        "z": -0.704
+      },
+      "holdout": {
+        "n": 2250,
+        "tickers": 891,
+        "hit_rate": 0.5067,
+        "baseline": 0.487,
+        "edge_pp": 1.963,
+        "z": 1.863
+      }
+    },
+    "RSI5 OVERSOLD (<20)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 5748,
+        "tickers": 897,
+        "hit_rate": 0.5411,
+        "baseline": 0.5379,
+        "edge_pp": 0.311,
+        "z": 0.473
+      },
+      "holdout": {
+        "n": 1984,
+        "tickers": 877,
+        "hit_rate": 0.558,
+        "baseline": 0.512,
+        "edge_pp": 4.596,
+        "z": 4.096
+      }
+    },
+    "RSI5 OVERSOLD (<25)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 5127,
+        "tickers": 900,
+        "hit_rate": 0.5186,
+        "baseline": 0.5379,
+        "edge_pp": -1.932,
+        "z": -2.775
+      },
+      "holdout": {
+        "n": 1640,
+        "tickers": 832,
+        "hit_rate": 0.5512,
+        "baseline": 0.512,
+        "edge_pp": 3.922,
+        "z": 3.177
+      }
+    },
+    "RSI5 OVERSOLD (<30)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 6181,
+        "tickers": 907,
+        "hit_rate": 0.5294,
+        "baseline": 0.5379,
+        "edge_pp": -0.858,
+        "z": -1.353
+      },
+      "holdout": {
+        "n": 2010,
+        "tickers": 880,
+        "hit_rate": 0.5483,
+        "baseline": 0.512,
+        "edge_pp": 3.626,
+        "z": 3.252
+      }
+    },
+    "STOCH BEAR CROSS (OVERBOUGHT)": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "stoch_cross",
+      "fit": {
+        "n": 6373,
+        "tickers": 905,
+        "hit_rate": 0.4348,
+        "baseline": 0.4608,
+        "edge_pp": -2.604,
+        "z": -4.171
+      },
+      "holdout": {
+        "n": 1878,
+        "tickers": 831,
+        "hit_rate": 0.4952,
+        "baseline": 0.487,
+        "edge_pp": 0.817,
+        "z": 0.708
+      }
+    },
+    "STOCH BULL CROSS (OVERSOLD)": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "stoch_cross",
+      "fit": {
+        "n": 5170,
+        "tickers": 906,
+        "hit_rate": 0.5331,
+        "baseline": 0.5379,
+        "edge_pp": -0.487,
+        "z": -0.702
+      },
+      "holdout": {
+        "n": 1564,
+        "tickers": 785,
+        "hit_rate": 0.4808,
+        "baseline": 0.512,
+        "edge_pp": -3.118,
+        "z": -2.467
+      }
+    },
+    "STOCHASTIC OVERBOUGHT": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "stoch_zone",
+      "fit": {
+        "n": 14217,
+        "tickers": 914,
+        "hit_rate": 0.445,
+        "baseline": 0.4608,
+        "edge_pp": -1.589,
+        "z": -3.8
+      },
+      "holdout": {
+        "n": 4385,
+        "tickers": 933,
+        "hit_rate": 0.4958,
+        "baseline": 0.487,
+        "edge_pp": 0.874,
+        "z": 1.158
+      }
+    },
+    "STOCHASTIC OVERSOLD": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "stoch_zone",
+      "fit": {
+        "n": 12308,
+        "tickers": 908,
+        "hit_rate": 0.515,
+        "baseline": 0.5379,
+        "edge_pp": -2.291,
+        "z": -5.099
+      },
+      "holdout": {
+        "n": 4122,
+        "tickers": 936,
+        "hit_rate": 0.5284,
+        "baseline": 0.512,
+        "edge_pp": 1.638,
+        "z": 2.104
+      }
+    },
+    "STRONG DOWNTREND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "adx_trend",
+      "fit": {
+        "n": 6468,
+        "tickers": 907,
+        "hit_rate": 0.4174,
+        "baseline": 0.4608,
+        "edge_pp": -4.341,
+        "z": -7.004
+      },
+      "holdout": {
+        "n": 2163,
+        "tickers": 852,
+        "hit_rate": 0.4461,
+        "baseline": 0.487,
+        "edge_pp": -4.09,
+        "z": -3.806
+      }
+    },
+    "STRONG UPTREND": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "adx_trend",
+      "fit": {
+        "n": 9141,
+        "tickers": 910,
+        "hit_rate": 0.5313,
+        "baseline": 0.5379,
+        "edge_pp": -0.66,
+        "z": -1.266
+      },
+      "holdout": {
+        "n": 2663,
+        "tickers": 881,
+        "hit_rate": 0.5043,
+        "baseline": 0.512,
+        "edge_pp": -0.768,
+        "z": -0.793
+      }
+    },
+    "VOLUME BEARISH DIVERGENCE (10b)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "vol_divergence",
+      "fit": {
+        "n": 17999,
+        "tickers": 912,
+        "hit_rate": 0.4581,
+        "baseline": 0.4608,
+        "edge_pp": -0.277,
+        "z": -0.745
+      },
+      "holdout": {
+        "n": 5739,
+        "tickers": 936,
+        "hit_rate": 0.5186,
+        "baseline": 0.487,
+        "edge_pp": 3.152,
+        "z": 4.777
+      }
+    },
+    "VOLUME BULLISH DIVERGENCE (10b)": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "vol_divergence",
+      "fit": {
+        "n": 15612,
+        "tickers": 909,
+        "hit_rate": 0.5301,
+        "baseline": 0.5379,
+        "edge_pp": -0.784,
+        "z": -1.965
+      },
+      "holdout": {
+        "n": 5096,
+        "tickers": 936,
+        "hit_rate": 0.5288,
+        "baseline": 0.512,
+        "edge_pp": 1.685,
+        "z": 2.406
+      }
+    },
+    "WITHIN 1% OF 100b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1367,
+        "tickers": 712,
+        "hit_rate": 0.4792,
+        "baseline": 0.5379,
+        "edge_pp": -5.879,
+        "z": -4.36
+      },
+      "holdout": {
+        "n": 241,
+        "tickers": 224,
+        "hit_rate": 0.4938,
+        "baseline": 0.512,
+        "edge_pp": -1.823,
+        "z": -0.566
+      }
+    },
+    "WITHIN 1% OF 100b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1060,
+        "tickers": 637,
+        "hit_rate": 0.3991,
+        "baseline": 0.4608,
+        "edge_pp": -6.179,
+        "z": -4.036
+      },
+      "holdout": {
+        "n": 378,
+        "tickers": 327,
+        "hit_rate": 0.373,
+        "baseline": 0.487,
+        "edge_pp": -11.402,
+        "z": -4.435
+      }
+    },
+    "WITHIN 1% OF 200b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 427,
+        "tickers": 359,
+        "hit_rate": 0.4473,
+        "baseline": 0.5379,
+        "edge_pp": -9.064,
+        "z": -3.757
+      },
+      "holdout": {
+        "n": 77,
+        "tickers": 71,
+        "hit_rate": 0.5714,
+        "baseline": 0.512,
+        "edge_pp": 5.943,
+        "z": 1.043
+      }
+    },
+    "WITHIN 1% OF 200b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 362,
+        "tickers": 299,
+        "hit_rate": 0.5525,
+        "baseline": 0.4608,
+        "edge_pp": 9.164,
+        "z": 3.498
+      },
+      "holdout": {
+        "n": 96,
+        "tickers": 93,
+        "hit_rate": 0.3854,
+        "baseline": 0.487,
+        "edge_pp": -10.162,
+        "z": -1.992
+      }
+    },
+    "WITHIN 1% OF 20b HIGH": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 4060,
+        "tickers": 853,
+        "hit_rate": 0.5687,
+        "baseline": 0.5379,
+        "edge_pp": 3.077,
+        "z": 3.933
+      },
+      "holdout": {
+        "n": 1045,
+        "tickers": 637,
+        "hit_rate": 0.5215,
+        "baseline": 0.512,
+        "edge_pp": 0.953,
+        "z": 0.616
+      }
+    },
+    "WITHIN 1% OF 20b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 4194,
+        "tickers": 871,
+        "hit_rate": 0.4888,
+        "baseline": 0.4608,
+        "edge_pp": 2.795,
+        "z": 3.631
+      },
+      "holdout": {
+        "n": 1177,
+        "tickers": 693,
+        "hit_rate": 0.4647,
+        "baseline": 0.487,
+        "edge_pp": -2.23,
+        "z": -1.53
+      }
+    },
+    "WITHIN 1% OF 252b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 3557,
+        "tickers": 750,
+        "hit_rate": 0.5451,
+        "baseline": 0.5379,
+        "edge_pp": 0.718,
+        "z": 0.859
+      },
+      "holdout": {
+        "n": 1088,
+        "tickers": 504,
+        "hit_rate": 0.5055,
+        "baseline": 0.512,
+        "edge_pp": -0.649,
+        "z": -0.428
+      }
+    },
+    "WITHIN 1% OF 252b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1123,
+        "tickers": 523,
+        "hit_rate": 0.4212,
+        "baseline": 0.4608,
+        "edge_pp": -3.965,
+        "z": -2.666
+      },
+      "holdout": {
+        "n": 458,
+        "tickers": 264,
+        "hit_rate": 0.4323,
+        "baseline": 0.487,
+        "edge_pp": -5.472,
+        "z": -2.343
+      }
+    },
+    "WITHIN 1% OF 50b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 2229,
+        "tickers": 796,
+        "hit_rate": 0.5464,
+        "baseline": 0.5379,
+        "edge_pp": 0.849,
+        "z": 0.804
+      },
+      "holdout": {
+        "n": 454,
+        "tickers": 386,
+        "hit_rate": 0.5441,
+        "baseline": 0.512,
+        "edge_pp": 3.205,
+        "z": 1.366
+      }
+    },
+    "WITHIN 1% OF 50b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1842,
+        "tickers": 774,
+        "hit_rate": 0.4506,
+        "baseline": 0.4608,
+        "edge_pp": -1.025,
+        "z": -0.883
+      },
+      "holdout": {
+        "n": 579,
+        "tickers": 454,
+        "hit_rate": 0.3472,
+        "baseline": 0.487,
+        "edge_pp": -13.989,
+        "z": -6.734
+      }
+    },
+    "WITHIN 2% OF 100b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1134,
+        "tickers": 651,
+        "hit_rate": 0.5106,
+        "baseline": 0.5379,
+        "edge_pp": -2.736,
+        "z": -1.848
+      },
+      "holdout": {
+        "n": 228,
+        "tickers": 212,
+        "hit_rate": 0.4561,
+        "baseline": 0.512,
+        "edge_pp": -5.586,
+        "z": -1.687
+      }
+    },
+    "WITHIN 2% OF 100b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 938,
+        "tickers": 595,
+        "hit_rate": 0.42,
+        "baseline": 0.4608,
+        "edge_pp": -4.08,
+        "z": -2.507
+      },
+      "holdout": {
+        "n": 318,
+        "tickers": 279,
+        "hit_rate": 0.4937,
+        "baseline": 0.487,
+        "edge_pp": 0.667,
+        "z": 0.238
+      }
+    },
+    "WITHIN 2% OF 200b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 371,
+        "tickers": 328,
+        "hit_rate": 0.4636,
+        "baseline": 0.5379,
+        "edge_pp": -7.433,
+        "z": -2.872
+      },
+      "holdout": {
+        "n": 89,
+        "tickers": 85,
+        "hit_rate": 0.5056,
+        "baseline": 0.512,
+        "edge_pp": -0.638,
+        "z": -0.12
+      }
+    },
+    "WITHIN 2% OF 20b HIGH": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 4183,
+        "tickers": 869,
+        "hit_rate": 0.5728,
+        "baseline": 0.5379,
+        "edge_pp": 3.485,
+        "z": 4.521
+      },
+      "holdout": {
+        "n": 1265,
+        "tickers": 722,
+        "hit_rate": 0.5478,
+        "baseline": 0.512,
+        "edge_pp": 3.583,
+        "z": 2.549
+      }
+    },
+    "WITHIN 2% OF 20b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 4461,
+        "tickers": 871,
+        "hit_rate": 0.4846,
+        "baseline": 0.4608,
+        "edge_pp": 2.38,
+        "z": 3.189
+      },
+      "holdout": {
+        "n": 1331,
+        "tickers": 713,
+        "hit_rate": 0.4591,
+        "baseline": 0.487,
+        "edge_pp": -2.799,
+        "z": -2.043
+      }
+    },
+    "WITHIN 2% OF 252b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 3196,
+        "tickers": 736,
+        "hit_rate": 0.566,
+        "baseline": 0.5379,
+        "edge_pp": 2.807,
+        "z": 3.183
+      },
+      "holdout": {
+        "n": 1038,
+        "tickers": 488,
+        "hit_rate": 0.4923,
+        "baseline": 0.512,
+        "edge_pp": -1.971,
+        "z": -1.27
+      }
+    },
+    "WITHIN 2% OF 252b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 940,
+        "tickers": 450,
+        "hit_rate": 0.4277,
+        "baseline": 0.4608,
+        "edge_pp": -3.319,
+        "z": -2.041
+      },
+      "holdout": {
+        "n": 405,
+        "tickers": 236,
+        "hit_rate": 0.4667,
+        "baseline": 0.487,
+        "edge_pp": -2.037,
+        "z": -0.82
+      }
+    },
+    "WITHIN 2% OF 50b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1813,
+        "tickers": 777,
+        "hit_rate": 0.5372,
+        "baseline": 0.5379,
+        "edge_pp": -0.071,
+        "z": -0.061
+      },
+      "holdout": {
+        "n": 486,
+        "tickers": 399,
+        "hit_rate": 0.4835,
+        "baseline": 0.512,
+        "edge_pp": -2.846,
+        "z": -1.255
+      }
+    },
+    "WITHIN 2% OF 50b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1805,
+        "tickers": 797,
+        "hit_rate": 0.4681,
+        "baseline": 0.4608,
+        "edge_pp": 0.73,
+        "z": 0.622
+      },
+      "holdout": {
+        "n": 504,
+        "tickers": 411,
+        "hit_rate": 0.4246,
+        "baseline": 0.487,
+        "edge_pp": -6.244,
+        "z": -2.804
+      }
+    },
+    "WITHIN 5% OF 100b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 2063,
+        "tickers": 814,
+        "hit_rate": 0.4964,
+        "baseline": 0.5379,
+        "edge_pp": -4.158,
+        "z": -3.788
+      },
+      "holdout": {
+        "n": 492,
+        "tickers": 375,
+        "hit_rate": 0.498,
+        "baseline": 0.512,
+        "edge_pp": -1.403,
+        "z": -0.623
+      }
+    },
+    "WITHIN 5% OF 100b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 2021,
+        "tickers": 804,
+        "hit_rate": 0.4275,
+        "baseline": 0.4608,
+        "edge_pp": -3.334,
+        "z": -3.007
+      },
+      "holdout": {
+        "n": 706,
+        "tickers": 528,
+        "hit_rate": 0.4731,
+        "baseline": 0.487,
+        "edge_pp": -1.395,
+        "z": -0.742
+      }
+    },
+    "WITHIN 5% OF 200b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 722,
+        "tickers": 521,
+        "hit_rate": 0.4723,
+        "baseline": 0.5379,
+        "edge_pp": -6.565,
+        "z": -3.538
+      },
+      "holdout": {
+        "n": 166,
+        "tickers": 149,
+        "hit_rate": 0.5241,
+        "baseline": 0.512,
+        "edge_pp": 1.21,
+        "z": 0.312
+      }
+    },
+    "WITHIN 5% OF 200b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 698,
+        "tickers": 497,
+        "hit_rate": 0.4599,
+        "baseline": 0.4608,
+        "edge_pp": -0.096,
+        "z": -0.051
+      },
+      "holdout": {
+        "n": 169,
+        "tickers": 150,
+        "hit_rate": 0.4142,
+        "baseline": 0.487,
+        "edge_pp": -7.284,
+        "z": -1.894
+      }
+    },
+    "WITHIN 5% OF 20b HIGH": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 7255,
+        "tickers": 894,
+        "hit_rate": 0.5609,
+        "baseline": 0.5379,
+        "edge_pp": 2.291,
+        "z": 3.914
+      },
+      "holdout": {
+        "n": 2354,
+        "tickers": 878,
+        "hit_rate": 0.5132,
+        "baseline": 0.512,
+        "edge_pp": 0.117,
+        "z": 0.113
+      }
+    },
+    "WITHIN 5% OF 20b LOW": {
+      "E": 0.99,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 8834,
+        "tickers": 907,
+        "hit_rate": 0.4806,
+        "baseline": 0.4608,
+        "edge_pp": 1.98,
+        "z": 3.733
+      },
+      "holdout": {
+        "n": 2653,
+        "tickers": 885,
+        "hit_rate": 0.4904,
+        "baseline": 0.487,
+        "edge_pp": 0.335,
+        "z": 0.345
+      }
+    },
+    "WITHIN 5% OF 252b HIGH": {
+      "E": 1.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 5371,
+        "tickers": 799,
+        "hit_rate": 0.5591,
+        "baseline": 0.5379,
+        "edge_pp": 2.117,
+        "z": 3.112
+      },
+      "holdout": {
+        "n": 1844,
+        "tickers": 615,
+        "hit_rate": 0.513,
+        "baseline": 0.512,
+        "edge_pp": 0.101,
+        "z": 0.087
+      }
+    },
+    "WITHIN 5% OF 252b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 1944,
+        "tickers": 653,
+        "hit_rate": 0.4372,
+        "baseline": 0.4608,
+        "edge_pp": -2.36,
+        "z": -2.088
+      },
+      "holdout": {
+        "n": 789,
+        "tickers": 358,
+        "hit_rate": 0.4753,
+        "baseline": 0.487,
+        "edge_pp": -1.175,
+        "z": -0.661
+      }
+    },
+    "WITHIN 5% OF 50b HIGH": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 3396,
+        "tickers": 864,
+        "hit_rate": 0.5327,
+        "baseline": 0.5379,
+        "edge_pp": -0.526,
+        "z": -0.615
+      },
+      "holdout": {
+        "n": 902,
+        "tickers": 584,
+        "hit_rate": 0.5421,
+        "baseline": 0.512,
+        "edge_pp": 3.013,
+        "z": 1.81
+      }
+    },
+    "WITHIN 5% OF 50b LOW": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 3822,
+        "tickers": 890,
+        "hit_rate": 0.4668,
+        "baseline": 0.4608,
+        "edge_pp": 0.592,
+        "z": 0.735
+      },
+      "holdout": {
+        "n": 1053,
+        "tickers": 663,
+        "hit_rate": 0.4691,
+        "baseline": 0.487,
+        "edge_pp": -1.79,
+        "z": -1.162
+      }
+    }
+  },
+  "unmeasured_labels": [
+    ">10% ABOVE 10SMA",
+    ">10% ABOVE 5SMA",
+    ">10% BELOW 10SMA",
+    ">10% BELOW 5SMA",
+    ">15% ABOVE 10SMA",
+    ">15% ABOVE 20SMA",
+    ">15% ABOVE 5SMA",
+    ">15% BELOW 10SMA",
+    ">15% BELOW 20SMA",
+    ">15% BELOW 5SMA",
+    ">20% ABOVE 10SMA",
+    ">20% ABOVE 20SMA",
+    ">20% ABOVE 5SMA",
+    ">20% BELOW 10SMA",
+    ">20% BELOW 20SMA",
+    ">20% BELOW 50SMA",
+    ">20% BELOW 5SMA",
+    ">5% BELOW 5SMA",
+    "ABOVE UPPER BB(20,3.0)",
+    "BB(10,2.5) RIDING UPPER BAND",
+    "BB(20,2.5) RIDING UPPER BAND",
+    "BB(20,3.0) RIDING UPPER BAND",
+    "BB(30,3.0) RIDING UPPER BAND",
+    "BELOW LOWER BB(20,3.0)",
+    "RSI EXTREME OVERSOLD",
+    "RSI10 OVERBOUGHT (>75)",
+    "RSI10 OVERBOUGHT (>80)",
+    "RSI10 OVERSOLD (<20)",
+    "RSI10 OVERSOLD (<25)",
+    "RSI20 OVERBOUGHT (>70)",
+    "RSI20 OVERBOUGHT (>75)",
+    "RSI20 OVERBOUGHT (>80)",
+    "RSI20 OVERSOLD (<20)",
+    "RSI20 OVERSOLD (<25)",
+    "RSI20 OVERSOLD (<30)",
+    "RSI30 OVERBOUGHT (>70)",
+    "RSI30 OVERSOLD (<20)",
+    "RSI30 OVERSOLD (<25)",
+    "RSI30 OVERSOLD (<30)",
+    "WITHIN 2% OF 200b LOW"
+  ],
+  "concepts": {
+    "adx_trend": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "adx_trend",
+      "fit": {
+        "n": 14148,
+        "tickers": 914,
+        "hit_rate": 0.4861,
+        "baseline": 0.5075,
+        "edge_pp": -2.147,
+        "z": -5.109
+      },
+      "holdout": {
+        "n": 4388,
+        "tickers": 936,
+        "hit_rate": 0.4729,
+        "baseline": 0.5011,
+        "edge_pp": -2.818,
+        "z": -3.734
+      }
+    },
+    "bb_breach": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "bb_breach",
+      "fit": {
+        "n": 23212,
+        "tickers": 915,
+        "hit_rate": 0.509,
+        "baseline": 0.5044,
+        "edge_pp": 0.464,
+        "z": 1.414
+      },
+      "holdout": {
+        "n": 7348,
+        "tickers": 939,
+        "hit_rate": 0.4637,
+        "baseline": 0.5003,
+        "edge_pp": -3.666,
+        "z": -6.285
+      }
+    },
+    "bb_edge": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "bb_edge",
+      "fit": {
+        "n": 1558,
+        "tickers": 507,
+        "hit_rate": 0.4897,
+        "baseline": 0.4952,
+        "edge_pp": -0.546,
+        "z": -0.431
+      },
+      "holdout": {
+        "n": 432,
+        "tickers": 249,
+        "hit_rate": 0.5069,
+        "baseline": 0.4983,
+        "edge_pp": 0.864,
+        "z": 0.359
+      }
+    },
+    "bb_ride": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "bb_ride",
+      "fit": {
+        "n": 13690,
+        "tickers": 913,
+        "hit_rate": 0.5433,
+        "baseline": 0.5379,
+        "edge_pp": 0.537,
+        "z": 1.26
+      },
+      "holdout": {
+        "n": 4185,
+        "tickers": 935,
+        "hit_rate": 0.4984,
+        "baseline": 0.512,
+        "edge_pp": -1.355,
+        "z": -1.754
+      }
+    },
+    "big_move": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "big_move",
+      "fit": {
+        "n": 5714,
+        "tickers": 817,
+        "hit_rate": 0.4606,
+        "baseline": 0.4985,
+        "edge_pp": -3.788,
+        "z": -5.727
+      },
+      "holdout": {
+        "n": 2232,
+        "tickers": 671,
+        "hit_rate": 0.4216,
+        "baseline": 0.4988,
+        "edge_pp": -7.723,
+        "z": -7.297
+      }
+    },
+    "chikou_cross": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "chikou_cross",
+      "fit": {
+        "n": 8230,
+        "tickers": 913,
+        "hit_rate": 0.4945,
+        "baseline": 0.4987,
+        "edge_pp": -0.416,
+        "z": -0.755
+      },
+      "holdout": {
+        "n": 2770,
+        "tickers": 920,
+        "hit_rate": 0.4509,
+        "baseline": 0.4983,
+        "edge_pp": -4.74,
+        "z": -4.99
+      }
+    },
+    "cmf_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "cmf_cross",
+      "fit": {
+        "n": 8888,
+        "tickers": 907,
+        "hit_rate": 0.4855,
+        "baseline": 0.4984,
+        "edge_pp": -1.295,
+        "z": -2.441
+      },
+      "holdout": {
+        "n": 2912,
+        "tickers": 922,
+        "hit_rate": 0.4863,
+        "baseline": 0.4993,
+        "edge_pp": -1.3,
+        "z": -1.403
+      }
+    },
+    "cmf_level": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "cmf_level",
+      "fit": {
+        "n": 21554,
+        "tickers": 913,
+        "hit_rate": 0.5116,
+        "baseline": 0.5049,
+        "edge_pp": 0.677,
+        "z": 1.987
+      },
+      "holdout": {
+        "n": 6972,
+        "tickers": 937,
+        "hit_rate": 0.4786,
+        "baseline": 0.4985,
+        "edge_pp": -1.988,
+        "z": -3.32
+      }
+    },
+    "fib_break": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_break",
+      "fit": {
+        "n": 3840,
+        "tickers": 897,
+        "hit_rate": 0.507,
+        "baseline": 0.5002,
+        "edge_pp": 0.687,
+        "z": 0.852
+      },
+      "holdout": {
+        "n": 1301,
+        "tickers": 757,
+        "hit_rate": 0.4243,
+        "baseline": 0.4993,
+        "edge_pp": -7.499,
+        "z": -5.41
+      }
+    },
+    "fib_hold": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "fib_hold",
+      "fit": {
+        "n": 7469,
+        "tickers": 911,
+        "hit_rate": 0.4876,
+        "baseline": 0.499,
+        "edge_pp": -1.137,
+        "z": -1.966
+      },
+      "holdout": {
+        "n": 2486,
+        "tickers": 910,
+        "hit_rate": 0.4791,
+        "baseline": 0.4983,
+        "edge_pp": -1.917,
+        "z": -1.912
+      }
+    },
+    "ichimoku_cloud_color": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_color",
+      "fit": {
+        "n": 27371,
+        "tickers": 916,
+        "hit_rate": 0.4976,
+        "baseline": 0.5023,
+        "edge_pp": -0.469,
+        "z": -1.551
+      },
+      "holdout": {
+        "n": 9284,
+        "tickers": 939,
+        "hit_rate": 0.4766,
+        "baseline": 0.5002,
+        "edge_pp": -2.36,
+        "z": -4.547
+      }
+    },
+    "ichimoku_cloud_pos": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ichimoku_cloud_pos",
+      "fit": {
+        "n": 26475,
+        "tickers": 916,
+        "hit_rate": 0.4931,
+        "baseline": 0.5041,
+        "edge_pp": -1.094,
+        "z": -3.56
+      },
+      "holdout": {
+        "n": 8508,
+        "tickers": 939,
+        "hit_rate": 0.4964,
+        "baseline": 0.5,
+        "edge_pp": -0.363,
+        "z": -0.67
+      }
+    },
+    "ichimoku_tk": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "ichimoku_tk",
+      "fit": {
+        "n": 5482,
+        "tickers": 904,
+        "hit_rate": 0.544,
+        "baseline": 0.499,
+        "edge_pp": 4.496,
+        "z": 6.658
+      },
+      "holdout": {
+        "n": 1798,
+        "tickers": 844,
+        "hit_rate": 0.5334,
+        "baseline": 0.5001,
+        "edge_pp": 3.331,
+        "z": 2.825
+      }
+    },
+    "kumo_break": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "kumo_break",
+      "fit": {
+        "n": 5265,
+        "tickers": 899,
+        "hit_rate": 0.4895,
+        "baseline": 0.5003,
+        "edge_pp": -1.088,
+        "z": -1.579
+      },
+      "holdout": {
+        "n": 1767,
+        "tickers": 838,
+        "hit_rate": 0.4329,
+        "baseline": 0.4982,
+        "edge_pp": -6.526,
+        "z": -5.487
+      }
+    },
+    "kumo_twist": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "kumo_twist",
+      "fit": {
+        "n": 3060,
+        "tickers": 880,
+        "hit_rate": 0.5212,
+        "baseline": 0.5007,
+        "edge_pp": 2.054,
+        "z": 2.272
+      },
+      "holdout": {
+        "n": 985,
+        "tickers": 661,
+        "hit_rate": 0.5046,
+        "baseline": 0.4988,
+        "edge_pp": 0.58,
+        "z": 0.364
+      }
+    },
+    "ma_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "ma_cross",
+      "fit": {
+        "n": 20297,
+        "tickers": 915,
+        "hit_rate": 0.4986,
+        "baseline": 0.4991,
+        "edge_pp": -0.044,
+        "z": -0.125
+      },
+      "holdout": {
+        "n": 6523,
+        "tickers": 936,
+        "hit_rate": 0.492,
+        "baseline": 0.4992,
+        "edge_pp": -0.724,
+        "z": -1.169
+      }
+    },
+    "ma_distance": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "ma_distance",
+      "fit": {
+        "n": 26014,
+        "tickers": 916,
+        "hit_rate": 0.4924,
+        "baseline": 0.4894,
+        "edge_pp": 0.294,
+        "z": 0.95
+      },
+      "holdout": {
+        "n": 8665,
+        "tickers": 937,
+        "hit_rate": 0.4889,
+        "baseline": 0.4965,
+        "edge_pp": -0.761,
+        "z": -1.417
+      }
+    },
+    "ma_stack": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "ma_stack",
+      "fit": {
+        "n": 24499,
+        "tickers": 915,
+        "hit_rate": 0.488,
+        "baseline": 0.504,
+        "edge_pp": -1.603,
+        "z": -5.019
+      },
+      "holdout": {
+        "n": 7873,
+        "tickers": 939,
+        "hit_rate": 0.4916,
+        "baseline": 0.5004,
+        "edge_pp": -0.885,
+        "z": -1.57
+      }
+    },
+    "macd_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "macd_cross",
+      "fit": {
+        "n": 17187,
+        "tickers": 915,
+        "hit_rate": 0.5049,
+        "baseline": 0.4988,
+        "edge_pp": 0.611,
+        "z": 1.603
+      },
+      "holdout": {
+        "n": 5603,
+        "tickers": 937,
+        "hit_rate": 0.4628,
+        "baseline": 0.4989,
+        "edge_pp": -3.613,
+        "z": -5.409
+      }
+    },
+    "macd_hist_turn": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "macd_hist_turn",
+      "fit": {
+        "n": 13435,
+        "tickers": 913,
+        "hit_rate": 0.4801,
+        "baseline": 0.4974,
+        "edge_pp": -1.729,
+        "z": -4.008
+      },
+      "holdout": {
+        "n": 4177,
+        "tickers": 935,
+        "hit_rate": 0.4554,
+        "baseline": 0.4974,
+        "edge_pp": -4.208,
+        "z": -5.439
+      }
+    },
+    "macd_zero": {
+      "E": 1.0,
+      "kind": "X",
+      "concept": "macd_zero",
+      "fit": {
+        "n": 9472,
+        "tickers": 907,
+        "hit_rate": 0.5228,
+        "baseline": 0.4982,
+        "edge_pp": 2.464,
+        "z": 4.796
+      },
+      "holdout": {
+        "n": 2975,
+        "tickers": 925,
+        "hit_rate": 0.5055,
+        "baseline": 0.4985,
+        "edge_pp": 0.702,
+        "z": 0.766
+      }
+    },
+    "obv_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "obv_cross",
+      "fit": {
+        "n": 12643,
+        "tickers": 913,
+        "hit_rate": 0.4945,
+        "baseline": 0.4985,
+        "edge_pp": -0.397,
+        "z": -0.893
+      },
+      "holdout": {
+        "n": 4061,
+        "tickers": 933,
+        "hit_rate": 0.4627,
+        "baseline": 0.4986,
+        "edge_pp": -3.592,
+        "z": -4.578
+      }
+    },
+    "obv_divergence": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "obv_divergence",
+      "fit": {
+        "n": 13712,
+        "tickers": 912,
+        "hit_rate": 0.4863,
+        "baseline": 0.4999,
+        "edge_pp": -1.362,
+        "z": -3.189
+      },
+      "holdout": {
+        "n": 4420,
+        "tickers": 936,
+        "hit_rate": 0.505,
+        "baseline": 0.4994,
+        "edge_pp": 0.557,
+        "z": 0.741
+      }
+    },
+    "range_break": {
+      "E": 0.0,
+      "kind": "T",
+      "concept": "range_break",
+      "fit": {
+        "n": 4398,
+        "tickers": 907,
+        "hit_rate": 0.4704,
+        "baseline": 0.5046,
+        "edge_pp": -3.42,
+        "z": -4.536
+      },
+      "holdout": {
+        "n": 1440,
+        "tickers": 801,
+        "hit_rate": 0.4354,
+        "baseline": 0.4999,
+        "edge_pp": -6.45,
+        "z": -4.895
+      }
+    },
+    "range_edge": {
+      "E": 0.0,
+      "kind": "P",
+      "concept": "range_edge",
+      "fit": {
+        "n": 25288,
+        "tickers": 914,
+        "hit_rate": 0.5183,
+        "baseline": 0.5095,
+        "edge_pp": 0.881,
+        "z": 2.803
+      },
+      "holdout": {
+        "n": 8072,
+        "tickers": 936,
+        "hit_rate": 0.4947,
+        "baseline": 0.5014,
+        "edge_pp": -0.675,
+        "z": -1.212
+      }
+    },
+    "rsi_divergence": {
+      "E": 1.0,
+      "kind": "T",
+      "concept": "rsi_divergence",
+      "fit": {
+        "n": 1607,
+        "tickers": 767,
+        "hit_rate": 0.5208,
+        "baseline": 0.4925,
+        "edge_pp": 2.833,
+        "z": 2.272
+      },
+      "holdout": {
+        "n": 560,
+        "tickers": 441,
+        "hit_rate": 0.5179,
+        "baseline": 0.4999,
+        "edge_pp": 1.798,
+        "z": 0.851
+      }
+    },
+    "rsi_mid_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_mid_cross",
+      "fit": {
+        "n": 19300,
+        "tickers": 915,
+        "hit_rate": 0.49,
+        "baseline": 0.4982,
+        "edge_pp": -0.823,
+        "z": -2.288
+      },
+      "holdout": {
+        "n": 6285,
+        "tickers": 937,
+        "hit_rate": 0.4609,
+        "baseline": 0.4979,
+        "edge_pp": -3.697,
+        "z": -5.863
+      }
+    },
+    "rsi_zone": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "rsi_zone",
+      "fit": {
+        "n": 20495,
+        "tickers": 914,
+        "hit_rate": 0.4897,
+        "baseline": 0.4945,
+        "edge_pp": -0.478,
+        "z": -1.368
+      },
+      "holdout": {
+        "n": 6423,
+        "tickers": 938,
+        "hit_rate": 0.5393,
+        "baseline": 0.4989,
+        "edge_pp": 4.041,
+        "z": 6.477
+      }
+    },
+    "rsi_zone_exit": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "rsi_zone_exit",
+      "fit": {
+        "n": 3318,
+        "tickers": 892,
+        "hit_rate": 0.4943,
+        "baseline": 0.4882,
+        "edge_pp": 0.608,
+        "z": 0.7
+      },
+      "holdout": {
+        "n": 1034,
+        "tickers": 655,
+        "hit_rate": 0.4671,
+        "baseline": 0.4945,
+        "edge_pp": -2.736,
+        "z": -1.759
+      }
+    },
+    "sr_reaction": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "sr_reaction",
+      "fit": {
+        "n": 17396,
+        "tickers": 914,
+        "hit_rate": 0.5039,
+        "baseline": 0.4986,
+        "edge_pp": 0.531,
+        "z": 1.401
+      },
+      "holdout": {
+        "n": 5611,
+        "tickers": 936,
+        "hit_rate": 0.4878,
+        "baseline": 0.4984,
+        "edge_pp": -1.06,
+        "z": -1.588
+      }
+    },
+    "stoch_cross": {
+      "E": 0.0,
+      "kind": "X",
+      "concept": "stoch_cross",
+      "fit": {
+        "n": 10258,
+        "tickers": 910,
+        "hit_rate": 0.4832,
+        "baseline": 0.495,
+        "edge_pp": -1.174,
+        "z": -2.378
+      },
+      "holdout": {
+        "n": 3119,
+        "tickers": 924,
+        "hit_rate": 0.488,
+        "baseline": 0.4981,
+        "edge_pp": -1.011,
+        "z": -1.13
+      }
+    },
+    "stoch_zone": {
+      "E": 0.0,
+      "kind": "S",
+      "concept": "stoch_zone",
+      "fit": {
+        "n": 21187,
+        "tickers": 915,
+        "hit_rate": 0.475,
+        "baseline": 0.4956,
+        "edge_pp": -2.063,
+        "z": -6.007
+      },
+      "holdout": {
+        "n": 6711,
+        "tickers": 939,
+        "hit_rate": 0.5221,
+        "baseline": 0.4991,
+        "edge_pp": 2.307,
+        "z": 3.78
+      }
+    },
+    "vol_divergence": {
+      "E": 0.271,
+      "kind": "S",
+      "concept": "vol_divergence",
+      "fit": {
+        "n": 23080,
+        "tickers": 913,
+        "hit_rate": 0.4998,
+        "baseline": 0.4944,
+        "edge_pp": 0.541,
+        "z": 1.645
+      },
+      "holdout": {
+        "n": 7380,
+        "tickers": 937,
+        "hit_rate": 0.5325,
+        "baseline": 0.4984,
+        "edge_pp": 3.409,
+        "z": 5.856
+      }
+    }
+  },
+  "regimes": {
+    "10/100 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "10/100 MA BULL CROSS": {
+      "trend_up": 1.0
+    },
+    "10/20 MA BEAR CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "10/20 MA BULL CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.932
+    },
+    "10/50 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "10/50 MA BULL CROSS": {
+      "trend_up": 0.0
+    },
+    "20/100 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "20/100 MA BULL CROSS": {
+      "trend_up": 1.0
+    },
+    "20/200 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "20/200 MA BULL CROSS": {
+      "trend_up": 0.0
+    },
+    "20/50 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "20/50 MA BULL CROSS": {
+      "trend_up": 0.0
+    },
+    "5/10 MA BEAR CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "5/10 MA BULL CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "5/20 MA BEAR CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "5/20 MA BULL CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "5/50 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "5/50 MA BULL CROSS": {
+      "trend_up": 0.0
+    },
+    "50/100 MA BEAR CROSS": {
+      "trend_up": 0.0
+    },
+    "50/100 MA BULL CROSS": {
+      "trend_up": 0.0
+    },
+    ">10% ABOVE 100SMA": {
+      "trend_up": 0.0
+    },
+    ">10% ABOVE 200SMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">10% ABOVE 20SMA": {
+      "trend_up": 1.0
+    },
+    ">10% ABOVE 50SMA": {
+      "trend_up": 0.0
+    },
+    ">10% BELOW 100SMA": {
+      "trend_up": 0.0
+    },
+    ">10% BELOW 200SMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">10% BELOW 20SMA": {
+      "trend_up": 0.0
+    },
+    ">10% BELOW 50SMA": {
+      "trend_up": 0.0
+    },
+    ">15% ABOVE 100SMA": {
+      "trend_up": 0.0
+    },
+    ">15% ABOVE 200SMA": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    ">15% ABOVE 50SMA": {
+      "trend_up": 0.0
+    },
+    ">15% BELOW 100SMA": {
+      "trend_up": 0.0
+    },
+    ">15% BELOW 200SMA": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">20% ABOVE 100SMA": {
+      "trend_up": 0.0
+    },
+    ">20% ABOVE 200SMA": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    ">20% ABOVE 50SMA": {
+      "trend_up": 1.0
+    },
+    ">20% BELOW 100SMA": {
+      "trend_up": 0.0
+    },
+    ">20% BELOW 200SMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">5% ABOVE 100SMA": {
+      "trend_down": 0.0,
+      "trend_up": 1.0
+    },
+    ">5% ABOVE 10SMA": {
+      "trend_up": 0.0
+    },
+    ">5% ABOVE 200SMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">5% ABOVE 20SMA": {
+      "trend_down": 0.0,
+      "trend_up": 1.0
+    },
+    ">5% ABOVE 50SMA": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">5% BELOW 100SMA": {
+      "range": 1.0,
+      "trend_up": 0.0
+    },
+    ">5% BELOW 10SMA": {
+      "trend_up": 0.0
+    },
+    ">5% BELOW 200SMA": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    ">5% BELOW 20SMA": {
+      "trend_up": 0.0
+    },
+    ">5% BELOW 50SMA": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(10,1.5)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(10,2.0)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(10,2.5)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(20,1.5)": {
+      "high_vol": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(20,2.5)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(30,1.5)": {
+      "trend_down": 0.0,
+      "trend_up": 1.0
+    },
+    "ABOVE UPPER BB(30,2.0)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(30,2.5)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(30,3.0)": {
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(50,1.5)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "ABOVE UPPER BB(50,2.0)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.813
+    },
+    "ABOVE UPPER BB(50,2.5)": {
+      "trend_up": 0.998
+    },
+    "ABOVE UPPER BB(50,3.0)": {
+      "trend_up": 0.0
+    },
+    "AT LOWER BB": {
+      "trend_up": 0.0
+    },
+    "AT UPPER BB": {
+      "trend_up": 0.0
+    },
+    "BB(10,1.5) RIDING UPPER BAND": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BB(10,2.0) RIDING UPPER BAND": {
+      "trend_up": 0.0
+    },
+    "BB(20,1.5) RIDING UPPER BAND": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BB(30,1.5) RIDING UPPER BAND": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BB(30,2.0) RIDING UPPER BAND": {
+      "trend_up": 0.0
+    },
+    "BB(30,2.5) RIDING UPPER BAND": {
+      "trend_up": 0.0
+    },
+    "BB(50,1.5) RIDING UPPER BAND": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.61
+    },
+    "BB(50,2.0) RIDING UPPER BAND": {
+      "range": 0.0,
+      "trend_up": 1.0
+    },
+    "BB(50,2.5) RIDING UPPER BAND": {
+      "trend_up": 1.0
+    },
+    "BB(50,3.0) RIDING UPPER BAND": {
+      "trend_up": 0.0
+    },
+    "BEARISH KUMO": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(10,1.5)": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(10,2.0)": {
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(20,1.5)": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(20,2.5)": {
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(30,1.5)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(30,2.0)": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(30,2.5)": {
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(50,1.5)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(50,2.0)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(50,2.5)": {
+      "trend_up": 0.0
+    },
+    "BELOW LOWER BB(50,3.0)": {
+      "trend_up": 0.0
+    },
+    "BULLISH KUMO": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CHIKOU CROSS BEAR": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CHIKOU CROSS BULL": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CMF CROSSED NEGATIVE": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CMF CROSSED POSITIVE": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CMF STRONG BUYING": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "CMF STRONG SELLING": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "FIB 0.786 BREAK (VARIANT)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "FIB CONFLUENCE HOLD (VARIANT)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "FIB GOLDEN POCKET HOLD": {
+      "trend_up": 0.0
+    },
+    "FIB GOLDEN POCKET HOLD (VARIANT)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "ICHIMOKU TK BEAR CROSS": {
+      "trend_down": 0.0,
+      "trend_up": 1.0
+    },
+    "ICHIMOKU TK BULL CROSS": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "KUMO BREAKDOWN": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "KUMO BREAKOUT": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "KUMO TWIST BEAR": {
+      "trend_up": 0.0
+    },
+    "KUMO TWIST BULL": {
+      "trend_up": 0.0
+    },
+    "LARGE GAIN": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "LARGE LOSS": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MA ALIGNMENT BEARISH": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MA ALIGNMENT BULLISH": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.637
+    },
+    "MACD BEAR CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD BULL CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD HIST TURN DOWN": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD HIST TURN UP": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD ZERO CROSS DOWN": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD ZERO CROSS UP": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(10,20,5) BEAR CROSS": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(10,20,5) BULL CROSS": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(10,20,5) ZERO BEAR": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(10,20,5) ZERO BULL": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(19,39,9) BEAR CROSS": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(19,39,9) BULL CROSS": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(19,39,9) ZERO BEAR": {
+      "trend_up": 0.0
+    },
+    "MACD(19,39,9) ZERO BULL": {
+      "trend_up": 0.0
+    },
+    "MACD(20,50,10) BEAR CROSS": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "MACD(20,50,10) BULL CROSS": {
+      "trend_up": 0.0
+    },
+    "MACD(20,50,10) ZERO BEAR": {
+      "trend_up": 0.0
+    },
+    "MACD(20,50,10) ZERO BULL": {
+      "trend_up": 0.0
+    },
+    "OBV BEAR CROSS EMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "OBV BEARISH DIVERGENCE": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "OBV BULL CROSS EMA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "OBV BULLISH DIVERGENCE": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "PIVOT RESISTANCE REJECT": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "PIVOT SUPPORT HOLD": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "PRICE ABOVE 20 MA": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "PRICE ABOVE KUMO": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.643
+    },
+    "PRICE BELOW 20 MA": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "PRICE BELOW KUMO": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RANGE BREAKDOWN 50b": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    "RANGE BREAKOUT 50b": {
+      "trend_up": 0.0
+    },
+    "RSI BEARISH DIVERGENCE": {
+      "trend_up": 0.0
+    },
+    "RSI BULLISH DIVERGENCE": {
+      "trend_up": 0.0
+    },
+    "RSI OVERBOUGHT": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI OVERSOLD": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI10 CROSSED 50 BEAR": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI10 CROSSED 50 BULL": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI10 OVERBOUGHT (>70)": {
+      "trend_up": 0.0
+    },
+    "RSI14 CROSSED 50 BEAR": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI14 CROSSED 50 BULL": {
+      "trend_up": 0.0
+    },
+    "RSI14 EXIT OVERBOUGHT": {
+      "trend_up": 0.0
+    },
+    "RSI14 EXIT OVERSOLD": {
+      "trend_up": 0.0
+    },
+    "RSI20 CROSSED 50 BEAR": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI20 CROSSED 50 BULL": {
+      "trend_up": 0.0
+    },
+    "RSI30 CROSSED 50 BEAR": {
+      "trend_up": 0.0
+    },
+    "RSI30 CROSSED 50 BULL": {
+      "trend_up": 0.0
+    },
+    "RSI5 CROSSED 50 BEAR": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 CROSSED 50 BULL": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 OVERBOUGHT (>70)": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 OVERBOUGHT (>75)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 OVERBOUGHT (>80)": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.655
+    },
+    "RSI5 OVERSOLD (<20)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 OVERSOLD (<25)": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "RSI5 OVERSOLD (<30)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STOCH BEAR CROSS (OVERBOUGHT)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STOCH BULL CROSS (OVERSOLD)": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STOCHASTIC OVERBOUGHT": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STOCHASTIC OVERSOLD": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STRONG DOWNTREND": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "STRONG UPTREND": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "VOLUME BEARISH DIVERGENCE (10b)": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "VOLUME BULLISH DIVERGENCE (10b)": {
+      "high_vol": 0.0,
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 100b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 100b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 20b HIGH": {
+      "range": 1.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 20b LOW": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 252b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 252b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 1% OF 50b HIGH": {
+      "trend_up": 1.0
+    },
+    "WITHIN 1% OF 50b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 100b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 100b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 20b HIGH": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 20b LOW": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 252b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 252b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 50b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 2% OF 50b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 100b HIGH": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 100b LOW": {
+      "range": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 200b HIGH": {
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 200b LOW": {
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 20b HIGH": {
+      "high_vol": 0.0,
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 20b LOW": {
+      "range": 1.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 252b HIGH": {
+      "range": 0.0,
+      "trend_up": 1.0
+    },
+    "WITHIN 5% OF 252b LOW": {
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    },
+    "WITHIN 5% OF 50b HIGH": {
+      "trend_down": 0.0,
+      "trend_up": 1.0
+    },
+    "WITHIN 5% OF 50b LOW": {
+      "range": 0.0,
+      "trend_down": 0.0,
+      "trend_up": 0.0
+    }
+  },
+  "tickers_evaluated": 939
+}
