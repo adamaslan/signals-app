@@ -142,6 +142,60 @@ cd ~/code/signals-app-graded && PYTHONPATH=src:. mamba run -n signals-app python
 ```
 Expect: `rung3 adopted` or `rung3 NOT adopted:` with reasons (AUC gain under 0.005, AUC over 0.60 as a leakage flag, or ship bar missed). The 60-symbol smoke was not adopted.
 
+## Permissions and approvals needed
+
+Checked on this machine today (2026-10-06): what is already in place, what is missing, and what only you can grant.
+"Approval" rows are things Claude will not do without an explicit yes in the session, per the global safety and
+outward-action rules.
+
+### Account and tooling access
+
+| Needed for | Status | Check |
+|---|---|---|
+| GitHub: push branch, open and merge PRs, dispatch workflows (todos 3, 4) | **In place.** `gh` is logged in as `adamaslan` with scopes `repo` and `workflow`, and has admin on `adamaslan/signals-app` | `gh auth status` and `gh api repos/adamaslan/signals-app --jq .permissions` |
+| GitHub Actions secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (todo 4 scan writes) | **In place** (both set 2026-08-19) | `gh secret list --repo adamaslan/signals-app` |
+| Supabase service-role key in `~/code/signals-app/.env` (todos 1, 2, 4, 6, 7 read checks) | **In place** (names present; values never printed) | `grep -oE '^(SUPABASE_URL\|SUPABASE_SERVICE_ROLE_KEY)=' ~/code/signals-app/.env` |
+| Supabase **dashboard** access with permission to run SQL (todos 1, 2) | **Missing here / only you can grant.** No Supabase CLI or `psql` is installed, the service-role key cannot run DDL through the REST API, and the repo documents no migration command | Open the project in the dashboard and confirm the SQL Editor runs a write |
+| `pbcopy`, `mamba` env `signals-app`, network to yfinance (todos 1 to 8) | In place | `which pbcopy && mamba env list \| grep signals-app` |
+| Disk and CPU for the evaluator and retrain (todos 5, 8) | In place; `/tmp/sigcache` holds ~940 cached price files, cleared on reboot | `ls /tmp/sigcache \| wc -l` |
+| A free slot under the 3-PR cap (todo 3) | **Missing.** #43, #44, #45 are open | `gh pr list --repo adamaslan/signals-app` |
+| Merge rights on #44 and #45 | In place (admin), but merging is your decision | |
+
+If you want to stop pasting SQL by hand later, the missing piece is a Supabase **database connection string** (or the
+Supabase CLI logged in with a personal access token) kept in a local env file, never in chat. Then migrations can be
+applied from the terminal after a confirmation. That is optional and not set up.
+
+### Approvals Claude needs from you, per action
+
+| Action | Why it needs an explicit yes | Todo |
+|---|---|---|
+| Apply either migration to production Supabase | Schema change on a live database. Approved in principle this session, but you run it | 1, 2 |
+| Merge or close PR #44 or #45 | Changes `main`; also makes this branch conflict | 3 |
+| Open the PR for this branch | Outward-facing; needs a slot and the wiki ingest | 3 |
+| Edit `.github/workflows/signals-scan.yml` to set the three shadow flags | Changes what the scheduled production scan writes | 4 |
+| Dispatch `signals-scan.yml` with `dry_run=false` | A real scan writes rows and spends LLM tokens | 4 |
+| Flip `SIGNALS_RANKER=graded` anywhere live | Changes published scores | 7 |
+| Re-run calibration on the `+graded` code version | Writes calibration rows | 7 |
+| Publish a retrained model (`train_scorer.py --publish`) | Activates a model in Supabase | 8 |
+| Any `git push --force`, `git reset --hard`, or deleting `/tmp/sigcache` evidence while a run needs it | Destructive-state rule | any |
+
+Already approved this session: P0 decisions (K starting values; 4 weeks and 300+ graded BUYs; both migrations in
+principle), local read-only runs, committing results to this branch, and pushing this branch. Not approved: the PR,
+the workflow edit and the cutover.
+
+### Optional Claude Code permission allowlist
+
+To avoid per-command prompts for the read-only commands used above, add these to the project's
+`.claude/settings.json` (`fewer-permission-prompts` can generate it). Do **not** allowlist `gh pr merge`,
+`gh workflow run`, `git push`, or anything that writes to Supabase:
+```json
+{"permissions": {"allow": [
+  "Bash(gh pr list:*)", "Bash(gh pr view:*)", "Bash(gh auth status)", "Bash(gh secret list:*)",
+  "Bash(gh run list:*)", "Bash(git status:*)", "Bash(git log:*)", "Bash(git fetch:*)",
+  "Bash(mamba run -n signals-app python -m pytest:*)", "Bash(pbcopy:*)"
+]}}
+```
+
 ## Optional
 
 📓 Record this session's caveats durably with `/cave` (the run shipped with unexecuted gated steps and untuned constants).
