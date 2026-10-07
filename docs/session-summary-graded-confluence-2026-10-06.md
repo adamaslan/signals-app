@@ -142,6 +142,46 @@ cd ~/code/signals-app-graded && PYTHONPATH=src:. mamba run -n signals-app python
 ```
 Expect: `rung3 adopted` or `rung3 NOT adopted:` with reasons (AUC gain under 0.005, AUC over 0.60 as a leakage flag, or ship bar missed). The 60-symbol smoke was not adopted.
 
+## DB commands (`scripts/db_tool.py`), ranked
+
+Added this session, tested against a fake runner (22 tests). **It could not be run against the live database:**
+`SUPABASE_ACCESS_TOKEN` in `~/code/signals-app/.env` returns 401 (expired or revoked), there is no `DATABASE_URL` for
+this project, and no Postgres driver is installed. The data is not precious (your call), so the only blocker on
+applying the migrations from the terminal is a working credential.
+
+Fix the credential first. Make a token at https://supabase.com/dashboard/account/tokens, then write it into `.env`
+without echoing it or putting it in chat:
+```bash
+read -s -p "Supabase access token: " T; echo; sed -i '' "s|^SUPABASE_ACCESS_TOKEN=.*|SUPABASE_ACCESS_TOKEN=$T|" ~/code/signals-app/.env; unset T
+```
+Expect: a silent prompt, then no output. Check it works (read-only, prints routes and migration state):
+```bash
+cd ~/code/signals-app-graded && set -a && . ~/code/signals-app/.env && set +a && PYTHONPATH=src mamba run -n signals-app python scripts/db_tool.py status
+```
+Expect: JSON like `{"route": "api", "migrations": {"20261006000001_detector_hits_kind.sql": false, ...}}`. A 401 message means the token is still bad.
+
+Every command below is a block you paste after sourcing the env (`set -a && . ~/code/signals-app/.env && set +a`), from `~/code/signals-app-graded`,
+prefixed with `PYTHONPATH=src mamba run -n signals-app python`. Anything that writes needs `--yes`; reads never do.
+
+| Rank | Command | What it does | Verdict |
+|---|---|---|---|
+| 1 | `scripts/db_tool.py status` | Reports the route used and whether each recent migration's objects exist | **Recommended.** Read-only; run it first and after every change |
+| 2 | `scripts/db_tool.py migrate --since 20261006 --dry-run` | Lists the migration files that would run | **Recommended.** Read-only preview |
+| 3 | `scripts/db_tool.py migrate --since 20261006 --yes` | Applies both new migrations in order, records each in `applied_migrations` | **Recommended.** Both are additive and idempotent (`if not exists`), so a re-run is safe |
+| 4 | `scripts/db_tool.py tables` | Public tables with approximate row counts | **Recommended.** Read-only |
+| 5 | `scripts/db_tool.py query "select ..."` | One read-only statement; refuses anything that could write, including `select ... into` and stacked statements | **Recommended.** Use for the verify checks in todos 1, 2, 4 |
+| 6 | `scripts/db_tool.py apply supabase/migrations/<file>.sql --yes` | Applies one named migration file | OK. Use when you want one migration, not the batch |
+| 7 | `scripts/db_tool.py purge-shadow --yes` | `delete from confluence_shadow`: clears shadow rows | OK once the table exists. Handy to reset after changing the ranker or evidence. Loses shadow history, which you said is fine |
+| 8 | `scripts/db_tool.py exec "..." --yes` / `exec -f file.sql --yes` | Runs any statement | **Use with care.** Not recommended for routine use: no dry run, no undo. Prefer the specific commands above |
+| 9 | `exec "truncate detector_hits, forward_returns" --yes` | Wipes the calibration inputs | **Not recommended.** `forward_returns` and `detector_hits` feed calibration and the shadow join; clearing them resets calibration history and the `strength_hit_rates` table is rebuilt from nothing. Only worth it if you are deliberately starting over |
+| 10 | `exec "drop table confluence_shadow" --yes` | Removes the shadow table | **Not recommended.** Rollback for migration 2 only; it destroys shadow data and `write_confluence_shadow` fails if the flag is still on |
+| 11 | `exec "alter table detector_hits drop column kind, drop column concept, drop column context" --yes` | Rollback for migration 1 | **Not recommended.** Same: turn `SIGNALS_WRITE_HIT_KINDS` off first or every scan write errors |
+| 12 | `exec "delete from signals" --yes` (or truncate) | Empties published signals | **Not recommended, and the data is not the issue.** The web app and API read this table, so the site goes blank until the next scan. Also cascades from `engine_runs` |
+| 13 | `--route postgres` with a pasted `DATABASE_URL` | Direct SQL instead of the Management API | Fallback only. Needs `psycopg` installed and a connection string in env; skip if the token works |
+
+Order to run them: 1, 2, 3, 1 again, then 5 for the todo verify checks. Everything from rank 8 down is
+optional and mostly destructive.
+
 ## Permissions and approvals needed
 
 Checked on this machine today (2026-10-06): what is already in place, what is missing, and what only you can grant.
@@ -155,7 +195,7 @@ outward-action rules.
 | GitHub: push branch, open and merge PRs, dispatch workflows (todos 3, 4) | **In place.** `gh` is logged in as `adamaslan` with scopes `repo` and `workflow`, and has admin on `adamaslan/signals-app` | `gh auth status` and `gh api repos/adamaslan/signals-app --jq .permissions` |
 | GitHub Actions secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (todo 4 scan writes) | **In place** (both set 2026-08-19) | `gh secret list --repo adamaslan/signals-app` |
 | Supabase service-role key in `~/code/signals-app/.env` (todos 1, 2, 4, 6, 7 read checks) | **In place** (names present; values never printed) | `grep -oE '^(SUPABASE_URL\|SUPABASE_SERVICE_ROLE_KEY)=' ~/code/signals-app/.env` |
-| Supabase **dashboard** access with permission to run SQL (todos 1, 2) | **Missing here / only you can grant.** No Supabase CLI or `psql` is installed, the service-role key cannot run DDL through the REST API, and the repo documents no migration command | Open the project in the dashboard and confirm the SQL Editor runs a write |
+| A working DDL route to Supabase (todos 1, 2) | **Missing.** `SUPABASE_ACCESS_TOKEN` in `.env` returns 401, there is no `DATABASE_URL`, no Supabase CLI or `psql`. Either paste the SQL in the dashboard, or fix the token and use `scripts/db_tool.py` (section above) | Open the project in the dashboard and confirm the SQL Editor runs a write |
 | `pbcopy`, `mamba` env `signals-app`, network to yfinance (todos 1 to 8) | In place | `which pbcopy && mamba env list \| grep signals-app` |
 | Disk and CPU for the evaluator and retrain (todos 5, 8) | In place; `/tmp/sigcache` holds ~940 cached price files, cleared on reboot | `ls /tmp/sigcache \| wc -l` |
 | A free slot under the 3-PR cap (todo 3) | **Missing.** #43, #44, #45 are open | `gh pr list --repo adamaslan/signals-app` |
