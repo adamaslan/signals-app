@@ -187,10 +187,11 @@ def load_ohlcv(ticker: str, cache: Path) -> pd.DataFrame | None:
     path = cache / f"{ticker}.pkl"
     if path.exists():
         return pd.read_pickle(path)
-    import yfinance as yf
+    from signals_app.data.fetcher import DataFetcher
 
-    df = yf.Ticker(ticker).history(period=PERIOD, interval="1d", auto_adjust=True)
-    if df is None or df.empty:
+    try:
+        df = DataFetcher().fetch_daily_history(ticker, PERIOD)  # Alpaca first
+    except ValueError:
         return None
     df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
     df.to_pickle(path)

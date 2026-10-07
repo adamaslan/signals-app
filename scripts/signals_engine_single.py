@@ -40,7 +40,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
+from signals_app.data.fetcher import DataFetcher
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("signals_engine_single")
@@ -115,14 +115,10 @@ class Candidate:
 # Data fetching and indicator computation (simplified but complete)
 # ---------------------------------------------------------------------------
 def fetch_data(ticker: str, period: str = DEFAULT_PERIOD) -> pd.DataFrame:
-    """Fetch OHLCV data from yfinance."""
+    """Fetch daily OHLCV via the shared fetcher (Alpaca first, yfinance local fallback)."""
     try:
-        df = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=True)
-        if df.empty:
-            return df
-        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-        return df
-    except Exception as e:
+        return DataFetcher().fetch_daily_history(ticker, period)
+    except ValueError as e:
         logger.warning(f"fetch failed for {ticker}: {e}")
         return pd.DataFrame()
 
