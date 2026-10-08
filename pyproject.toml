@@ -13,6 +13,8 @@ dependencies = [
     "pandas",
     "numpy",
     "yfinance",
+    "requests",
+    "boto3",
     "pydantic",
     "httpx",
     "python-dotenv",

@@ -5,7 +5,7 @@ import sys
 import time
 
 import pandas as pd
-import yfinance as yf
+from signals_app.data import alpaca_md
 
 S = sys.argv[1]
 seed = {r["ticker"] for r in csv.DictReader(open("seed/universe_symbols.csv"))}
@@ -29,12 +29,12 @@ rows, failed = [], 0
 BATCH = 200
 for i in range(0, len(tickers), BATCH):
     chunk = tickers[i:i + BATCH]
-    df = yf.download(chunk, period="1mo", interval="1d", group_by="ticker", threads=True, progress=False, auto_adjust=True)
+    frames = alpaca_md.daily_bars_frames(chunk, 40)  # Alpaca SIP, batched; absent = no bars
     for t in chunk:
-        try:
-            sub = df[t].dropna()
-        except KeyError:
+        sub = frames.get(t)
+        if sub is None:
             failed += 1; continue
+        sub = sub.dropna()
         if len(sub) < 20:
             failed += 1; continue
         dv = (sub["Close"] * sub["Volume"]).tail(20).median()
