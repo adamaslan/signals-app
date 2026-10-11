@@ -56,4 +56,5 @@ fetcher has (yfinance on `main`; Alpaca first once the Alpaca PR lands).
 - [backtest-lab](backtest-lab.md): detector hit-rates, a different question
   (does a detector's label mean anything?).
 - The dip-timing study and chain runner (`studies/dip.py`, `chains.py`) arrive
-  in PR #47. A `swing_grid` chain step is the natural follow-up once both land.
+  in PR #47. The `swing_grid` chain step (PR #49) exposes this lab to chains and
+  to holdem's `/api/thesis`; it takes structured params, never a query string.
