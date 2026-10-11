@@ -35,6 +35,7 @@ from signals_app.clients.holdem import HoldemClient, HoldemUnavailable
 from signals_app.config import MAX_API_BATCH_SYMBOLS
 from signals_app.service import BatchResult
 from signals_app.studies.dip import DipStudyParams, WindowStudy, run_dip_study
+from signals_app.swing.grid import GridSpec, dip_entries, run_grid
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,12 @@ DIP_STUDY_CONCURRENCY: Final[int] = 4
 HOLDEM_CONCURRENCY: Final[int] = 4
 DEFAULT_DIP_PERIOD: Final[str] = "5y"
 DEFAULT_SIGNAL_PERIOD: Final[str] = "3mo"
+SWING_MIN_BARS: Final[int] = 30
+SWING_DEFAULT_TOP: Final[int] = 5
+SWING_MAX_COMBOS: Final[int] = 20_000
+SWING_SORT_COLUMNS: Final[frozenset[str]] = frozenset(
+    {"avg_pct", "median_pct", "win_rate", "pct_per_bar", "compounded_pct", "n", "worst_pct"}
+)
 
 FetchDaily = Callable[[str, str], pd.DataFrame]
 AnalyzeMany = Callable[..., Awaitable[BatchResult]]
@@ -120,6 +127,14 @@ def _lookup(row: dict[str, Any], path: str) -> Any:
     return node
 
 
+def _exit_axis(
+    params: dict[str, Any], key: str, default: tuple[float | None, ...]
+) -> tuple[float | None, ...]:
+    """A take-profit/stop list from JSON, where ``null`` means "no such exit"."""
+    raw = params.get(key, default)
+    return tuple(None if v is None else float(v) for v in raw)
+
+
 def _require_known(op: str, params: dict[str, Any], known: set[str]) -> None:
     unknown = set(params) - known
     if unknown:
@@ -137,6 +152,12 @@ OP_DOCS: Final[dict[str, str]] = {
         "DipStudyParams field (windows, dip_pct, max_entry_delay, horizon_days, "
         "max_recovery_bars), in_dip_window (keep only symbols currently dipping on that "
         "window), min_dips. Attaches row.dip.<window>."
+    ),
+    "swing_grid": (
+        "Buy-the-dip x exit-rule grid per symbol (swing lab). params: period, windows, dip_pcts, "
+        "take_profits, stops, max_holds (null = none), min_trades, robust_only, sort "
+        "(avg_pct|median_pct|win_rate|pct_per_bar|compounded_pct|n|worst_pct), top, "
+        "min_best_avg_pct (drop symbols whose best combo is below it). Attaches row.swing."
     ),
     "holdem": (
         "Hold Em / Fold Em verdict via HOLDEM_API_URL. params: period, keep (list of "
@@ -166,6 +187,7 @@ class ChainRunner:
             "symbols": self._op_symbols,
             "signals": self._op_signals,
             "dip_study": self._op_dip_study,
+            "swing_grid": self._op_swing_grid,
             "holdem": self._op_holdem,
             "rank": self._op_rank,
         }
@@ -295,6 +317,79 @@ class ChainRunner:
             else:
                 kept.append(symbol)
         return [s for s in symbols if s in set(kept)]
+
+    async def _op_swing_grid(
+        self, params: dict[str, Any], symbols: list[str], rows: dict, log: StepLog
+    ) -> list[str]:
+        _require_known(
+            "swing_grid", params,
+            {"period", "windows", "dip_pcts", "take_profits", "stops", "max_holds",
+             "min_trades", "robust_only", "sort", "top", "min_best_avg_pct"},
+        )
+        sort = params.get("sort", "avg_pct")
+        if sort not in SWING_SORT_COLUMNS:
+            raise ChainError(f"swing_grid: sort must be one of {sorted(SWING_SORT_COLUMNS)}")
+        try:
+            windows = tuple(int(w) for w in params.get("windows", (5, 10, 20, 50)))
+            dip_pcts = tuple(float(p) for p in params.get("dip_pcts", (5, 8, 12, 15)))
+            defaults = GridSpec(entries={})
+            spec = GridSpec(
+                entries=dip_entries(windows, dip_pcts),
+                take_profits=_exit_axis(params, "take_profits", defaults.take_profits),
+                stops=_exit_axis(params, "stops", defaults.stops),
+                max_holds=tuple(int(h) for h in params.get("max_holds", defaults.max_holds)),
+                min_trades=int(params.get("min_trades", defaults.min_trades)),
+            )
+            spec.exit_rules()  # validates every exit combination up front
+        except (TypeError, ValueError) as exc:
+            raise ChainError(f"swing_grid: {exc}") from exc
+        combos = len(spec.entries) * len(spec.exit_rules())
+        if combos > SWING_MAX_COMBOS:
+            raise ChainError(f"swing_grid: {combos} combos exceeds the {SWING_MAX_COMBOS} cap")
+        robust_only = bool(params.get("robust_only", True))
+        top = int(params.get("top", SWING_DEFAULT_TOP))
+        min_best = params.get("min_best_avg_pct")
+        period = params.get("period", DEFAULT_DIP_PERIOD)
+        log.params["resolved"] = {"combos": combos, "robust_only": robust_only, "sort": sort}
+
+        gate = asyncio.Semaphore(DIP_STUDY_CONCURRENCY)
+
+        async def one(symbol: str) -> tuple[str, dict[str, Any] | str]:
+            async with gate:
+                try:
+                    df = await asyncio.to_thread(self._fetch_daily, symbol, period)
+                    close = df["Close"].astype(float).dropna().to_numpy()
+                except (KeyError, ValueError) as exc:
+                    return symbol, str(exc)
+                if len(close) < SWING_MIN_BARS:
+                    return symbol, f"only {len(close)} daily bars"
+                table = await asyncio.to_thread(run_grid, {symbol: close}, spec)
+            if table.empty:
+                return symbol, "no entry x exit combo reached min_trades"
+            if robust_only:
+                table = table[table["robust"]]
+                if table.empty:
+                    return symbol, "no robust combo"
+            best = table.sort_values(sort, ascending=False, na_position="last").head(top)
+            return symbol, {
+                "bars": len(close),
+                "combos_tested": combos,
+                "combos_kept": len(table),
+                "best": best.drop(columns=["symbol"]).to_dict(orient="records"),
+            }
+
+        kept: set[str] = set()
+        for symbol, outcome in await asyncio.gather(*(one(s) for s in symbols)):
+            if isinstance(outcome, str):
+                log.dropped[symbol] = outcome
+                continue
+            rows[symbol]["swing"] = outcome
+            top_avg = outcome["best"][0]["avg_pct"] if outcome["best"] else None
+            if min_best is not None and (top_avg is None or top_avg < float(min_best)):
+                log.dropped[symbol] = f"best swing avg {top_avg} below {min_best}"
+            else:
+                kept.add(symbol)
+        return [s for s in symbols if s in kept]
 
     async def _op_holdem(
         self, params: dict[str, Any], symbols: list[str], rows: dict, log: StepLog

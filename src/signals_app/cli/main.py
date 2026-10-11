@@ -36,6 +36,7 @@ from rich.console import Console
 from rich.table import Table
 
 from signals_app import service
+from signals_app.cli.swing import swing_app
 from signals_app.config import DEFAULT_PERIOD
 from signals_app.service import (
     InsufficientData,
@@ -754,6 +755,7 @@ universe_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(universe_app)
+app.add_typer(swing_app)
 
 
 @universe_app.command("list")
