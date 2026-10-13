@@ -5,6 +5,7 @@ Uses an in-memory fake SignalWriter — no live Supabase project required.
 from __future__ import annotations
 
 import sys
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from scripts.scan_universe import (  # noqa: E402
     passes_publication_gate,
     scan_one_symbol,
 )
+from scripts import scan_universe as scan_cli  # noqa: E402
 from signals_app.config import (  # noqa: E402
     PUBLISH_MIN_CONFLUENCE_SCORE,
     PUBLISH_MIN_DATA_QUALITY,
@@ -246,3 +248,58 @@ class TestApplyShard:
         first = apply_shard(symbols, 2, 3)
         second = apply_shard(symbols, 2, 3)
         assert first == second
+
+
+class TestScanCommandExit:
+    def test_all_failed_symbols_fail_the_command(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            scan_cli,
+            "scan_universe",
+            lambda symbols, **kwargs: [
+                scan_cli.SymbolResult(ticker=symbol, ok=False, published=False, reason="fetch")
+                for symbol in symbols
+            ],
+        )
+        assert scan_cli.main(["aapl", "--dry-run"]) == 1
+
+    def test_failure_at_existing_run_threshold_fails(self, monkeypatch) -> None:
+        received: list[str] = []
+
+        def fake_scan(symbols, **kwargs):
+            received.extend(symbols)
+            return [
+                scan_cli.SymbolResult(ticker=symbol, ok=symbol != "BAD", published=False)
+                for symbol in symbols
+            ]
+
+        monkeypatch.setattr(scan_cli, "scan_universe", fake_scan)
+        assert scan_cli.main(["aapl", "AAPL", "bad", "msft", "spy", "qqq", "--dry-run"]) == 1
+        assert received == ["AAPL", "BAD", "MSFT", "QQQ", "SPY"]
+
+    def test_failed_scan_writes_outcomes_and_summary(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setattr(
+            scan_cli,
+            "scan_universe",
+            lambda symbols, **kwargs: [
+                scan_cli.SymbolResult(ticker=symbol, ok=False, published=False, reason="fetch")
+                for symbol in symbols
+            ],
+        )
+        summary = tmp_path / "summary.md"
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+        artifact = tmp_path / "outcomes" / "scan.json"
+
+        assert scan_cli.main(["aapl", "--dry-run", "--report-file", str(artifact)]) == 1
+        report = json.loads(artifact.read_text())
+        assert report["attempted"] == report["failed"] == 1
+        assert report["results"][0]["ticker"] == "AAPL"
+        assert report["results"][0]["reason_code"] == "error"
+        assert "fetch" not in artifact.read_text()
+        assert len(report["universe_sha256"]) == 64
+        assert "Failed: 1" in summary.read_text()
+
+    def test_rejects_invalid_scan_limits(self) -> None:
+        with pytest.raises(SystemExit):
+            scan_cli.main(["AAPL", "--dry-run", "--limit", "-1"])
+        with pytest.raises(SystemExit):
+            scan_cli.main(["AAPL", "--dry-run", "--max-concurrent", "0"])

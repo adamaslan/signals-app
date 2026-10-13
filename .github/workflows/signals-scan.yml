@@ -33,7 +33,16 @@ on:
         description: "Gate + log only, no LLM calls or writes"
         type: boolean
         required: false
-        default: false
+        default: true
+      direction:
+        description: "Publication direction"
+        type: choice
+        options: [both, bullish, bearish]
+        default: both
+      max_concurrent:
+        description: "Concurrent symbol fetches (1-4)"
+        type: number
+        default: 4
       matrix:
         description: "Also compute the 5-timeframe matrix (Phase 10) for gated symbols — up to 5x fetches/LLM calls. Pilot job only, not available on full_universe (too expensive at 954 tickers)."
         type: boolean
@@ -77,24 +86,29 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INPUT_SYMBOLS: ${{ inputs.symbols }}
+          INPUT_PERIOD: ${{ inputs.period }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_MATRIX: ${{ inputs.matrix }}
+          INPUT_DIRECTION: ${{ inputs.direction }}
+          INPUT_MAX_CONCURRENT: ${{ inputs.max_concurrent }}
         run: |
-          SYMBOLS="${{ github.event.inputs.symbols }}"
-          SYMBOLS="${SYMBOLS:-$DEFAULT_SYMBOLS}"
-          PERIOD="${{ github.event.inputs.period }}"
-          PERIOD="${PERIOD:-3mo}"
-          DRY_RUN_FLAG=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            DRY_RUN_FLAG="--dry-run"
-          fi
-          MATRIX_FLAG=""
-          if [ "${{ github.event.inputs.matrix }}" = "true" ]; then
-            MATRIX_FLAG="--matrix"
-          fi
-          python scripts/scan_universe.py $SYMBOLS \
-            --period "$PERIOD" \
-            --trigger manual \
-            $DRY_RUN_FLAG \
-            $MATRIX_FLAG
+          read -r -a symbols <<< "${INPUT_SYMBOLS:-$DEFAULT_SYMBOLS}"
+          args=(--period "${INPUT_PERIOD:-3mo}" --trigger manual --report-file scan-outcomes/pilot.json)
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          if [[ "$INPUT_MATRIX" == "true" ]]; then args+=(--matrix); fi
+          if [[ -n "$INPUT_MAX_CONCURRENT" ]]; then args+=(--max-concurrent "$INPUT_MAX_CONCURRENT"); fi
+          if [[ -n "$INPUT_DIRECTION" && "$INPUT_DIRECTION" != "both" ]]; then args+=(--direction "$INPUT_DIRECTION"); fi
+          python scripts/scan_universe.py "${symbols[@]}" "${args[@]}"
+
+      - name: Preserve pilot outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signals-scan-pilot-${{ github.run_id }}
+          path: scan-outcomes/pilot.json
+          if-no-files-found: warn
+          retention-days: 14
 
   # Full-universe path: the scheduled cron run, or a manual dispatch with
   # full_universe=true. Matrix-sharded 4 ways across seed/universe_symbols.csv.
@@ -131,20 +145,27 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INPUT_PERIOD: ${{ inputs.period }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_DIRECTION: ${{ inputs.direction }}
+          INPUT_MAX_CONCURRENT: ${{ inputs.max_concurrent }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          PERIOD="${{ github.event.inputs.period }}"
-          PERIOD="${PERIOD:-3mo}"
-          DRY_RUN_FLAG=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            DRY_RUN_FLAG="--dry-run"
-          fi
+          args=(--seed seed/universe_symbols.csv --shard "${{ matrix.shard }}/4" --period "${INPUT_PERIOD:-3mo}" --report-file "scan-outcomes/shard-${{ matrix.shard }}.json")
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          if [[ -n "$INPUT_MAX_CONCURRENT" ]]; then args+=(--max-concurrent "$INPUT_MAX_CONCURRENT"); fi
+          if [[ -n "$INPUT_DIRECTION" && "$INPUT_DIRECTION" != "both" ]]; then args+=(--direction "$INPUT_DIRECTION"); fi
           TRIGGER="manual"
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "$EVENT_NAME" = "schedule" ]; then
             TRIGGER="cron"
           fi
-          python scripts/scan_universe.py \
-            --seed seed/universe_symbols.csv \
-            --shard "${{ matrix.shard }}/4" \
-            --period "$PERIOD" \
-            --trigger "$TRIGGER" \
-            $DRY_RUN_FLAG
+          python scripts/scan_universe.py "${args[@]}" --trigger "$TRIGGER"
+
+      - name: Preserve shard outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signals-scan-shard-${{ matrix.shard }}-${{ github.run_id }}
+          path: scan-outcomes/shard-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
