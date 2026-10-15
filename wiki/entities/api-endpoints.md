@@ -83,6 +83,18 @@ above are unchanged and keep their `{"detail": ...}` error shape.
 | `POST /v1/rag/documents` | One vector-store document per ticker with a stable per-bar id; `shape=chroma` returns `{ids, documents, metadatas}` for `collection.upsert` |
 | `GET /v1/history/{symbol}`, `POST /v1/scan`, `GET /v1/detectors` | Typed counterparts of the existing routes |
 | `GET /v1/meta`, `GET /v1/health` | Versions/limits/auth flag; deep health (503 when yfinance is unreachable) |
+| `GET /v1/params` | Every tunable threshold: shipped default, value in force, its `SIGNALS_<NAME>` env var; plus the per-request dip-study knobs |
+| `POST /v1/studies/dip` | Dip-buy timing study for a basket (see below) |
+| `GET /v1/chains/ops`, `POST /v1/chains/run` | Thesis chains: ordered steps over a symbol set, with a per-step audit (see below) |
+
+### Thesis surface — params, dip study, chains (2026-10-10)
+
+Defined in [`api/thesis.py`](../../src/signals_app/api/thesis.py); same `/v1` auth.
+
+- **Tunable thresholds.** 39 numeric constants in `config.py` (RSI/stochastic bands, ADX, volume spikes, large-move %, confluence and publish gates, indicator periods, backtest horizon) go through `_tunable()`, so `SIGNALS_RSI_OVERSOLD=25` changes them **per process** without a code change. A malformed value is logged and ignored. These are process-wide, not per request: the detectors still read module constants.
+- **Dip study** ([`studies/dip.py`](../../src/signals_app/studies/dip.py)). For each swing window (default 5/10/20/50 trading days), a dip triggers on the first close ≥ `dip_pct` below the trailing-window high. The episode runs until the close regains that high (or `max_recovery_bars`), and one selloff counts once. Each window reports dip count, median bars trigger→trough, depth, recovery rate and bars, and the `horizon_days` forward return of buying *k* bars after the trigger for each *k* ≤ `max_entry_delay`. `best_entry_delay` (the tradable rule, unlike the hindsight trough) is compared with the unconditional baseline. The report includes whether the ticker is dipping now. All of it is in-sample on the ticker's own history; fewer than 8 dips is flagged `low_sample`. Data comes through `DataFetcher.fetch_daily_history`, so it follows that fetcher's vendor order.
+- **Chains** ([`chains.py`](../../src/signals_app/chains.py)). Steps are `symbols` → any of `signals` (rule-based, filter on confluence/bias), `dip_study` (filter on `in_dip_window`/`min_dips`), `holdem` (calls holdemfoldem's `/api/analyze` at `HOLDEM_API_URL`, forwarding `verdict_params` threshold overrides, optional `keep`), and `rank` (by any dotted row path, optional `top`). Each step logs in/out counts and a reason for every dropped symbol. An unset `HOLDEM_API_URL` is a logged `skipped` step that filters nothing, never a silent pass. The cap is 12 steps and 50 symbols.
+- **Reverse direction.** holdemfoldem's `POST /api/thesis` calls `/v1/studies/dip` (its `SIGNALS_API_URL`).
 
 - **Errors** are `{"error": {"type", "message"}}`; `InsufficientData` is 422 here
   (400 on the legacy routes).

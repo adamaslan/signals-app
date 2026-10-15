@@ -9,13 +9,44 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Final
+from typing import Any, Final
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Tunable constants
+# ---------------------------------------------------------------------------
+# Every numeric threshold wrapped in ``_tunable`` can be overridden per process
+# with an env var named ``SIGNALS_<NAME>`` (e.g. ``SIGNALS_RSI_OVERSOLD=25``),
+# without a code change. ``TUNABLE_DEFAULTS`` / ``TUNABLE_EFFECTIVE`` record the
+# shipped default and the value actually in force, so ``GET /v1/params`` can
+# show exactly how this process is configured. A malformed override is logged
+# and ignored — the default stays in force rather than the process crashing.
+
+TUNABLE_ENV_PREFIX: Final[str] = "SIGNALS_"
+TUNABLE_DEFAULTS: dict[str, int | float] = {}
+TUNABLE_EFFECTIVE: dict[str, int | float] = {}
+
+
+def _tunable(name: str, default: int | float) -> Any:
+    """Return ``default``, or its ``SIGNALS_<name>`` env override when valid."""
+    TUNABLE_DEFAULTS[name] = default
+    raw = os.getenv(f"{TUNABLE_ENV_PREFIX}{name}")
+    value = default
+    if raw is not None:
+        try:
+            value = type(default)(raw)
+        except ValueError:
+            logger.warning("ignoring malformed %s%s=%r", TUNABLE_ENV_PREFIX, name, raw)
+        else:
+            logger.info("tunable override %s=%s (default %s)", name, value, default)
+    TUNABLE_EFFECTIVE[name] = value
+    return value
 
 # Bumped whenever detection/scoring logic changes — provenance stamp on every
 # SignalOutput so two runs on identical data are distinguishable if the logic
@@ -80,7 +111,7 @@ STALE_FALLBACK_HOURS: Final[int] = 24
 # Data quality gates
 # ---------------------------------------------------------------------------
 
-MIN_DATA_POINTS: Final[int] = 22
+MIN_DATA_POINTS: Final[int] = _tunable("MIN_DATA_POINTS", 22)
 MIN_DATA_POINTS_200MA: Final[int] = 200
 
 MIN_BARS_BY_PERIOD: Final[dict[str, int]] = {
@@ -98,61 +129,61 @@ OUTLIER_RETURN_THRESHOLD: Final[float] = 0.50
 # ---------------------------------------------------------------------------
 
 MA_PERIODS: Final[tuple[int, ...]] = (5, 10, 20, 50, 100, 200)
-RSI_PERIOD: Final[int] = 14
-MACD_FAST: Final[int] = 12
-MACD_SLOW: Final[int] = 26
-MACD_SIGNAL: Final[int] = 9
-BOLLINGER_PERIOD: Final[int] = 20
-BOLLINGER_STD: Final[float] = 2.0
-STOCHASTIC_K_PERIOD: Final[int] = 14
-STOCHASTIC_D_PERIOD: Final[int] = 3
-ADX_PERIOD: Final[int] = 14
-ATR_PERIOD: Final[int] = 14
-VOLUME_MA_SHORT: Final[int] = 10
-VOLUME_MA_LONG: Final[int] = 20
-ICHIMOKU_TENKAN: Final[int] = 9
-ICHIMOKU_KIJUN: Final[int] = 26
-ICHIMOKU_SENKOU_B: Final[int] = 52
-OBV_EMA_PERIOD: Final[int] = 20
-CMF_PERIOD: Final[int] = 20
+RSI_PERIOD: Final[int] = _tunable("RSI_PERIOD", 14)
+MACD_FAST: Final[int] = _tunable("MACD_FAST", 12)
+MACD_SLOW: Final[int] = _tunable("MACD_SLOW", 26)
+MACD_SIGNAL: Final[int] = _tunable("MACD_SIGNAL", 9)
+BOLLINGER_PERIOD: Final[int] = _tunable("BOLLINGER_PERIOD", 20)
+BOLLINGER_STD: Final[float] = _tunable("BOLLINGER_STD", 2.0)
+STOCHASTIC_K_PERIOD: Final[int] = _tunable("STOCHASTIC_K_PERIOD", 14)
+STOCHASTIC_D_PERIOD: Final[int] = _tunable("STOCHASTIC_D_PERIOD", 3)
+ADX_PERIOD: Final[int] = _tunable("ADX_PERIOD", 14)
+ATR_PERIOD: Final[int] = _tunable("ATR_PERIOD", 14)
+VOLUME_MA_SHORT: Final[int] = _tunable("VOLUME_MA_SHORT", 10)
+VOLUME_MA_LONG: Final[int] = _tunable("VOLUME_MA_LONG", 20)
+ICHIMOKU_TENKAN: Final[int] = _tunable("ICHIMOKU_TENKAN", 9)
+ICHIMOKU_KIJUN: Final[int] = _tunable("ICHIMOKU_KIJUN", 26)
+ICHIMOKU_SENKOU_B: Final[int] = _tunable("ICHIMOKU_SENKOU_B", 52)
+OBV_EMA_PERIOD: Final[int] = _tunable("OBV_EMA_PERIOD", 20)
+CMF_PERIOD: Final[int] = _tunable("CMF_PERIOD", 20)
 
 # ---------------------------------------------------------------------------
 # RSI thresholds
 # ---------------------------------------------------------------------------
 
-RSI_OVERSOLD: Final[float] = 30.0
-RSI_OVERBOUGHT: Final[float] = 70.0
-RSI_EXTREME_OVERSOLD: Final[float] = 20.0
-RSI_EXTREME_OVERBOUGHT: Final[float] = 80.0
+RSI_OVERSOLD: Final[float] = _tunable("RSI_OVERSOLD", 30.0)
+RSI_OVERBOUGHT: Final[float] = _tunable("RSI_OVERBOUGHT", 70.0)
+RSI_EXTREME_OVERSOLD: Final[float] = _tunable("RSI_EXTREME_OVERSOLD", 20.0)
+RSI_EXTREME_OVERBOUGHT: Final[float] = _tunable("RSI_EXTREME_OVERBOUGHT", 80.0)
 
 # ---------------------------------------------------------------------------
 # Stochastic thresholds
 # ---------------------------------------------------------------------------
 
-STOCH_OVERSOLD: Final[float] = 20.0
-STOCH_OVERBOUGHT: Final[float] = 80.0
+STOCH_OVERSOLD: Final[float] = _tunable("STOCH_OVERSOLD", 20.0)
+STOCH_OVERBOUGHT: Final[float] = _tunable("STOCH_OVERBOUGHT", 80.0)
 
 # ---------------------------------------------------------------------------
 # Volume thresholds
 # ---------------------------------------------------------------------------
 
-VOLUME_SPIKE_1_5X: Final[float] = 1.5
-VOLUME_SPIKE_2X: Final[float] = 2.0
-VOLUME_SPIKE_3X: Final[float] = 3.0
+VOLUME_SPIKE_1_5X: Final[float] = _tunable("VOLUME_SPIKE_1_5X", 1.5)
+VOLUME_SPIKE_2X: Final[float] = _tunable("VOLUME_SPIKE_2X", 2.0)
+VOLUME_SPIKE_3X: Final[float] = _tunable("VOLUME_SPIKE_3X", 3.0)
 
 # ---------------------------------------------------------------------------
 # ADX / trend thresholds
 # ---------------------------------------------------------------------------
 
-ADX_TRENDING: Final[float] = 25.0
-ADX_STRONG_TREND: Final[float] = 40.0
-ADX_NO_TREND: Final[float] = 20.0
+ADX_TRENDING: Final[float] = _tunable("ADX_TRENDING", 25.0)
+ADX_STRONG_TREND: Final[float] = _tunable("ADX_STRONG_TREND", 40.0)
+ADX_NO_TREND: Final[float] = _tunable("ADX_NO_TREND", 20.0)
 
 # ---------------------------------------------------------------------------
 # Price action thresholds
 # ---------------------------------------------------------------------------
 
-LARGE_MOVE_PERCENT: Final[float] = 5.0
+LARGE_MOVE_PERCENT: Final[float] = _tunable("LARGE_MOVE_PERCENT", 5.0)
 
 # ---------------------------------------------------------------------------
 # Detector budget
@@ -169,7 +200,7 @@ MAX_DETECTOR_FAILURES: Final[int] = 4
 # otherwise produce NaN-driven false signals.
 MIN_HISTORICAL_LOOKBACK: Final[int] = 200
 # Forward-return horizon (trading days) used to score a signal as a hit/miss.
-BACKTEST_FORWARD_HORIZON_DAYS: Final[int] = 5
+BACKTEST_FORWARD_HORIZON_DAYS: Final[int] = _tunable("BACKTEST_FORWARD_HORIZON_DAYS", 5)
 # Where scripts/calibrate.py writes, and the live scoring path reads, the
 # strength -> hit-rate calibration table.
 CALIBRATION_FILE: Final[str] = os.getenv(
@@ -177,7 +208,7 @@ CALIBRATION_FILE: Final[str] = os.getenv(
 )
 # Minimum sample size a strength bucket needs before its measured hit-rate is
 # trusted enough to influence a live confidence_label — small-n buckets are noise.
-CALIBRATION_MIN_BUCKET_SIZE: Final[int] = 30
+CALIBRATION_MIN_BUCKET_SIZE: Final[int] = _tunable("CALIBRATION_MIN_BUCKET_SIZE", 30)
 
 # ---------------------------------------------------------------------------
 # Supabase (writer / scan_universe.py)
@@ -220,10 +251,10 @@ TIMEFRAME_CACHE_TTL_SECONDS: Final[dict[str, int]] = {
 # Confluence / scoring
 # ---------------------------------------------------------------------------
 
-CONFLUENCE_BUY_THRESHOLD: Final[float] = 0.35
-CONFLUENCE_SELL_THRESHOLD: Final[float] = -0.35
-CONFLUENCE_BUY_MIN_SIGNALS: Final[int] = 3
-CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = 3
+CONFLUENCE_BUY_THRESHOLD: Final[float] = _tunable("CONFLUENCE_BUY_THRESHOLD", 0.35)
+CONFLUENCE_SELL_THRESHOLD: Final[float] = _tunable("CONFLUENCE_SELL_THRESHOLD", -0.35)
+CONFLUENCE_BUY_MIN_SIGNALS: Final[int] = _tunable("CONFLUENCE_BUY_MIN_SIGNALS", 3)
+CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = _tunable("CONFLUENCE_SELL_MIN_SIGNALS", 3)
 
 # ---------------------------------------------------------------------------
 # Publication gate — scripts/scan_universe.py (see docs/backend-state-and-
@@ -233,8 +264,8 @@ CONFLUENCE_SELL_MIN_SIGNALS: Final[int] = 3
 # should never pay for a synthesis call.
 # ---------------------------------------------------------------------------
 
-PUBLISH_MIN_DATA_QUALITY: Final[float] = 0.7
-PUBLISH_MIN_SIGNALS: Final[int] = 3
+PUBLISH_MIN_DATA_QUALITY: Final[float] = _tunable("PUBLISH_MIN_DATA_QUALITY", 0.7)
+PUBLISH_MIN_SIGNALS: Final[int] = _tunable("PUBLISH_MIN_SIGNALS", 3)
 # Reuses the existing BUY/SELL confluence bands — a signal weak enough to be
 # HOLD-territory carries no information worth persisting.
 PUBLISH_MIN_CONFLUENCE_SCORE: Final[float] = CONFLUENCE_BUY_THRESHOLD
