@@ -43,6 +43,8 @@ jobs:
         shell: bash -l {0}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           FORCE=""
@@ -65,5 +67,7 @@ jobs:
         shell: bash -l {0}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python scripts/check_scorer_drift.py
