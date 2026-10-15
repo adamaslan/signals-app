@@ -303,3 +303,30 @@ class TestScanCommandExit:
             scan_cli.main(["AAPL", "--dry-run", "--limit", "-1"])
         with pytest.raises(SystemExit):
             scan_cli.main(["AAPL", "--dry-run", "--max-concurrent", "0"])
+
+    def test_rejects_failure_rate_looser_than_persisted_run_status(self) -> None:
+        with pytest.raises(SystemExit):
+            scan_cli.main(["AAPL", "--dry-run", "--max-failure-rate", "0.5"])
+
+    def test_report_written_before_writer_close_error_is_raised(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        class ExplodingWriter:
+            def close(self) -> None:
+                raise RuntimeError("cleanup boom")
+
+        import signals_app.db.supabase as supabase_module
+
+        monkeypatch.setattr(supabase_module, "SupabaseWriter", ExplodingWriter)
+        monkeypatch.setattr(
+            scan_cli,
+            "scan_universe",
+            lambda symbols, **kwargs: [
+                scan_cli.SymbolResult(ticker=symbol, ok=True, published=False)
+                for symbol in symbols
+            ],
+        )
+        artifact = tmp_path / "report.json"
+        with pytest.raises(RuntimeError, match="cleanup boom"):
+            scan_cli.main(["aapl", "--report-file", str(artifact)])
+        assert json.loads(artifact.read_text())["attempted"] == 1

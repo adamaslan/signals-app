@@ -35,6 +35,7 @@ sys.path.insert(0, str(_project_root))
 
 from signals_app.config import DEFAULT_PERIOD  # noqa: E402
 from signals_app.scanner import (  # noqa: E402
+    FAILED_RUN_FAILURE_RATE,
     MAX_CONCURRENT_FETCHES,
     SymbolResult,
     apply_shard,
@@ -107,8 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--max-failure-rate",
         type=float,
-        default=0.2,
-        help="Fail the command when this fraction of scanned symbols fails (default: 0.2)",
+        default=FAILED_RUN_FAILURE_RATE,
+        help=(
+            "Fail the command when this fraction of scanned symbols fails. "
+            f"Default and maximum: {FAILED_RUN_FAILURE_RATE}, the rate at which "
+            "the run is persisted as failed."
+        ),
     )
     parser.add_argument(
         "--matrix",
@@ -135,8 +140,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--limit must be non-negative")
     if not 1 <= args.max_concurrent <= MAX_CONCURRENT_FETCHES:
         parser.error(f"--max-concurrent must be between 1 and {MAX_CONCURRENT_FETCHES}")
-    if not 0 < args.max_failure_rate <= 1:
-        parser.error("--max-failure-rate must be greater than 0 and at most 1")
+    if not 0 < args.max_failure_rate <= FAILED_RUN_FAILURE_RATE:
+        parser.error(
+            f"--max-failure-rate must be greater than 0 and at most {FAILED_RUN_FAILURE_RATE}"
+        )
 
     symbols = [symbol.strip().upper() for symbol in args.symbols]
     if args.seed:
@@ -165,6 +172,7 @@ def main(argv: list[str] | None = None) -> int:
 
         writer = SupabaseWriter()
 
+    writer_close_error: Exception | None = None
     try:
         results = scan_universe(
             symbols,
@@ -178,7 +186,13 @@ def main(argv: list[str] | None = None) -> int:
         )
     finally:
         if writer is not None:
-            writer.close()
+            # Defer a cleanup failure so the outcome report is still written;
+            # it is re-raised below once the report exists.
+            try:
+                writer.close()
+            except Exception as exc:  # noqa: BLE001 - re-raised after the report
+                writer_close_error = exc
+                logger.exception("writer cleanup failed")
 
     passed_gate = [r.ticker for r in results if r.published]
     failed = [(r.ticker, r.reason) for r in results if not r.ok]
@@ -227,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"Gated: {sum(r.ok and not r.published for r in results)} · "
                 f"{publication_label.title()}: {len(passed_gate)} · Failed: {len(failed)}\n\n"
             )
+    if writer_close_error is not None:
+        raise writer_close_error
     if not results:
         logger.error("scan selected no symbols")
         return 1

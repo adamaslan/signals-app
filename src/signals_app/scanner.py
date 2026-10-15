@@ -56,6 +56,10 @@ logger = logging.getLogger(__name__)
 
 MAX_CONCURRENT_FETCHES = 4
 
+# A run whose failed-symbol share reaches this is persisted as status="failed".
+# The scan CLI may be stricter than this but never looser.
+FAILED_RUN_FAILURE_RATE = 0.2
+
 # Interim gate (plan §8): independent families agreeing, in place of a raw signal
 # count that a single fan-out detector could satisfy alone.
 PUBLISH_MIN_FAMILIES = 2
@@ -698,7 +702,7 @@ def scan_universe(
 
     if writer is not None and run is not None:
         failure_rate = failed / len(results) if results else 0.0
-        status = "ok" if failure_rate == 0 else ("partial" if failure_rate < 0.2 else "failed")
+        status = "ok" if failure_rate == 0 else ("partial" if failure_rate < FAILED_RUN_FAILURE_RATE else "failed")
         writer.finish_run(
             run,
             symbols_total=len(results),
