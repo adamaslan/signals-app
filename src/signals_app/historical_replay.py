@@ -14,6 +14,23 @@ from pathlib import Path
 import pandas as pd
 
 
+# OHLCV technical detectors assume continuous intraday price discovery.
+# Once-daily NAV assets (mutual funds) and unverified types are retained in
+# the ledger with an explicit suitability status, never silently dropped and
+# never pooled into calibrated-looking priors.
+SUPPORTED_SIGNAL_ASSETS = {"Equity", "ETF", "Crypto"}
+
+
+def signal_suitability(asset_type: str) -> str:
+    if asset_type in SUPPORTED_SIGNAL_ASSETS:
+        return "ohlcv_detectors_applicable"
+    if asset_type == "Fund":
+        return "unsupported: once-daily NAV mutual fund, no intraday price discovery for OHLCV detectors"
+    if asset_type == "Unknown":
+        return "unsupported: asset_type unverified, detector applicability unestablished"
+    return f"unsupported: asset_type {asset_type!r} not in {sorted(SUPPORTED_SIGNAL_ASSETS)}"
+
+
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -99,6 +116,16 @@ def run(seed: Path, bars_dir: Path, output: Path, start: str, end: str, horizons
     for key in ("source", "adjustment", "retrieved_at", "calendar_policy"):
         if not metadata.get(key):
             raise ValueError("missing dataset provenance: " + key)
+    global_basis = {"source": metadata["source"], "adjustment": metadata["adjustment"]}
+    symbol_basis = {}
+    for entry in metadata.get("fetch_ledger") or []:
+        t = str(entry.get("ticker", "")).strip().upper()
+        if entry.get("source") or entry.get("adjustment"):
+            symbol_basis[t] = {"source": entry.get("source") or metadata["source"],
+                               "adjustment": entry.get("adjustment") or metadata["adjustment"]}
+    basis_pairs = {(global_basis["source"], global_basis["adjustment"])}
+    basis_pairs |= {(b["source"], b["adjustment"]) for b in symbol_basis.values()}
+    basis_ids = {pair: f"basis-{i}" for i, pair in enumerate(sorted(basis_pairs))}
     rows = list(csv.DictReader(seed.open()))
     symbols = [r["ticker"].strip().upper() for r in rows]
     if len(set(symbols)) != len(symbols) or any(not s or "/" in s or "\\" in s or s in (".", "..") for s in symbols):
@@ -126,11 +153,19 @@ def run(seed: Path, bars_dir: Path, output: Path, start: str, end: str, horizons
                 missing = expected.difference(frame.index)
                 extra = frame.loc[start:end].index.difference(expected)
                 record.update(asset_type=assets[symbol], calendar=calendar, expected_decision_bars=len(expected), missing_decision_dates=[d.date().isoformat() for d in missing], unexpected_decision_dates=[d.date().isoformat() for d in extra])
+                record["calendar_coverage"] = "partial" if (len(missing) or len(extra)) else "complete"
                 if len(missing) or len(extra):
                     record["status"] = "partial_calendar_coverage"
+                record["signal_suitability"] = signal_suitability(assets[symbol])
+                if record["status"] in ("ok", "partial_calendar_coverage") and assets[symbol] not in SUPPORTED_SIGNAL_ASSETS:
+                    record["status"] = "unsupported_asset_type"
+                if symbol in symbol_basis:
+                    record["input_basis"] = symbol_basis[symbol]
+                basis = symbol_basis.get(symbol, global_basis)
+                record["basis_id"] = basis_ids[(basis["source"], basis["adjustment"])]
                 for bucket in record.get("buckets", []) if record["status"] == "ok" else []:
-                    key = (bucket["category"], bucket["strength"], bucket["horizon_bars"])
-                    total = pooled.setdefault(key, {"category": key[0], "strength": key[1], "horizon_bars": key[2], "hits": 0, "misses": 0, "flat": 0, "pending": 0, "directional_return_sum": 0.0})
+                    key = (record["basis_id"], bucket["category"], bucket["strength"], bucket["horizon_bars"])
+                    total = pooled.setdefault(key, {"basis": key[0], "category": key[1], "strength": key[2], "horizon_bars": key[3], "hits": 0, "misses": 0, "flat": 0, "pending": 0, "directional_return_sum": 0.0})
                     for field in ("hits", "misses", "flat", "pending", "directional_return_sum"):
                         total[field] += bucket[field]
                 record["observed_dates"] = [d.date().isoformat() for d in frame.index]
@@ -146,7 +181,8 @@ def run(seed: Path, bars_dir: Path, output: Path, start: str, end: str, horizons
     source_dir = Path(__file__).parent
     engine_files = sorted([source_dir / "config.py", Path(__file__), *source_dir.glob("indicators/*.py"), *source_dir.glob("detection/*.py")])
     engine_hash = hashlib.sha256("\n".join(str(p.relative_to(source_dir)) + ":" + sha(p) for p in engine_files).encode()).hexdigest()
-    manifest = {"engine_source_sha256": engine_hash, "pooled_category_strength_horizon": list(pooled.values()), "aggregate_eligibility": "only status=ok, incomplete calendars excluded; per-symbol partial details research-only", "denominator_policy": "signal occurrences, not independent trades; flat counts as non-hit; pooled counts before division, n>=30 display gate", "timing": "signal computed after decision close; close-to-close evaluation, not executable fill at same close", "mode": "reconstructed_point_in_time", "label": "Historical backtest reconstruction, not a live track record", "computed_at": datetime.now(timezone.utc).isoformat(), "decision_start": start, "observation_cutoff": end, "seed_sha256": sha(seed), "requested_tickers": len(symbols), "source": metadata, "horizons_observed_bars": horizons, "warmup_bars": 200, "universe_limitation": "current membership, survivorship-limited", "price_return_only": True, "fees_slippage_borrow": "not modeled; not tradable P&L", "ledger": ledger}
+    mixed = len(basis_pairs) > 1
+    manifest = {"engine_source_sha256": engine_hash, "pooled_category_strength_horizon": list(pooled.values()), "aggregate_eligibility": "only status=ok, incomplete calendars excluded; per-symbol partial details research-only", "denominator_policy": "signal occurrences, not independent trades; flat counts as non-hit; pooled counts before division, n>=30 display gate", "timing": "signal computed after decision close; close-to-close evaluation, not executable fill at same close", "mode": "reconstructed_point_in_time", "label": "Historical backtest reconstruction, not a live track record", "computed_at": datetime.now(timezone.utc).isoformat(), "decision_start": start, "observation_cutoff": end, "seed_sha256": sha(seed), "requested_tickers": len(symbols), "source": metadata, "horizons_observed_bars": horizons, "warmup_bars": 200, "universe_limitation": "current membership, survivorship-limited", "price_return_only": True, "fees_slippage_borrow": "not modeled; not tradable P&L", "distinct_input_bases": [{"id": basis_ids[pair], "source": pair[0], "adjustment": pair[1]} for pair in sorted(basis_ids, key=basis_ids.get)], "mixed_input_basis": mixed, "basis_policy": "pooled aggregates are stratified per price basis; never combined across bases, descriptive only, not a calibrated prior" if mixed else "single declared price basis", "pooled_aggregation": "stratified by basis, category, strength, horizon; no cross-basis combination", "signal_suitability_policy": "OHLCV detectors applied only to Equity/ETF/Crypto; other asset types (e.g. once-daily NAV mutual funds) stay in the ledger as unsupported_asset_type and are excluded from pooled aggregates", "ledger": ledger}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
     return manifest
 

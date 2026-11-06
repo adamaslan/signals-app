@@ -75,3 +75,95 @@ def test_detector_error_is_not_silent(monkeypatch):
     r=replay(f,start,end,[1]);assert r['status']=='degraded'
     assert len(r['decisions'])==5
     assert all(d['detector_errors']==[{'detector':'Broken','error':'RuntimeError'}] for d in r['decisions'])
+
+
+def test_fund_marked_unsupported_not_silently_dropped(tmp_path):
+    seed=tmp_path/'seed.csv';seed.write_text('ticker,asset_type\nAAA,Fund\nBBB,Equity\n')
+    d=tmp_path/'bars';d.mkdir()
+    (d/'metadata.json').write_text(json.dumps(dict(source='fixture',adjustment='fixture',retrieved_at='fixture',calendar_policy='fixture')))
+    f=bars();f.index.name='Date';f.to_csv(d/'AAA.csv');f.to_csv(d/'BBB.csv')
+    start=f.index[205].date().isoformat();end=f.index[209].date().isoformat()
+    r=run(seed,d,tmp_path/'out',start,end,[1])
+    by={x['ticker']:x for x in r['ledger']}
+    assert by['AAA']['status']=='unsupported_asset_type'
+    assert by['AAA']['calendar_coverage']=='complete'
+    assert 'once-daily NAV' in by['AAA']['signal_suitability']
+    assert by['BBB']['status']=='ok'
+    assert by['BBB']['signal_suitability']=='ohlcv_detectors_applicable'
+    detail=json.loads((tmp_path/'out'/'AAA.json').read_text())
+    assert len(detail['decisions'])==5  # research detail retained, only pooling excluded
+
+
+def test_fund_excluded_from_pooled_aggregates(monkeypatch, tmp_path):
+    from signals_app.detection.base import MutableSignal
+    class Stub:
+        def detect(self, frame):
+            return [MutableSignal(signal='fixture',description='fixture',strength='BULLISH',category='TEST')]
+    monkeypatch.setattr('signals_app.detection.orchestrator.get_default_detectors',lambda:[Stub()])
+    seed=tmp_path/'seed.csv';seed.write_text('ticker,asset_type\nAAA,Fund\nBBB,Equity\n')
+    d=tmp_path/'bars';d.mkdir()
+    (d/'metadata.json').write_text(json.dumps(dict(source='fixture',adjustment='fixture',retrieved_at='fixture',calendar_policy='fixture')))
+    f=bars();f.index.name='Date';f.to_csv(d/'AAA.csv');f.to_csv(d/'BBB.csv')
+    start=f.index[205].date().isoformat();end=f.index[209].date().isoformat()
+    r=run(seed,d,tmp_path/'out',start,end,[1])
+    pooled=r['pooled_category_strength_horizon']
+    total=sum(b['hits']+b['misses']+b['flat']+b['pending'] for b in pooled)
+    assert total==5  # BBB's 5 decisions only; the Fund's 5 identical signals contribute nothing
+
+
+def test_unknown_asset_type_not_signal_eligible(tmp_path):
+    seed=tmp_path/'seed.csv';seed.write_text('ticker\nAAA\n')
+    d=tmp_path/'bars';d.mkdir()
+    (d/'metadata.json').write_text(json.dumps(dict(source='fixture',adjustment='fixture',retrieved_at='fixture',calendar_policy='fixture')))
+    f=bars();f.index.name='Date';f.to_csv(d/'AAA.csv')
+    start=f.index[205].date().isoformat();end=f.index[209].date().isoformat()
+    r=run(seed,d,tmp_path/'out',start,end,[1])
+    rec=r['ledger'][0]
+    assert rec['status']=='unsupported_asset_type'
+    assert 'unverified' in rec['signal_suitability']
+
+
+def test_mixed_input_basis_flagged(tmp_path):
+    seed=tmp_path/'seed.csv';seed.write_text('ticker,asset_type\nAAA,Crypto\nBBB,Equity\n')
+    d=tmp_path/'bars';d.mkdir()
+    meta=dict(source='yahoo-pilot',adjustment='adjusted',retrieved_at='fixture',calendar_policy='fixture',
+              fetch_ledger=[{"ticker":"AAA","source":"alpaca-us-crypto","adjustment":"none"}])
+    (d/'metadata.json').write_text(json.dumps(meta))
+    f=bars();f.index.name='Date';f.to_csv(d/'AAA.csv');f.to_csv(d/'BBB.csv')
+    start=f.index[205].date().isoformat();end=f.index[209].date().isoformat()
+    r=run(seed,d,tmp_path/'out',start,end,[1])
+    assert r['mixed_input_basis'] is True
+    assert {(b['source'],b['adjustment']) for b in r['distinct_input_bases']}=={('yahoo-pilot','adjusted'),('alpaca-us-crypto','none')}
+    assert 'descriptive only' in r['basis_policy']
+    by={x['ticker']:x for x in r['ledger']}
+    assert by['AAA']['input_basis']=={"source":"alpaca-us-crypto","adjustment":"none"}
+    assert 'input_basis' not in by['BBB']
+    ids={b['id'] for b in r['distinct_input_bases']}
+    assert ids=={by['AAA']['basis_id'],by['BBB']['basis_id']} and len(ids)==2
+    (d/'metadata.json').write_text(json.dumps(dict(source='yahoo-pilot',adjustment='adjusted',retrieved_at='fixture',calendar_policy='fixture')))
+    r2=run(seed,d,tmp_path/'out2',start,end,[1])
+    assert r2['mixed_input_basis'] is False
+    assert r2['basis_policy']=='single declared price basis'
+
+
+def test_pooled_stratified_by_basis_never_combined(monkeypatch, tmp_path):
+    from signals_app.detection.base import MutableSignal
+    class Stub:
+        def detect(self, frame):
+            return [MutableSignal(signal='fixture',description='fixture',strength='BULLISH',category='TEST')]
+    monkeypatch.setattr('signals_app.detection.orchestrator.get_default_detectors',lambda:[Stub()])
+    seed=tmp_path/'seed.csv';seed.write_text('ticker,asset_type\nAAA,Crypto\nBBB,Equity\n')
+    d=tmp_path/'bars';d.mkdir()
+    meta=dict(source='yahoo-pilot',adjustment='adjusted',retrieved_at='fixture',calendar_policy='fixture',
+              fetch_ledger=[{"ticker":"AAA","source":"alpaca-us-crypto","adjustment":"none"}])
+    (d/'metadata.json').write_text(json.dumps(meta))
+    f=bars();f.index.name='Date';f.to_csv(d/'AAA.csv');f.to_csv(d/'BBB.csv')
+    start=f.index[205].date().isoformat();end=f.index[209].date().isoformat()
+    r=run(seed,d,tmp_path/'out',start,end,[1])
+    pooled=r['pooled_category_strength_horizon']
+    assert len(pooled)==2  # identical signals, but one bucket per basis, never combined
+    for b in pooled:
+        assert b['hits']+b['misses']+b['flat']+b['pending']==5
+    assert {b['basis'] for b in pooled}=={x['id'] for x in r['distinct_input_bases']}
+    single=json.loads((tmp_path/'out'/'BBB.json').read_text())
+    assert single['basis_id'] in {b['basis'] for b in pooled}
