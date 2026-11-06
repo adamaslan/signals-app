@@ -18,6 +18,7 @@ dependencies:
   - python-dotenv
   - aiosqlite
   - sqlalchemy
+  - greenlet
   - typer
   - rich
   - pip
@@ -25,3 +26,4 @@ dependencies:
     - google-generativeai
     - asyncpg
     - mcp>=1.2
+    - exchange-calendars>=4.13,<5
