@@ -90,3 +90,20 @@ def test_nested_windows_report_overlap_not_total():
     assert r['nested_windows']['21']['observations']==21
     assert r['nested_windows']['63']['observations']==28
     assert r['nested_windows']['172']['observations']==28
+
+
+def test_failed_detector_cannot_leave_partial_observations_or_phantom_states():
+    class Partial:
+        def detect(self,f):
+            yield SimpleNamespace(signal='PARTIAL',category='trend',strength='BULLISH',description='uncommitted')
+            raise RuntimeError('failed during iteration')
+    r=run(detectors=[Partial()])
+    assert r['status']=='degraded' and r['failed_evaluations']==6
+    assert r['observations']==[] and r['new_state_count']==0
+    assert all(x['observations']==0 for x in r['coverage'])
+
+
+def test_direct_api_rejects_nonmidnight_daily_bars():
+    f=frame();f.index=f.index+pd.Timedelta(hours=12)
+    with pytest.raises(ValueError,match='completed daily'):
+        run(f)
