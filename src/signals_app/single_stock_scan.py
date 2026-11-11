@@ -66,6 +66,8 @@ def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
     frame = frame.loc[:end].copy()
     if not isinstance(frame.index, pd.DatetimeIndex) or frame.index.tz is not None or frame.index.hasnans:
         raise ValueError('Timezone-naive daily index required')
+    if not frame.index.equals(frame.index.normalize()):
+        raise ValueError('Expected completed daily bars, not intraday timestamps')
     if frame.index.duplicated().any() or not frame.index.is_monotonic_increasing:
         raise ValueError('Unique ascending dates required')
     needed = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -103,16 +105,19 @@ def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
             try:
                 emitted = detector.detect(prefix)
                 seen = set()
+                pending = []
                 for signal in emitted:
                     key = (name, signal.signal, signal.category, signal.strength)
                     if key in seen:
                         continue
                     seen.add(key)
-                    current.add(key)
-                    observations.append({'date': stamp, 'detector': name, 'signal': signal.signal,
+                    pending.append({'date': stamp, 'detector': name, 'signal': signal.signal,
                                          'category': signal.category, 'strength': signal.strength,
                                          'description': signal.description,
                                          'new_state': name in previous_succeeded and key not in previous})
+                # Publish only after the entire detector result validates.
+                observations.extend(pending)
+                current.update(seen)
                 succeeded.add(name)
                 coverage.append({'date': stamp, 'detector': name, 'status': 'ok', 'observations': len(seen)})
             except Exception as exc:
