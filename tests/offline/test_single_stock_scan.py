@@ -107,3 +107,22 @@ def test_direct_api_rejects_nonmidnight_daily_bars():
     f=frame();f.index=f.index+pd.Timedelta(hours=12)
     with pytest.raises(ValueError,match='completed daily'):
         run(f)
+
+
+def test_original_bar_families_are_real_optional_context_not_production_votes():
+    r=run(include_original_bars=True)
+    assert r['detector_count']==22 and r['detector_evaluations']==132
+    assert r['original_bar_families_enabled'] is True
+    assert r['experimental_detectors_enabled'] is False
+    assert r['failed_evaluations']==0
+    extra=[o for o in r['observations'] if o['detector'].startswith('Original')]
+    assert extra and all(o['strength']=='NEUTRAL' for o in extra)
+    assert all(o['category']=='research_context' for o in extra)
+    default=run()
+    assert [o for o in r['observations'] if not o['detector'].startswith('Original')]==default['observations']
+
+
+def test_original_bar_families_preserve_prefix_causality():
+    f=frame(260);cut=f.index[256].date().isoformat();changed=f.copy()
+    changed.loc[changed.index>cut,['Open','High','Low','Close']]*=10
+    assert run(f,end=cut,include_original_bars=True)==run(changed,end=cut,include_original_bars=True)
