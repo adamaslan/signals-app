@@ -22,7 +22,7 @@ from signals_app.config import SIGNALS_APP_CODE_VERSION
 from signals_app.detection.orchestrator import get_default_detectors
 from signals_app.indicators.compute import compute_indicators
 
-RUNNER_VERSION = 'single-stock-broadscan@1.0.0'
+RUNNER_VERSION = 'single-stock-broadscan@1.1.0'
 WINDOWS = (21, 63, 126, 172)
 
 
@@ -52,7 +52,7 @@ def read_local_bars(path: Path, end: str) -> pd.DataFrame:
 
 def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
                       source: str, price_basis: str, warmup: int = 252,
-                      detectors=None, today: date | None = None) -> dict:
+                      detectors=None, today: date | None = None, include_original_bars: bool = False) -> dict:
     """Execute real detectors on recomputed prefixes. No artificial signal quota."""
     if not re.fullmatch(r'[A-Z][A-Z0-9.^-]{0,19}', symbol):
         raise ValueError('One explicit stock symbol required')
@@ -89,6 +89,9 @@ def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
     if len(positions) > 366:
         raise ValueError('Bounded local run: at most366 evaluation bars')
     selected = list(get_default_detectors() if detectors is None else detectors)
+    if include_original_bars:
+        from signals_app.detection.original_bars import original_bar_detectors
+        selected.extend(original_bar_detectors())
     names = [type(d).__name__ for d in selected]
     if len(names) != len(set(names)):
         raise ValueError('Duplicate detector identity would inflate scan counts')
@@ -139,6 +142,8 @@ def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
             'by_detector': dict(Counter(o['detector'] for o in rows))}
     canonical = frame[needed].to_csv(date_format='%Y-%m-%d', float_format='%.17g')
     return {'runner_version': RUNNER_VERSION, 'engine_version': SIGNALS_APP_CODE_VERSION,
+        'original_bar_families_enabled': include_original_bars,
+        'experimental_detectors_enabled': False,
         'symbol': symbol, 'start': start, 'end': end, 'source_declared': source,
         'price_basis_declared': price_basis, 'basis_independently_verified': False,
         'input_sha256': hashlib.sha256(canonical.encode()).hexdigest(),
@@ -151,7 +156,8 @@ def scan_single_stock(frame: pd.DataFrame, *, symbol: str, start: str, end: str,
         'limitations': ['Research reconstruction, not live trading or a measured edge',
             'Nested windows overlap; observations are not independent signals or raw fetched rows',
             'New state means first observed after adjacent absence, not an authenticated corporate event',
-            '19 existing detector classes, not500 newly activated detectors',
+            '19 default classes plus optional3 original bar families, not500 new independent detectors',
+            'Seven older experimental classes and external100-source extension are not activated',
             '100-source18M extension not executed; unavailable feeds are not invented',
             'No provider, model, DB, deployment or promotion in this runner']}
 
@@ -164,11 +170,12 @@ def main(argv=None) -> int:
     parser.add_argument('--end', required=True)
     parser.add_argument('--source', required=True)
     parser.add_argument('--price-basis', required=True, choices=['split-adjusted-ohlc', 'unknown', 'raw'])
+    parser.add_argument('--include-original-bars', action='store_true', help='Execute3 additional overlapping original bar families as neutral research context')
     args = parser.parse_args(argv)
     try:
         frame = read_local_bars(args.csv, args.end)
         result = scan_single_stock(frame, symbol=args.symbol, start=args.start, end=args.end,
-                                   source=args.source, price_basis=args.price_basis)
+                                   source=args.source, price_basis=args.price_basis, include_original_bars=args.include_original_bars)
         print(json.dumps(result, allow_nan=False))
         return 2 if result['errors'] else 0
     except (ValueError, OSError, TypeError) as exc:
