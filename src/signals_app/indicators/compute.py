@@ -180,12 +180,28 @@ def _atr_series(high: pd.Series, low: pd.Series, close: pd.Series) -> dict[str, 
     return {"ATR": tr.ewm(alpha=1.0 / ATR_PERIOD, adjust=False).mean()}
 
 
-def _ichimoku_series(high: pd.Series, low: pd.Series) -> dict[str, pd.Series]:
+def _ichimoku_series(high: pd.Series, low: pd.Series, close: pd.Series) -> dict[str, pd.Series]:
+    """Ichimoku lines.
+
+    ``Ichimoku_SpanA/B`` are the *displaced* (current) cloud under today's bar.
+    ``Ichimoku_LeadA/B`` are the same spans *unshifted*: the leading cloud that
+    charts draw 26 bars to the right, needed to see a Kumo twist. ``Chikou_Diff``
+    is the causal Chikou signal ``Close[i] - Close[i-26]``; never use
+    ``Close.shift(-26)``, which is look-ahead.
+    """
     tenkan = (high.rolling(ICHIMOKU_TENKAN).max() + low.rolling(ICHIMOKU_TENKAN).min()) / 2.0
     kijun = (high.rolling(ICHIMOKU_KIJUN).max() + low.rolling(ICHIMOKU_KIJUN).min()) / 2.0
-    span_a = ((tenkan + kijun) / 2.0).shift(ICHIMOKU_KIJUN)
-    span_b = ((high.rolling(ICHIMOKU_SENKOU_B).max() + low.rolling(ICHIMOKU_SENKOU_B).min()) / 2.0).shift(ICHIMOKU_KIJUN)
-    return {"Ichimoku_Tenkan": tenkan, "Ichimoku_Kijun": kijun, "Ichimoku_SpanA": span_a, "Ichimoku_SpanB": span_b}
+    lead_a = (tenkan + kijun) / 2.0
+    lead_b = (high.rolling(ICHIMOKU_SENKOU_B).max() + low.rolling(ICHIMOKU_SENKOU_B).min()) / 2.0
+    return {
+        "Ichimoku_Tenkan": tenkan,
+        "Ichimoku_Kijun": kijun,
+        "Ichimoku_SpanA": lead_a.shift(ICHIMOKU_KIJUN),
+        "Ichimoku_SpanB": lead_b.shift(ICHIMOKU_KIJUN),
+        "Ichimoku_LeadA": lead_a,
+        "Ichimoku_LeadB": lead_b,
+        "Chikou_Diff": close - close.shift(ICHIMOKU_KIJUN),
+    }
 
 
 def _obv_cmf_series(high: pd.Series, low: pd.Series, close: pd.Series, volume: pd.Series) -> dict[str, pd.Series]:
@@ -271,7 +287,7 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     new_cols.update(_stochastic_series(high, low, close))
     new_cols.update(_adx_series(high, low, close))
     new_cols.update(_atr_series(high, low, close))
-    new_cols.update(_ichimoku_series(high, low))
+    new_cols.update(_ichimoku_series(high, low, close))
     new_cols.update(_obv_cmf_series(high, low, close, volume))
     new_cols.update(_volume_ma_series(volume))
     new_cols.update(_hl_lookback_series(high, low, len(df)))
