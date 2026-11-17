@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from signals_app.api import v1
+from signals_app.api import thesis, v1
 from signals_app.api.routes import router
 from signals_app.config import LOG_LEVEL, SIGNALS_APP_CODE_VERSION, SIGNALS_ENV
 from signals_app.service import SignalsError
@@ -163,6 +163,7 @@ async def _unhandled_exception(request: Request, exc: Exception) -> Response:
 app.include_router(router)
 app.include_router(v1.public)
 app.include_router(v1.protected)
+app.include_router(thesis.router)
 
 
 def cli_entry() -> None:
