@@ -11,6 +11,8 @@ dependencies:
   - scikit-learn
   - numpy
   - yfinance
+  - requests
+  - boto3
   - pydantic
   - httpx
   - pytest

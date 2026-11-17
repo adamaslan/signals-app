@@ -1,6 +1,10 @@
 """OHLCV data fetcher with local and cloud cache support.
 
-Fetches price data from yfinance and caches it:
+Fetches daily price data from Alpaca (primary) and falls back to yfinance only
+on local runs. Datacenter hosts (GitHub Actions, Cloud Run, Modal, SIGNALS_ENV=cloud)
+never call yfinance because Yahoo blocks those IPs; they fail closed instead.
+Intraday, weekly and monthly intervals are served by yfinance only.
+Results are cached:
 - Local mode: in-memory dict with TTL
 - Cloud mode: Postgres cache stub (DATABASE_URL required)
 
@@ -10,14 +14,17 @@ with a DatetimeIndex sorted oldest-first.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
+from datetime import date
 from typing import Final
 
 import pandas as pd
 import yfinance as yf
 
 from signals_app.config import (
+    IS_CLOUD,
     DEFAULT_PERIOD,
     MAX_RETRY_ATTEMPTS,
     MIN_DATA_POINTS_200MA,
@@ -27,7 +34,17 @@ from signals_app.config import (
     get_settings,
 )
 
+from signals_app.data import alpaca_md
+
 logger = logging.getLogger(__name__)
+
+# Calendar days of daily history to request from Alpaca per period string, with a
+# buffer for weekends and holidays. Periods absent here ("max") are yfinance-only.
+ALPACA_PERIOD_DAYS: Final[dict[str, int]] = {
+    "1d": 7, "5d": 12, "1mo": 40, "3mo": 105, "6mo": 195, "1y": 375,
+    "2y": 745, "5y": 1835, "10y": 3660,
+}
+DATACENTER_ENV_VARS: Final[tuple[str, ...]] = ("GITHUB_ACTIONS", "K_SERVICE", "MODAL_TASK_ID")
 
 # yfinance period → reasonable interval mapping
 PERIOD_TO_INTERVAL: Final[dict[str, str]] = {
@@ -186,6 +203,48 @@ def _mem_cache_set(symbol: str, cache_key_period: str, df: pd.DataFrame, ttl_per
     _MEM_CACHE[key] = (df, time.time() + ttl)
 
 
+def _on_datacenter_host() -> bool:
+    """True where Yahoo blocks the IP, so yfinance must not be called."""
+    return IS_CLOUD or any(os.getenv(name) for name in DATACENTER_ENV_VARS)
+
+
+def _alpaca_days(period: str) -> int | None:
+    if period == "ytd":
+        return (date.today() - date(date.today().year, 1, 1)).days + 7
+    return ALPACA_PERIOD_DAYS.get(period)
+
+
+def _fetch_from_alpaca(symbol: str, days: int) -> pd.DataFrame:
+    """Fetch split-adjusted daily OHLCV from Alpaca; raises ValueError when it has no bars."""
+    df = alpaca_md.daily_bars_frames([symbol], days).get(symbol)
+    if df is None or df.empty:
+        raise ValueError(f"Alpaca returned no bars for {symbol}")
+    return _normalize_df(df).sort_index()
+
+
+def _fetch_ohlcv(symbol: str, period: str, interval: str | None = None) -> pd.DataFrame:
+    """Alpaca first for daily bars; yfinance only as a local-run fallback (logged)."""
+    interval = interval or PERIOD_TO_INTERVAL.get(period, "1d")
+    days = _alpaca_days(period) if interval == "1d" else None
+    on_datacenter = _on_datacenter_host()
+    if days is not None:
+        if alpaca_md.is_configured():
+            try:
+                return _fetch_from_alpaca(symbol, days)
+            except (alpaca_md.AlpacaError, ValueError) as exc:
+                alpaca_md.warn_fallback("daily bars", [symbol], exc)
+                if on_datacenter:
+                    raise ValueError(f"Alpaca could not serve {symbol}: {exc}") from exc
+        elif on_datacenter:
+            raise ValueError("ALPACA_API_KEY / ALPACA_API_SECRET not set on a datacenter host")
+        else:
+            logger.warning("Alpaca not configured; falling back to yfinance for %s", symbol)
+    elif on_datacenter:
+        raise ValueError(f"{symbol} period={period} interval={interval} is yfinance-only; "
+                         "yfinance is blocked on datacenter hosts")
+    return _fetch_from_yfinance(symbol, period, interval)
+
+
 def _fetch_from_yfinance(symbol: str, period: str, interval: str | None = None) -> pd.DataFrame:
     """Fetch OHLCV data from yfinance with retry logic.
 
@@ -267,7 +326,7 @@ class DataFetcher:
     ) -> OHLCVResult:
         """Fetch OHLCV data for a symbol over a given period.
 
-        Checks the cache first. Falls back to yfinance if not cached.
+        Checks the cache first. Fetches from Alpaca (yfinance fallback, local only) if not cached.
 
         For daily-interval periods shorter than what
         `MIN_DATA_POINTS_200MA` needs (e.g. the default "3mo" ≈ 63 bars),
@@ -332,7 +391,7 @@ class DataFetcher:
         fetch_period = (
             _WARMUP_PERIOD_OVERRIDE.get(period, period) if widen_for_indicators else period
         )
-        df = _fetch_from_yfinance(symbol, fetch_period)
+        df = _fetch_ohlcv(symbol, fetch_period)
         if fetch_period != period and len(df) < MIN_DATA_POINTS_200MA:
             logger.warning(
                 "warmup_fetch_still_short: %s requested=%s fetched_as=%s bars=%d < %d",
@@ -366,7 +425,7 @@ class DataFetcher:
         Returns:
             Normalized daily OHLCV DataFrame sorted oldest-first.
         """
-        return _fetch_from_yfinance(symbol.upper().strip(), period, interval="1d")
+        return _fetch_ohlcv(symbol.upper().strip(), period, interval="1d")
 
     def fetch_multi(
         self,

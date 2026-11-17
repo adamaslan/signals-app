@@ -14,6 +14,8 @@ dependencies = [
     "exchange-calendars>=4.13,<5",
     "numpy",
     "yfinance",
+    "requests",
+    "boto3",
     "pydantic",
     "httpx",
     "python-dotenv",
