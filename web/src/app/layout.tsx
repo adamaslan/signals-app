@@ -36,6 +36,7 @@ export default function RootLayout({
           <span className="text-xs text-gray-500 mt-0.5">
             AI-powered market analysis
           </span>
+          <Link href="/recipes/" className="text-sm text-gray-300">Scan recipes</Link>
           <Link
             href="/universe/"
             className="ml-auto text-sm text-gray-500 hover:text-gray-300 transition-colors"
