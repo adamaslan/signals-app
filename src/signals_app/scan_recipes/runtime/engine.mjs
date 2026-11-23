@@ -54,7 +54,7 @@ export function runRecipe(recipe,input){
   const {cutoff,calendar,source,feed,price_basis,currency}=input;
   if(!source||!feed||!price_basis||!currency||!realDate(cutoff))throw Error('valid cutoff, source/feed/price basis and currency required');
   if(!Array.isArray(calendar)||calendar.length<2||!calendar.every(realDate)||new Set(calendar).size!==calendar.length||calendar.some((d,i)=>i>0&&d<=calendar[i-1])||calendar.at(-1)!==cutoff)throw Error('explicit unique increasing calendar ending at cutoff required; no stale/future sessions');
-  const h=recipe.horizon,n=calendar.length,required=recipe.view==='rank'?h+253:recipe.view==='change'||recipe.view==='persistence'?h+6:h+1;
+  const h=recipe.horizon,n=calendar.length,required=recipe.view==='rank'?h+253:recipe.view==='change'?h+6:recipe.view==='persistence'?h+5:h+1;
   if(!Number.isInteger(h)||h<2||n<required)throw Error('insufficient sessions: '+required+' required');
   out.provenance={as_of:cutoff,source,feed,price_basis_declared:price_basis,currency,price_basis_certified:false,calendar_start:calendar[0],sessions:n};
   const panel={};
