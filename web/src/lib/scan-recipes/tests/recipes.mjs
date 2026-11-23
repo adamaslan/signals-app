@@ -13,7 +13,7 @@ const input={symbol:'SYNTHETIC',cutoff:calendar.at(-1),calendar,bars,panel:{A:ba
 let assertions=0;const check=(condition,msg)=>{assert(condition,msg);assertions++};
 check(catalog.length===1000,'1000 recipes');check(new Set(catalog.map(r=>r.id)).size===1000,'unique IDs');check(catalog.filter(r=>r.scope==='stock').length===500,'500 stock');check(catalog.filter(r=>r.scope==='market').length===500,'500 market');
 const outputs=[];const started=performance.now();
-for(const r of catalog){const a=runRecipe(r,input);check(a.status==='available',r.id+': '+a.reason);check(a.provenance.as_of===input.cutoff,'cutoff');check(JSON.stringify(a).indexOf('null')>=0,'serializable');outputs.push(a)}
+for(const r of catalog){const a=runRecipe(r,input);const unsupported=r.metric==='underwater_age'&&r.horizon===5&&['threshold','persistence'].includes(r.view);check(a.status===(unsupported?'missing':'available'),r.id+': '+a.reason);if(unsupported)check(a.components===null&&a.reason.includes('unreachable'),'unsupported strategy stays unavailable');check(a.provenance.as_of===input.cutoff,'cutoff');check(JSON.stringify(a).indexOf('null')>=0,'serializable');outputs.push(a)}
 const rec=(metric,view='level',scope='stock',horizon=5)=>catalog.find(r=>r.metric===metric&&r.view===view&&r.scope===scope&&r.horizon===horizon);
 const clone=()=>structuredClone(input);
 let x=clone();x.bars.at(-1).close=80;x.bars.at(-1).open=80;x.bars.at(-1).high=81;x.bars.at(-1).low=79;
