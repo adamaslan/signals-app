@@ -198,3 +198,5 @@ for(const n of [20,21,23,70,71]){const r=run(n);ok(r.status==='available','m'+n+
  const miss=runRecipe(rec('return'),{...input,cutoff:'2020-01-01'});ok(miss.status==='missing'&&miss.components===null&&typeof miss.reason==='string','missing state shape');}
 
 console.log(F.length?('FAILURES:\n'+F.join('\n')):'ALL ADVERSARIAL PROBES PASSED');
+
+if(F.length)process.exitCode=1;
