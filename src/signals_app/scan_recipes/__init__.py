@@ -12,6 +12,7 @@ def execute(request:dict)->dict:
         p=subprocess.run(['node',str(runner)],input=json.dumps(request,allow_nan=False),
                          text=True,capture_output=True,timeout=30,check=False)
     except FileNotFoundError as e:raise RuntimeError('Node >=20 required for the shared offline recipe engine') from e
+    except subprocess.TimeoutExpired as e:raise RuntimeError('Recipe engine timed out after 30s') from e
     if p.returncode:raise RuntimeError('Recipe engine failed: '+p.stderr.strip())
     return json.loads(p.stdout)
 
@@ -24,6 +25,7 @@ def main():
     if p.list_methods:req={'action':'list-methods'}
     elif p.list:req={'action':'list','filter':{'scope':p.scope,'query':p.query}}
     else:
+        if p.recipe and p.method:a.error('choose exactly one of --recipe or --method')
         if not (p.recipe or p.method):a.error('--recipe or --method required unless listing')
         req={('method_id' if p.method else 'recipe_id'):(p.method or p.recipe),'input':json.loads(p.input.read_text() if p.input else sys.stdin.read())}
     try:print(json.dumps(execute(req),allow_nan=False))
