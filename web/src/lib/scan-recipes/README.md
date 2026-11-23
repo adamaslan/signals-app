@@ -4,7 +4,7 @@ This is local research code, not a live screener or investment recommendation.
 
 ## What the counts mean
 
-- 1,000 explicit recipes use 20 metric functions, five horizons, five evaluation views and two scopes.
+- 1,000 catalog recipe definitions use 20 metric functions, five horizons, five evaluation views and two scopes.
 - 500 recipes operate on one stock. The other 500 are constituent-median reductions, not a substitute for breadth, index returns or concentration.
 - The separate 100-method pullback chapter has 100 chapter-specific calculators. Algorithms are present, but methods requiring unavailable histories or supplemental contracts return `missing`; this is not a successful numeric run.
 - None of these counts means independent predictive edges. All results remain E0.
@@ -51,3 +51,7 @@ Empirical percentile ties count reference values less than or equal to the curre
 `catalog.mjs` concatenates ten ordered100-recipe data modules. They contain the unchanged original1,000recipe objects, in the same order, with no runtime codec or regeneration. CLI, workbench and tests import this same module.
 
 `ai-boundary.mjs` prepares an optional free-model explanation request only. It does not fetch, hold keys, authenticate caller policy, consume an atomic budget or establish working OpenRouter connectivity. Catalog/time/budget inputs are caller assertions pending a real authorized server adapter. Use `node test-ai-boundary.mjs` for offline boundary checks.
+
+## Unresolved short-window strategy definitions
+
+The original five-session underwater-age threshold is 5, while the declared five-close peak window can only produce ages 0 through 4. No replacement threshold or window has been inferred. Both stock and constituent-median threshold/persistence definitions, four catalog recipes, return `missing` with an explicit unsupported-condition reason until their intended strategy definition is settled. The current complete invented fixture therefore produces 996 available recipe outputs and four explicit unavailable results, not 1,000 numeric passes. This is an acceptance gap, not predictive validation.
