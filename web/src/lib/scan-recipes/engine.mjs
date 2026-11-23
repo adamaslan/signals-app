@@ -73,6 +73,7 @@ export function runRecipe(recipe,input){
    if(vals.some(v=>!Number.isFinite(v)))throw Error('undefined or nonfinite metric');
    coverage.push({date:calendar[i],declared:members.length,computed:members.length,missing:0});return recipe.scope==='stock'?vals[0]:median(vals);
   }
+  if(recipe.metric==='underwater_age'&&['threshold','persistence'].includes(recipe.view)&&recipe.stress_side==='above'&&recipe.threshold>=h-1)throw Error('unsupported research condition: underwater age threshold is unreachable in the declared peak window; strategy definition requires review');
   const current=at(n-1),stress=v=>recipe.stress_side==='below'?v<recipe.threshold:v>recipe.threshold;
   let components={value:current,unit:recipe.unit,horizon_sessions:h,scope:recipe.scope,aggregation:recipe.scope==='market'?'median of member-local readings':'single series'};
   switch(recipe.view){
