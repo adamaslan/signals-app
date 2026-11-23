@@ -1012,6 +1012,8 @@ def recipes(
     elif list_only:
         req = {"action": "list", "filter": {"scope": scope or None, "query": query}}
     else:
+        if recipe and method:
+            raise typer.BadParameter("choose exactly one of --recipe or --method")
         if not (recipe or method) or input_path is None:
             raise typer.BadParameter("--recipe or --method, plus --input required, or use listing")
         req = {("method_id" if method else "recipe_id"): (method or recipe), "input": json.loads(input_path.read_text())}
