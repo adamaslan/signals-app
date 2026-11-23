@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {runRecipe} from '../engine.mjs';
@@ -34,7 +35,7 @@ check(runRecipe(rec('efficiency'),monotonic).components.value===1,'efficiency bo
 const gap=runRecipe(rec('gap_return'),input).components.value/100;const intr=runRecipe(rec('intraday_return'),input).components.value/100;const ret=runRecipe(rec('return'),input).components.value/100;
 check(Math.abs((1+gap)*(1+intr)-(1+ret))<1e-10,'compounded gap+intraday exact reconstruction');
 const target=catalog[2];const request={recipe_id:target.id,input};
-const cp=spawnSync(process.execPath,[new URL('../cli.mjs',import.meta.url).pathname],{input:JSON.stringify(request),encoding:'utf8'});check(cp.status===0,'Signals JSON stdin bridge exits0');check(JSON.parse(cp.stdout).components.value===execute(request).components.value,'CLI/imported consumer parity');
+const cp=spawnSync(process.execPath,[fileURLToPath(new URL('../cli.mjs',import.meta.url))],{input:JSON.stringify(request),encoding:'utf8'});check(cp.status===0,'Signals JSON stdin bridge exits0');check(JSON.parse(cp.stdout).components.value===execute(request).components.value,'CLI/imported consumer parity');
 if(process.env.SE_SAVE_FIXTURES)writeFileSync(new URL('./fixture-request.json',import.meta.url),JSON.stringify(request));
 if(process.env.SE_SAVE_FIXTURES)writeFileSync(new URL('./fixture-results.json',import.meta.url),JSON.stringify({synthetic:true,source:input.source,cutoff:input.cutoff,results:outputs},null,2));
 const report={recipes:1000,metric_functions:20,market_reductions:20,stock_recipes:500,market_recipes:500,available_fixture_outputs:outputs.filter(o=>o.status==='available').length,assertions,wall_seconds:(performance.now()-started)/1000,synthetic:true,independent_edges:0,production_integration_verified:false};
