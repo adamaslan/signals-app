@@ -48,7 +48,7 @@ test('confirmed higher-low breach survives a later lower pivot in methods58 and9
  x.bars=values.map((c,i)=>({date:x.calendar[i],open:c,high:c+1,low:c-1,close:c,volume:1e6}));
  for(const n of [58,98]){const r=runPullbackMethod(methods[n-1],x);const z=n===58?r.components:r.components.higher_low;assert.equal(z.break_date,x.calendar.at(-4));assert.equal(z.status,'higher_low');}
 });
-test('five-session underwater stress condition is reachable on a declining fixture',()=>{
+test('unreachable underwater stress defaults are explicitly unavailable, not silently false',()=>{
  const x=trim(makeCompleteFixture(),10);x.bars=x.calendar.map((date,i)=>({date,open:100-i,high:101-i,low:99-i,close:100-i,volume:1e6}));x.panel={A:x.bars};x.memberships=Object.fromEntries(x.calendar.map(d=>[d,['A']]));
- for(const scope of ['stock','market']){const r=catalog.find(r=>r.scope===scope&&r.horizon===5&&r.metric==='underwater_age'&&r.view==='threshold');assert.equal(runRecipe(r,x).components.flag,true);}
+ for(const scope of ['stock','market']){const r=catalog.find(r=>r.scope===scope&&r.horizon===5&&r.metric==='underwater_age'&&r.view==='threshold');const z=runRecipe(r,x);assert.equal(z.status,'missing');assert.equal(z.components,null);assert.match(z.reason,/unreachable/);}
 });
