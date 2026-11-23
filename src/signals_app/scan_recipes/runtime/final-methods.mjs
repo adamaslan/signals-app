@@ -9,7 +9,7 @@ export function runFinalMethod(n,input,h){
  const {calendar,frame,one}=h,N=calendar.length;let components;
  if([47,50].includes(n)){
   req(input.benchmark&&input.benchmark_symbol&&input.panel&&input.memberships,'benchmark, symbol, panel, dated memberships');
-  if(N<505)throw Error('insufficient history:505sessions for252feature warmup and252strict prior normalization readings');
+  if(N<(n===50?504:505))throw Error('insufficient history:'+(n===50?504:505)+'sessions for252feature warmup and252strict prior normalization readings');
   if(n===47)req(Number.isInteger(input.analogue_count)&&input.analogue_count>=1&&input.analogue_count<=100,'analogue_count integer1..100');
   const bench=frame(input.benchmark,calendar),panel=Object.fromEntries(Object.entries(input.panel).map(([s,b])=>[s,frame(b,calendar)]));
   const features=[];
