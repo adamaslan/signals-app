@@ -182,11 +182,20 @@ def from_export_json(text: str) -> tuple[str, list[str]]:
     except json.JSONDecodeError as exc:
         raise UniverseError(f"not valid JSON: {exc}") from exc
 
+    name = "imported"
     if isinstance(data, list):
-        return "imported", _normalize_tickers([str(x) for x in data])
-    if isinstance(data, dict):
-        raw = data.get("tickers") or data.get("symbols") or []
+        raw = data
+    elif isinstance(data, dict):
+        # A present malformed/empty primary field must not silently fall back
+        # to a different basket in the legacy alias.
+        raw = data.get("tickers") if "tickers" in data else data.get("symbols")
         name = str(data.get("name") or "imported")
-        if raw:
-            return name, _normalize_tickers([str(x) for x in raw])
-    raise UniverseError("JSON contains no 'tickers' list")
+    else:
+        raise UniverseError("JSON contains no 'tickers' list")
+
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise UniverseError("JSON tickers must be a list of strings")
+    tickers = _normalize_tickers(raw)
+    if not tickers:
+        raise UniverseError("JSON contains no usable tickers")
+    return name, tickers
