@@ -90,6 +90,8 @@ def score_data_quality(df: pd.DataFrame, period: str) -> DataQualityResult:
 
     last_ts = df.index[-1]
     try:
+        if pd.isna(last_ts):
+            raise ValueError("missing last bar timestamp")
         last_dt = last_ts.to_pydatetime() if hasattr(last_ts, "to_pydatetime") else last_ts
         if isinstance(last_dt, datetime):
             if last_dt.tzinfo is None:
