@@ -192,10 +192,12 @@ export function SignalLineageTree({ ticker, limit = 50 }: SignalLineageTreeProps
       <ol className="space-y-0">
         {nodes.map((node, i) => {
           const isLatest = i === nodes.length - 1;
-          const indent = node.depth * 20;
+          // Preserve chronological depth in text without pushing long histories off a phone.
+          const visualDepth = Math.min(node.depth, 3);
+          const indent = visualDepth * 20;
 
           return (
-            <li key={node.id}>
+            <li key={node.id} aria-label={`Direction streak ${i + 1} of ${nodes.length}`}>
               {/* Connector line + branch arrow, skipped for root */}
               {node.depth > 0 && (
                 <div
@@ -210,7 +212,8 @@ export function SignalLineageTree({ ticker, limit = 50 }: SignalLineageTreeProps
                 </div>
               )}
 
-              <div style={{ paddingLeft: indent }}>
+              <div style={{ paddingLeft: indent, minWidth: 0 }}>
+                {node.depth > 3 && <p className="text-xs text-gray-500 mb-1">Streak {i + 1} · continued from streak {i}</p>}
                 <NodeCard node={node} isLatest={isLatest} />
               </div>
 
@@ -219,7 +222,7 @@ export function SignalLineageTree({ ticker, limit = 50 }: SignalLineageTreeProps
                 <div
                   className="w-px h-3 bg-white/10"
                   style={{
-                    marginLeft: Math.min(nodes[i + 1].depth, node.depth) * 20 + 12,
+                    marginLeft: Math.min(nodes[i + 1].depth, node.depth, 3) * 20 + 12,
                   }}
                   aria-hidden
                 />
