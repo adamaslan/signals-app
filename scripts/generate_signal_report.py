@@ -52,6 +52,12 @@ def _safe_filename_component(ticker: str) -> str:
     return _SAFE_TICKER_RE.sub("_", ticker).strip("._") or "UNKNOWN"
 
 
+def _markdown_cell(value: object) -> str:
+    """Keep text inside one Markdown table cell, not markup or extra rows."""
+    text = str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return " ".join(text.replace("|", "&#124;").splitlines())
+
+
 def _render_report(
     ticker: str,
     period: str,
@@ -86,8 +92,8 @@ def _render_report(
         f"| Total signals | {len(signals)} |",
         f"| Unique signal names | {len(signal_name_counts)} |",
         f"| Confluence score | {confluence.score:.3f} |",
-        f"| Bias | {confluence.bias} |",
-        f"| Action | {confluence.action} |",
+        f"| Bias | {_markdown_cell(confluence.bias)} |",
+        f"| Action | {_markdown_cell(confluence.action)} |",
         f"| Bull / Bear count | {confluence.bull_count} / {confluence.bear_count} |",
         f"| Detector degraded | {degraded} |",
         "",
@@ -99,7 +105,7 @@ def _render_report(
         "|----------|-------|",
     ]
     for strength, count in strength_counts.most_common():
-        lines.append(f"| {strength} | {count} |")
+        lines.append(f"| {_markdown_cell(strength)} | {count} |")
 
     lines += [
         "",
@@ -110,7 +116,7 @@ def _render_report(
     ]
     total = len(signals) or 1
     for category, count in category_counts.most_common():
-        lines.append(f"| {category} | {count} | {count / total:.0%} |")
+        lines.append(f"| {_markdown_cell(category)} | {count} | {count / total:.0%} |")
 
     lines += [
         "",
@@ -120,7 +126,7 @@ def _render_report(
         "|--------|-------|",
     ]
     for name, count in signal_name_counts.most_common(TOP_N_SIGNALS):
-        lines.append(f"| {name} | {count} |")
+        lines.append(f"| {_markdown_cell(name)} | {count} |")
 
     lines += [
         "",
@@ -132,7 +138,7 @@ def _render_report(
         "|--------|----------|----------|--------------|",
     ]
     for s in signals:
-        lines.append(f"| {s.signal} | {s.strength} | {s.category} | {s.description} |")
+        lines.append(f"| {_markdown_cell(s.signal)} | {_markdown_cell(s.strength)} | {_markdown_cell(s.category)} | {_markdown_cell(s.description)} |")
 
     lines.append("")
     return "\n".join(lines)
