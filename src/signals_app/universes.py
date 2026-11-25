@@ -15,6 +15,7 @@ import csv
 import json
 import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -122,11 +123,32 @@ def create_universe(name: str, tickers: list[str], *, overwrite: bool = False) -
         raise UniverseExists(f"universe {name!r} already exists at {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     clean = _normalize_tickers(tickers)
-    with path.open("w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["ticker"])
-        for t in clean:
-            w.writerow([t])
+    temporary = None
+    try:
+        # Complete the CSV beside its destination before making it visible.
+        # A failed write/flush/replace leaves the saved basket unchanged.
+        with tempfile.NamedTemporaryFile(
+            mode="w", newline="", dir=path.parent, prefix=f".{path.stem}-",
+            suffix=".tmp", delete=False,
+        ) as f:
+            temporary = Path(f.name)
+            w = csv.writer(f)
+            w.writerow(["ticker"])
+            for t in clean:
+                w.writerow([t])
+            f.flush()
+            os.fsync(f.fileno())
+        if overwrite:
+            os.replace(temporary, path)
+        else:
+            # Exclusive publication also closes the exists-check race.
+            try:
+                os.link(temporary, path)
+            except FileExistsError as exc:
+                raise UniverseExists(f"universe {name!r} already exists at {path}") from exc
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return Universe(name=_validate_name(name), tickers=clean, path=path)
 
 
