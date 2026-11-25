@@ -995,5 +995,33 @@ def _deprecated_analyze_shim() -> None:
     serve()
 
 
+@app.command("recipes")
+def recipes(
+    recipe: Annotated[str, typer.Option("--recipe", help="Exact shared SE recipe ID.")] = "",
+    method: Annotated[str, typer.Option("--method", help="Exact chapter method ID.")] = "",
+    list_methods: Annotated[bool, typer.Option("--list-methods")] = False,
+    input_path: Annotated[Path | None, typer.Option("--input", help="Local OHLCV JSON file.")] = None,
+    list_only: Annotated[bool, typer.Option("--list", help="List recipes; no data fetch.")] = False,
+    scope: Annotated[str, typer.Option("--scope", help="stock or market.")] = "",
+    query: Annotated[str, typer.Option("--query")] = "",
+) -> None:
+    """Run the shared offline 1,000-recipe engine. JSON output, no LLM/provider call."""
+    from signals_app.scan_recipes import execute
+    if list_methods:
+        req = {"action": "list-methods"}
+    elif list_only:
+        req = {"action": "list", "filter": {"scope": scope or None, "query": query}}
+    else:
+        if recipe and method:
+            raise typer.BadParameter("choose exactly one of --recipe or --method")
+        if not (recipe or method) or input_path is None:
+            raise typer.BadParameter("--recipe or --method, plus --input required, or use listing")
+        req = {("method_id" if method else "recipe_id"): (method or recipe), "input": json.loads(input_path.read_text())}
+    try:
+        _print_json(execute(req))
+    except (RuntimeError, ValueError) as exc:
+        _fail(exc)
+
+
 if __name__ == "__main__":
     app()

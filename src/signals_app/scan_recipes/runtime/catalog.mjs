@@ -1,0 +1,12 @@
+import p01 from './catalog-part01.mjs';
+import p02 from './catalog-part02.mjs';
+import p03 from './catalog-part03.mjs';
+import p04 from './catalog-part04.mjs';
+import p05 from './catalog-part05.mjs';
+import p06 from './catalog-part06.mjs';
+import p07 from './catalog-part07.mjs';
+import p08 from './catalog-part08.mjs';
+import p09 from './catalog-part09.mjs';
+import p10 from './catalog-part10.mjs';
+const catalog=[...p01,...p02,...p03,...p04,...p05,...p06,...p07,...p08,...p09,...p10];
+export default catalog;
